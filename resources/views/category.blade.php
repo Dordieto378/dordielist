@@ -1,0 +1,786 @@
+@extends('layouts.app')
+
+@section('content')
+@php
+use Illuminate\Support\Str;
+
+if (!function_exists('shortTitle')) {
+    function shortTitle($title, $maxLen = 25) {
+        if (strlen($title) <= $maxLen) {
+            return $title;
+        }
+        return substr($title, 0, $maxLen - 1) . '…';
+    }
+}
+@endphp 
+<script>
+  const categorySlug = @json(Str::slug($category)); 
+</script>
+<div class="mt-6 ml-4 flex flex-col items-center py-[4.5rem]">
+    <div class="w-[1320px] flex justify-between items-center">
+        @if($category === 'VISUAL-NOVEL')
+            <h2 class="text-2xl text-red-600 mb-[1.5rem]">VISUAL NOVELS</h2>
+        @else
+            <h2 class="text-2xl text-red-600 mb-[1.5rem]">{{ $category }}</h2>
+        @endif
+    </div>
+    <!-- Category Layout -->
+    <div class="flex w-[1400px] ml-[48px]">
+        <!-- Sidebar for Filters -->
+        <aside class="w-[265px] bg-gray-100 p-4 mt-[5px]">
+            @if(strtoupper($category) === 'DOUJINS')
+                <form method="GET"
+                        action="{{ route('category', ['category' => Str::slug($category)]) }}"
+                        onsubmit="event.preventDefault(); toggleSpinner(true); setTimeout(() => this.submit(), 100)">
+                    <div class="relative mb-4">
+                        <label class="block text-sm font-medium text-gray-900 mb-2">TITLE</label>
+                        <select name="name_order"
+                                onchange="debouncedRedirectWithFilters()"
+                                class="appearance-none w-full px-3 py-2 border rounded-sm focus:border-red-600
+                                    focus:outline-none focus:ring-2 focus:ring-red-600 h-[2.5rem] text-gray-900 font-medium">
+                            <option value="none" {{ ($nameOrder ?? 'none') === 'none' ? 'selected' : '' }}>None</option>
+                            <option value="az"   {{ ($nameOrder ?? '') === 'az'   ? 'selected' : '' }}>A–Z</option>
+                            <option value="za"   {{ ($nameOrder ?? '') === 'za'   ? 'selected' : '' }}>Z–A</option>
+                        </select>
+                        <svg class="pointer-events-none absolute right-3 top-1/2 transform -translate-y-1/2 h-3 w-3 text-gray-400 mt-3.5"
+                            xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="4" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                        </svg>
+                    </div>
+
+                    {{-- *** NEW *** Author drop-down – identical markup used elsewhere --}}
+                    <div class="relative mb-4">
+                        <label class="block text-sm font-medium text-gray-900 mb-2">AUTHOR</label>
+
+                        <!-- Button -->
+                        <button id="dropdownButtonAuthor" type="button"
+                                class="w-full min-h-[2.5rem] px-3 py-2 border rounded-sm bg-white text-left flex flex-wrap items-center gap-2">
+                            <div id="selectedAuthor" class="flex flex-wrap gap-2 flex-1">
+                                @forelse ($selectedAuthors as $auth)
+                                    <span class="px-3 py-2 rounded-[0.2rem] bg-gray-200 text-gray-900 text-sm flex items-center">
+                                        {{ $auth }}
+                                        <span 
+                                            onclick="removeTag('{{ $auth }}','Author')" 
+                                            class="ml-2 cursor-pointer text-gray-500 hover:text-gray-800 select-none"
+                                        >
+                                            ×
+                                        </span>
+                                    </span>
+                                @empty
+                                    <span class="text-gray-900 font-medium text-sm">Select Author</span>
+                                @endforelse
+                            </div>
+                            <svg class="pointer-events-none h-3 w-3 text-gray-400"
+                                xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="4" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                            </svg>
+                        </button>
+
+                        <!-- Menu -->
+                        <div id="dropdownMenuAuthor"
+                            class="absolute left-0 w-full bg-white border rounded-sm shadow-lg hidden z-10 max-h-[400px] overflow-y-auto">
+                            <ul>
+                                @foreach ($allAuthors as $author)
+                                    <li class="px-1.5 py-[1px] cursor-pointer text-gray-900 font-medium text-sm bg-white"
+                                        onclick="toggleTag('{{ $author }}', 'Author')">
+                                        <span class="block w-full h-full px-3 py-2 rounded-[0.2rem] hover:bg-red-600 hover:text-white hover:font-semibold">
+                                            {{ $author }}
+                                        </span>
+                                    </li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    </div>
+                </form>
+            @elseif(strtoupper($category) === 'VISUAL-NOVEL')
+                <form method="GET"
+                    action="{{ route('category', [
+                        'category'   => Str::slug($category),
+                        'listFilter' => $listFilter
+                    ]) }}">
+                    <div class="relative mb-4">
+                        <label class="block text-sm font-medium text-gray-900 mb-2">LIST</label>
+                        <select name="list_filter" onchange="redirectWithFilters()"
+                                class="appearance-none w-full px-3 py-2 border rounded-sm focus:border-red-600 focus:outline-none focus:ring-2 focus:ring-red-600 h-[2.5rem] text-gray-900 font-medium">
+                                @php
+                                // include “all” as the very first option
+                                $options = ['all','playing','finished','stalled','dropped','wishlist'];
+                                @endphp
+
+                                @foreach($options as $opt)
+                                <option value="{{ $opt }}"
+                                    {{ (isset($listFilter) && strtolower($listFilter)===$opt) ? 'selected' : '' }}>
+                                    {{ ucfirst($opt) }}
+                                </option>
+                                @endforeach
+                        </select>
+                        <svg class="pointer-events-none absolute right-3 top-1/2 transform -translate-y-1/2 h-3 w-3 text-gray-400 mt-3.5"
+                            xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="4" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                        </svg>
+                    </div>
+                    <div class="relative mb-4">
+                        <label class="block text-sm font-medium text-gray-900 mb-2">TITLE</label>
+                        <select name="title_order" onchange="redirectWithFilters()"
+                                class="appearance-none w-full px-3 py-2 border rounded-sm focus:border-red-600 
+                                        focus:outline-none focus:ring-2 focus:ring-red-600 h-[2.5rem] text-gray-900 font-medium">
+                            <option value="none" {{ ($titleOrder ?? 'none')=='none' ? 'selected':'' }}>None</option>
+                            <option value="az"   {{ ($titleOrder ?? '')=='az'   ? 'selected':'' }}>A–Z</option>
+                            <option value="za"   {{ ($titleOrder ?? '')=='za'   ? 'selected':'' }}>Z–A</option>
+                        </select>
+                        <svg class="pointer-events-none absolute right-3 top-1/2 transform -translate-y-1/2 h-3 w-3 text-gray-400 mt-3.5"
+                            xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="4" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                        </svg>
+                    </div>
+                    <div class="relative mb-4">
+                        <label class="block text-sm font-medium text-gray-900 mb-2">SCORE</label>
+                        <select name="score_order" onchange="redirectWithFilters()"
+                                class="appearance-none w-full px-3 py-2 border rounded-sm focus:border-red-600 focus:outline-none focus:ring-2 focus:ring-red-600 h-[2.5rem] text-gray-900 font-medium">
+                            <option value="none" {{ ($scoreOrder ?? 'none')=='none' ? 'selected':'' }}>None</option>
+                            <option value="avg_desc" {{ ($scoreOrder ?? '')=='avg_desc' ? 'selected':'' }}>Average (High to Low)</option>
+                            <option value="avg_asc" {{ ($scoreOrder ?? '')=='avg_asc' ? 'selected':'' }}>Average (Low to High)</option>
+                            <option value="personal_desc" {{ ($scoreOrder ?? '')=='personal_desc' ? 'selected':'' }}>Personal (High to Low)</option>
+                            <option value="personal_asc" {{ ($scoreOrder ?? '')=='personal_asc' ? 'selected':'' }}>Personal (Low to High)</option>
+                        </select>    
+                        <svg class="pointer-events-none absolute right-3 top-1/2 transform -translate-y-1/2 h-3 w-3 text-gray-400 mt-3.5"
+                            xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="4" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                        </svg>
+                    </div>
+                    <div class="relative mb-4">
+                        <label class="block text-sm font-medium text-gray-900 mb-2">YEAR</label>
+                        <select name="year_order" onchange="redirectWithFilters()"
+                            class="appearance-none w-full px-3 py-2 border rounded-sm focus:border-red-600 focus:outline-none focus:ring-2 focus:ring-red-600 h-[2.5rem] text-gray-900 font-medium">
+                            <option value="none" {{ ($yearOrder ?? 'none')=='none' ? 'selected':'' }}>None</option>
+                            <option value="year_desc" {{ ($yearOrder ?? '')=='year_desc' ? 'selected':'' }}>New to Old</option>
+                            <option value="year_asc"  {{ ($yearOrder ?? '')=='year_asc'  ? 'selected':'' }}>Old to New</option>
+                        </select>
+                        </select>    
+                        <svg class="pointer-events-none absolute right-3 top-1/2 transform -translate-y-1/2 h-3 w-3 text-gray-400 mt-3.5"
+                            xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="4" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                        </svg>
+                    </div>
+                    <div class="relative mb-4">
+                    <label class="block text-sm font-medium text-gray-900 mb-2">TAG</label>
+
+                    <button id="dropdownButtonTags" type="button"
+                        class="w-full min-h-[2.5rem] px-3 py-2 border rounded-sm bg-white text-left flex flex-wrap items-center gap-2">
+                        <div id="selectedTags" class="flex flex-wrap gap-2 flex-1">
+                        @if(empty($selectedTags))
+                            <span class="text-gray-900 font-medium text-sm">Select Tags</span>
+                        @else
+                            @foreach($selectedTags as $tag)
+                            <span class="px-3 py-2 rounded-[0.2rem] bg-gray-200 text-gray-900 text-sm flex items-center transition-all duration-200 ease-in-out">
+                                {{ $tag }}
+                                <span onclick="removeTag('{{ $tag }}', 'Tags')"
+                                    class="ml-2 cursor-pointer text-gray-500 hover:text-gray-800 select-none">
+                                    ×
+                                </span>
+                            </span>
+                            @endforeach
+                        @endif
+                        </div>
+                        <svg class="pointer-events-none h-3 w-3 text-gray-400" xmlns="http://www.w3.org/2000/svg"
+                            fill="none" viewBox="0 0 24 24" stroke-width="4" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                        </svg>
+                    </button>
+
+                    <div id="dropdownMenuTags"
+                        class="absolute left-0 w-full bg-white border rounded-sm shadow-lg hidden z-10 max-h-[400px] overflow-y-auto">
+                        <ul>
+                        @foreach($allTags as $tagName)
+                            <li class="px-1.5 py-[1px] cursor-pointer text-gray-900 font-medium text-sm transition-all duration-200 ease-in-out bg-white"
+                                onclick="toggleTag('{{ $tagName }}', 'Tags')">
+                            <span class="block w-full h-full px-3 py-2 rounded-[0.2rem] transition-all duration-200 ease-in-out hover:bg-red-600 hover:text-white hover:font-semibold">
+                                {{ $tagName }}
+                            </span>
+                            </li>
+                        @endforeach
+                        </ul>
+                    </div>
+                    </div>
+
+                    <div class="relative mb-4">
+                    <label class="block text-sm font-medium text-gray-900 mb-2">LANGUAGE</label>
+                    <ul class="space-y-2">
+                        @foreach($allLanguages as $lang)
+                        <li class="group">
+                            <label class="flex items-center bg-white border rounded-sm px-3 py-2 text-sm cursor-pointer">
+                            <input
+                                type="checkbox"
+                                name="language[]"
+                                value="{{ $lang }}"
+                                class="sr-only peer"
+                                onchange="debouncedRedirectWithFilters()"
+                                {{ in_array($lang, $selectedLanguages) ? 'checked' : '' }}
+                            >
+                            <span class="mr-1 inline-block h-4 w-4 rounded border border-gray-300 bg-gray-50 transition 
+                                peer-checked:bg-red-600 peer-checked:border-red-600 group-hover:bg-gray-100 flex items-center justify-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-white hidden peer-checked:block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                </svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="size-6">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                                </svg>
+                            </span>
+                            <span class="text-gray-900 ml-3 font-medium">{{ $lang }}</span>
+                            </label>
+                        </li>
+                        @endforeach
+                    </ul>
+                    </div>
+
+
+                    <div class="relative mb-4">
+                    <label class="block text-sm font-medium text-gray-900 mb-2">DEVELOPER</label>
+                    <button id="dropdownButtonDevs" type="button"
+                        class="w-full min-h-[2.5rem] px-3 py-2 border rounded-sm bg-white text-left flex flex-wrap items-center gap-2">
+                        <div id="selectedDevelopers" class="flex flex-wrap gap-2 flex-1">
+                        @if(empty($selectedDevelopers))
+                            <span class="text-gray-900 font-medium text-sm">Select Developers</span>
+                        @else
+                            @foreach($selectedDevelopers as $dev)
+                            <span class="px-3 py-2 rounded-[0.2rem] bg-gray-200 text-gray-900 text-sm flex items-center">
+                            {{ $dev }}
+                            <span onclick="removeTag('{{ $dev }}', 'Developers')" class="ml-2 text-gray-500 hover:text-gray-800">&times;</span>
+                            </span>
+                            @endforeach
+                        @endif
+                        </div>
+                        <svg class="pointer-events-none h-3 w-3 text-gray-400" xmlns="http://www.w3.org/2000/svg"
+                            fill="none" viewBox="0 0 24 24" stroke-width="4" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                        </svg>
+                    </button>
+                    <div id="dropdownMenuDevs"
+                        class="absolute left-0 w-full bg-white border rounded-sm shadow-lg hidden z-10 max-h-[400px] overflow-y-auto">
+                        <ul>
+                        @foreach($allDevelopers as $devName)
+                        <li class="px-1.5 py-[1px] cursor-pointer text-gray-900 font-medium text-sm bg-white"
+                            onclick="toggleTag('{{ $devName }}', 'Developers')">
+                            <span class="block w-full h-full px-3 py-2 rounded-[0.2rem] hover:bg-red-600 hover:text-white">
+                            {{ $devName }}
+                            </span>
+                        </li>
+                        @endforeach
+                        </ul>
+                    </div>
+                    </div>
+                </form>    
+            @else
+                <form method="GET"
+                    action="{{ route('category', [
+                        'category'    => Str::slug($category),
+                        'listFilter'  => $listFilter,
+                        'mediaStatus' => $mediaStatus,
+                        'titleOrder'  => $titleOrder,
+                        'scoreOrder'  => $scoreOrder,
+                        'dateOrder'   => $dateOrder
+                    ]) }}">
+                    <div class="relative mb-4">
+                        <label class="block text-sm font-medium text-gray-900 mb-2">LIST</label>
+                        <select name="list_filter" onchange="redirectWithFilters()"
+                                class="appearance-none w-full px-3 py-2 border rounded-sm focus:border-red-600 focus:outline-none focus:ring-2 focus:ring-red-600 h-[2.5rem] text-gray-900 font-medium">
+                            <option value="all" {{ (isset($listFilter) && $listFilter=='all') ? 'selected' : '' }}>All</option>
+                            @if(in_array(strtoupper($category), ['MANGAS', 'H-MANGAS', 'MANWHAS']))
+                                <option value="CURRENT" {{ (isset($listFilter) && $listFilter=='CURRENT') ? 'selected' : '' }}>Reading</option>
+                            @else
+                                <option value="CURRENT" {{ (isset($listFilter) && $listFilter=='CURRENT') ? 'selected' : '' }}>Watching</option>
+                            @endif
+                            <option value="PAUSED" {{ (isset($listFilter) && $listFilter=='PAUSED') ? 'selected' : '' }}>Paused</option>
+                            <option value="COMPLETED" {{ (isset($listFilter) && $listFilter=='COMPLETED') ? 'selected' : '' }}>Completed</option>
+                            <option value="DROPPED" {{ (isset($listFilter) && $listFilter=='DROPPED') ? 'selected' : '' }}>Dropped</option>
+                            <option value="PLANNING" {{ (isset($listFilter) && $listFilter=='PLANNING') ? 'selected' : '' }}>Planning</option>
+                        </select>
+                        <svg class="pointer-events-none absolute right-3 top-1/2 transform -translate-y-1/2 h-3 w-3 text-gray-400 mt-3.5"
+                            xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="4" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                        </svg>
+                    </div>
+
+                    <div class="relative mb-4">
+                        <label class="block text-sm font-medium text-gray-900 mb-2">STATUS</label>
+                        <select name="media_status" onchange="redirectWithFilters()"
+                                class="appearance-none w-full px-3 py-2 border rounded-sm focus:border-red-600 focus:outline-none focus:ring-2 focus:ring-red-600 h-[2.5rem] text-gray-900 font-medium">
+                            <option value="all" {{ (isset($mediaStatus) && $mediaStatus=='all') ? 'selected' : '' }}>All</option>
+                            <option value="FINISHED" {{ (isset($mediaStatus) && $mediaStatus=='FINISHED') ? 'selected' : '' }}>Finished</option>
+                            <option value="RELEASING" {{ (isset($mediaStatus) && $mediaStatus=='RELEASING') ? 'selected' : '' }}>Releasing</option>
+                            <option value="NOT_YET_RELEASED" {{ (isset($mediaStatus) && $mediaStatus=='NOT_YET_RELEASED') ? 'selected' : '' }}>Not Yet Released</option>
+                            <option value="CANCELLED" {{ (isset($mediaStatus) && $mediaStatus=='CANCELLED') ? 'selected' : '' }}>Cancelled</option>
+                        </select>
+                        <svg class="pointer-events-none absolute right-3 top-1/2 transform -translate-y-1/2 h-3 w-3 text-gray-400 mt-3.5"
+                            xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="4" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                        </svg>
+                    </div>
+                    <div class="relative mb-4">
+                        <label class="block text-sm font-medium text-gray-900 mb-2">TITLE</label>
+                        <select name="title_order" onchange="redirectWithFilters()"
+                                class="appearance-none w-full px-3 py-2 border rounded-sm focus:border-red-600 focus:outline-none focus:ring-2 focus:ring-red-600 h-[2.5rem] text-gray-900 font-medium">
+                            <option value="none" {{ (isset($titleOrder) && $titleOrder=='none') ? 'selected' : '' }}>None</option>
+                            <option value="az" {{ (isset($titleOrder) && $titleOrder=='az') ? 'selected' : '' }}>A–Z</option>
+                            <option value="za" {{ (isset($titleOrder) && $titleOrder=='za') ? 'selected' : '' }}>Z–A</option>
+                        </select>
+                        <svg class="pointer-events-none absolute right-3 top-1/2 transform -translate-y-1/2 h-3 w-3 text-gray-400 mt-3.5"
+                            xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="4" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                        </svg>
+                    </div>
+                    <div class="relative mb-4">
+                        <label class="block text-sm font-medium text-gray-900 mb-2">SCORE</label>
+                        <select name="score_order" onchange="redirectWithFilters()"
+                                class="appearance-none w-full px-3 py-2 border rounded-sm focus:border-red-600 focus:outline-none focus:ring-2 focus:ring-red-600 h-[2.5rem] text-gray-900 font-medium">
+                            <option value="none" {{ (isset($scoreOrder) && $scoreOrder=='none') ? 'selected' : '' }}>None</option>
+                            <option value="avg_desc" {{ (isset($scoreOrder) && $scoreOrder=='avg_desc') ? 'selected' : '' }}>Average (High to Low)</option>
+                            <option value="avg_asc" {{ (isset($scoreOrder) && $scoreOrder=='avg_asc') ? 'selected' : '' }}>Average (Low to High)</option>
+                            <option value="personal_desc" {{ (isset($scoreOrder) && $scoreOrder=='personal_desc') ? 'selected' : '' }}>Personal (High to Low)</option>
+                            <option value="personal_asc" {{ (isset($scoreOrder) && $scoreOrder=='personal_asc') ? 'selected' : '' }}>Personal (Low to High)</option>
+                        </select>
+                        <svg class="pointer-events-none absolute right-3 top-1/2 transform -translate-y-1/2 h-3 w-3 text-gray-400 mt-3.5"
+                            xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="4" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                        </svg>
+                    </div>
+                    <div class="relative mb-4">
+                        <label class="block text-sm font-medium text-gray-900 mb-2">DATE</label>
+                        <select name="date_order" onchange="redirectWithFilters()"
+                                class="appearance-none w-full px-3 py-2 border rounded-sm focus:border-red-600 focus:outline-none focus:ring-2 focus:ring-red-600 h-[2.5rem] text-gray-900 font-medium">
+                            <option value="none" {{ (isset($dateOrder) && $dateOrder=='none') ? 'selected' : '' }}>None</option>
+                            <option value="updated_desc" {{ (isset($dateOrder) && $dateOrder=='updated_desc') ? 'selected' : '' }}>Last Updated (New to Old)</option>
+                            <option value="updated_asc" {{ (isset($dateOrder) && $dateOrder=='updated_asc') ? 'selected' : '' }}>Last Updated (Old to New)</option>
+                            <option value="created_desc" {{ (isset($dateOrder) && $dateOrder=='created_desc') ? 'selected' : '' }}>Last Added (New to Old)</option>
+                            <option value="created_asc" {{ (isset($dateOrder) && $dateOrder=='created_asc') ? 'selected' : '' }}>Last Added (Old to New)</option>
+                            <option value="start_desc" {{ (isset($dateOrder) && $dateOrder=='start_desc') ? 'selected' : '' }}>Start Date (New to Old)</option>
+                            <option value="start_asc" {{ (isset($dateOrder) && $dateOrder=='start_asc') ? 'selected' : '' }}>Start Date (Old to New)</option>
+                        </select>
+                        <svg class="pointer-events-none absolute right-3 top-1/2 transform -translate-y-1/2 h-3 w-3 text-gray-400 mt-3.5"
+                            xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="4" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                        </svg>
+                    </div>
+                    <div class="relative mb-4">
+                        <label class="block text-sm font-medium text-gray-900 mb-2">YEAR</label>
+                        <select name="year" onchange="redirectWithFilters()"
+                                class="appearance-none w-full px-3 py-2 border rounded-sm focus:border-red-600 focus:outline-none focus:ring-2 focus:ring-red-600 h-[2.5rem] text-gray-900 font-medium">
+                            <option value="">All</option>
+                            @foreach($allYears as $year)
+                                <option value="{{ $year }}" {{ (isset($selectedYears[0]) && $selectedYears[0] == $year) ? 'selected' : '' }}>
+                                    {{ $year }}
+                                </option>
+                            @endforeach
+                        </select>
+                        <svg class="pointer-events-none absolute right-3 top-1/2 transform -translate-y-1/2 h-3 w-3 text-gray-400 mt-3.5"
+                            xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="4" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                        </svg>
+                    </div>
+
+                    <div class="relative mb-4">
+                        <label class="block text-sm font-medium text-gray-900 mb-2">TAGS</label>
+                        <button id="dropdownButtonTags" type="button"
+                            class="w-full min-h-[2.5rem] px-3 py-2 border rounded-sm bg-white text-left flex flex-wrap items-center gap-2">
+                            <div id="selectedTags" class="flex flex-wrap gap-2 flex-1">
+                                <span class="text-gray-900 font-medium text-sm">Select Tags</span>
+                            </div>
+                            <svg class="pointer-events-none h-3 w-3 text-gray-400" xmlns="http://www.w3.org/2000/svg" 
+                                    fill="none" viewBox="0 0 24 24" stroke-width="4" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                            </svg>
+                        </button>
+                        <div id="dropdownMenuTags" class="absolute left-0 w-full bg-white border rounded-sm shadow-lg hidden z-10 max-h-[400px] overflow-y-auto">
+                            <ul>
+                                @foreach($allTags as $tagName)
+                                    <li class="px-1.5 py-[1px] cursor-pointer text-gray-900 font-medium text-sm transition-all duration-200 ease-in-out bg-white"
+                                        onclick="toggleTag('{{ $tagName }}', 'Tags')">
+                                        <span class="block w-full h-full px-3 py-2 rounded-[0.2rem] transition-all duration-200 ease-in-out 
+                                            hover:bg-red-600 hover:text-white hover:font-semibold">
+                                            {{ $tagName }}
+                                        </span>
+                                    </li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-900 mb-2">GENRES</label>
+                        <ul class="space-y-2">
+                            @foreach($allGenres as $genre)
+                                <li class="group">
+                                    <label class="flex items-center bg-white border rounded-sm px-3 font-boldness py-2 text-sm font cursor-pointer">
+                                        <input type="checkbox" name="genre[]" value="{{ $genre }}" class="sr-only peer"
+                                            onchange="debouncedRedirectWithFilters()"
+                                            {{ in_array($genre, $selectedGenres) ? 'checked' : '' }}>
+                                        <span class="mr-1 inline-block h-4 w-4 rounded border border-gray-300 bg-gray-50 transition 
+                                            peer-checked:bg-red-600 peer-checked:border-red-600 group-hover:bg-gray-100 flex items-center justify-center">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-white hidden peer-checked:block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                            </svg>
+                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="size-6">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                                            </svg>
+                                        </span>
+                                        <span class="text-gray-900 ml-3">{{ $genre }}</span>
+                                    </label>
+                                </li>
+                            @endforeach
+                        </ul>
+                    </div>
+                    @if(in_array(strtoupper($category), ['ANIMES', 'HENTAIS']))
+                        <div class="relative mt-4">
+                            <label class="block text-sm font-medium text-gray-900 mb-2">STUDIO</label>
+                            <!-- Expanding Studio Container -->
+                            <button id="dropdownButtonStudio" type="button"
+                                class="w-full min-h-[2.5rem] px-3 py-2 border rounded-sm bg-white text-left flex flex-wrap items-center gap-2">
+                                <div id="selectedStudio" class="flex flex-wrap gap-2 flex-1">
+                                    <span class="text-gray-900 font-medium text-sm">Select Studio</span>
+                                </div>
+                                <svg class="pointer-events-none h-3 w-3 text-gray-400" xmlns="http://www.w3.org/2000/svg"
+                                    fill="none" viewBox="0 0 24 24" stroke-width="4" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                                </svg>
+                            </button>
+                            <!-- Dropdown Menu -->
+                            <div id="dropdownMenuStudio" class="absolute left-0 w-full bg-white border rounded-sm shadow-lg hidden z-10 max-h-[400px] overflow-y-auto">
+                                <ul>
+                                    @foreach($allStudios as $studio)
+                                        <li class="px-1.5 py-[1px] cursor-pointer text-gray-900 font-medium text-sm transition-all duration-200 ease-in-out bg-white"
+                                            onclick="toggleTag('{{ $studio }}', 'Studio')">
+                                            <span class="block w-full h-full px-3 py-2 rounded-[0.2rem] transition-all duration-200 ease-in-out 
+                                                hover:bg-red-600 hover:text-white hover:font-semibold">
+                                                {{ $studio }}
+                                            </span>
+                                        </li>
+                                    @endforeach
+                                </ul>
+                            </div>
+                        </div>
+                    @endif
+                    @if(!in_array(strtoupper($category), ['ANIMES', 'HENTAIS']))
+                        <div class="relative mt-4">
+                            <label class="block text-sm font-medium text-gray-900 mb-2">AUTHOR</label>
+                            <!-- Expanding Author Container -->
+                            <button id="dropdownButtonAuthor" type="button"
+                                class="w-full min-h-[2.5rem] px-3 py-2 border rounded-sm bg-white text-left flex flex-wrap items-center gap-2">
+                                <div id="selectedAuthor" class="flex flex-wrap gap-2 flex-1">
+                                    <span class="text-gray-900 font-medium text-sm">Select Author</span>
+                                </div>
+                                <svg class="pointer-events-none h-3 w-3 text-gray-400" xmlns="http://www.w3.org/2000/svg"
+                                    fill="none" viewBox="0 0 24 24" stroke-width="4" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                                </svg>
+                            </button>
+                            <!-- Dropdown Menu -->
+                            <div id="dropdownMenuAuthor" class="absolute left-0 w-full bg-white border rounded-sm shadow-lg hidden z-10 max-h-[400px] overflow-y-auto">
+                                <ul>
+                                    @foreach($allAuthors as $author)
+                                        <li class="px-1.5 py-[1px] cursor-pointer text-gray-900 font-medium text-sm transition-all duration-200 ease-in-out bg-white"
+                                            onclick="toggleTag('{{ $author }}', 'Author')">
+                                            <span class="block w-full h-full px-3 py-2 rounded-[0.2rem] transition-all duration-200 ease-in-out hover:bg-red-600 hover:text-white hover:font-semibold">
+                                                {{ $author }}
+                                            </span>
+                                        </li>
+                                    @endforeach
+                                </ul>
+                            </div>
+                        </div>
+                    @endif
+                </form>    
+            @endif   
+        </aside>
+
+        <!-- Main Content -->
+        <section class="mt-6 ml-2 flex flex-col items-center">
+            <div id="mediaContainer">
+                @include('partials.media', ['media' => $media])
+            </div>
+        </section>
+    </div>
+</div>
+
+<div id="paginationContainer">
+    @if($paginatedMedia->lastPage() > 1)
+        <div class="flex items-center justify-center space-x-2 ml-[280px] mb-6">
+            <span class="text-gray-900 text-lg font-medium">Pages</span>
+    
+            @if($paginatedMedia->currentPage() > 1)
+                <a href="{{ $paginatedMedia->url(1) }}" class="pagination-arrow mb-1">&laquo;</a>
+                <a href="{{ $paginatedMedia->previousPageUrl() }}" class="pagination-arrow mb-1">&lsaquo;</a>
+            @endif
+    
+            @php
+                $maxVisible = 7;
+                $start = max(1, $paginatedMedia->currentPage() - intdiv($maxVisible,2));
+                $end   = min($paginatedMedia->lastPage(), $start + $maxVisible - 1);
+                if($end - $start + 1 < $maxVisible) {
+                    $start = max(1, $end - $maxVisible + 1);
+                }
+            @endphp
+    
+            <div class="flex space-x-2 text-lg">
+                @for($i = $start; $i <= $end; $i++)
+                    @if($i === $paginatedMedia->currentPage())
+                        <span class="pagination-btn pagination-active">{{ $i }}</span>
+                    @else
+                        <a href="{{ $paginatedMedia->url($i) }}" class="pagination-btn non-selected-page-number">
+                            {{ $i }}
+                        </a>
+                    @endif
+                @endfor
+            </div>
+    
+            @if($paginatedMedia->currentPage() < $paginatedMedia->lastPage())
+                <a href="{{ $paginatedMedia->nextPageUrl() }}" class="pagination-arrow mb-1">&rsaquo;</a>
+                <a href="{{ $paginatedMedia->url($paginatedMedia->lastPage()) }}" class="pagination-arrow mb-1">&raquo;</a>
+            @endif
+        </div>
+    @endif
+</div>
+
+<script>
+// Debounce helper to avoid too many requests:
+function debounce(func, wait) {
+    let timeout;
+    return function(...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), wait);
+    };
+}
+
+// Global filters object (for Tags and Studio)
+const dropdowns = {
+    Tags: {
+        button: document.getElementById("dropdownButtonTags"),
+        menu: document.getElementById("dropdownMenuTags"),
+        selectedContainer: document.getElementById("selectedTags"),
+        selectedItems: []
+    },
+    Studio: {
+        button: document.getElementById("dropdownButtonStudio"),
+        menu: document.getElementById("dropdownMenuStudio"),
+        selectedContainer: document.getElementById("selectedStudio"),
+        selectedItems: []
+    },
+    Author: {
+        button: document.getElementById("dropdownButtonAuthor"),
+        menu: document.getElementById("dropdownMenuAuthor"),
+        selectedContainer: document.getElementById("selectedAuthor"),
+        selectedItems: []
+    },
+    Developers: {
+        button: document.getElementById("dropdownButtonDevs"),
+        menu:   document.getElementById("dropdownMenuDevs"),
+        selectedContainer: document.getElementById("selectedDevelopers"),
+        selectedItems: []
+    }
+};
+
+// Attach a click event listener to each dropdown button (for both Tags and Studio)
+Object.keys(dropdowns).forEach(type => {
+    if(dropdowns[type].button) {
+        dropdowns[type].button.addEventListener("click", (event) => {
+            event.stopPropagation();
+            dropdowns[type].menu.classList.toggle("hidden");
+        });
+    }
+});
+
+// Update selected display (generic)
+function updateSelectedDropdown(type) {
+    const dropdown = dropdowns[type];
+    if(!dropdown) return;
+    dropdown.selectedContainer.innerHTML = "";
+    if (dropdown.selectedItems.length === 0) {
+        dropdown.selectedContainer.innerHTML = `<span class="text-gray-900 font-medium text-sm">Select ${type}</span>`;
+        return;
+    }
+    dropdown.selectedItems.forEach(name => {
+        const tagElement = document.createElement("div");
+        tagElement.className = "flex items-center bg-gray-200 text-gray-700 text-sm font-medium px-2 py-1 rounded-md";
+        tagElement.innerHTML = `<span>${name}</span>
+            <button onclick="removeTag('${name}', '${type}')" class="ml-2 text-gray-500 hover:text-gray-800">&times;</button>`;
+        dropdown.selectedContainer.appendChild(tagElement);
+    });
+}
+// Update dropdown menu styling (generic)
+function updateDropdownMenu(type) {
+    const dropdown = dropdowns[type];
+    if(!dropdown) return;
+    const listItems = dropdown.menu.querySelectorAll("li span");
+    listItems.forEach(item => {
+        if (dropdown.selectedItems.includes(item.textContent.trim())) {
+            item.classList.add("bg-gray-300", "text-gray-700");
+            item.classList.remove("hover:bg-red-600", "hover:text-white");
+            item.classList.add("hover:bg-red-600", "hover:text-white");
+        } else {
+            item.classList.remove("bg-gray-300", "text-gray-700");
+            item.classList.add("hover:bg-red-600", "hover:text-white");
+        }
+    });
+}
+
+// Toggle tag selection for Tags or Studio, update display, then trigger debounced AJAX update
+function toggleTag(name, type) {
+    const dropdown = dropdowns[type];
+    if (!dropdown) return;
+    const index = dropdown.selectedItems.indexOf(name);
+    if (index === -1) {
+        dropdown.selectedItems.push(name);
+    } else {
+        dropdown.selectedItems.splice(index, 1);
+    }
+    updateSelectedDropdown(type);
+    updateDropdownMenu(type);
+    debouncedRedirectWithFilters();
+}
+// Remove an item from a dropdown and update filters
+function removeTag(name, type) {
+    const dropdown = dropdowns[type];
+    if(!dropdown) return;
+    dropdown.selectedItems = dropdown.selectedItems.filter(t => t !== name);
+    updateSelectedDropdown(type);
+    updateDropdownMenu(type);
+    debouncedRedirectWithFilters();
+}
+
+// Close dropdowns when clicking outside
+document.addEventListener("click", (event) => {
+    Object.keys(dropdowns).forEach((key) => {
+        if (dropdowns[key].button && dropdowns[key].menu) {
+            if (!dropdowns[key].button.contains(event.target) && !dropdowns[key].menu.contains(event.target)) {
+                dropdowns[key].menu.classList.add("hidden");
+            }
+        }
+    });
+});
+
+let currentRequestId = 0;
+function redirectWithFilters () {
+    currentRequestId++;
+    const thisId = currentRequestId;
+
+    const listFilter  = document.querySelector('select[name="list_filter"]')?.value ?? 'all';
+    const mediaStatus = document.querySelector('select[name="media_status"]')?.value ?? 'all';
+    const dateOrder   = document.querySelector('select[name="date_order"]')?.value  ?? 'none';
+    const titleOrder  = document.querySelector('select[name="title_order"]')?.value ?? 'none';
+    const scoreOrder  = document.querySelector('select[name="score_order"]')?.value ?? 'none';
+    const yearOrder   = document.querySelector('select[name="year_order"]')?.value ?? 'none';
+
+    // ← NEW: capture the name_order select for doujins
+    const nameOrder   = document.querySelector('select[name="name_order"]')?.value ?? 'none';
+
+    const tags       = dropdowns.Tags.selectedItems.join(',');
+    const languages  = Array.from(
+                          document.querySelectorAll('input[name="language[]"]:checked')
+                       ).map(c => c.value).join(',');
+    const genres     = Array.from(
+                          document.querySelectorAll('input[name="genre[]"]:checked')
+                       ).map(c => c.value);
+    const studios    = dropdowns.Studio?.selectedItems.join(',') ?? '';
+    const authors    = dropdowns.Author?.selectedItems.join(',') ?? '';
+    const developers = dropdowns.Developers.selectedItems.join(',');
+
+    const year       = document.querySelector('select[name="year"]')?.value ?? '';
+
+    const qp = new URLSearchParams();
+    if (tags)        qp.append('tags',        tags);
+    if (languages)   qp.append('language',    languages);
+    if (genres.length) genres.forEach(g => qp.append('genre', g));
+    if (studios)     qp.append('studio',      studios);
+    if (authors)     qp.append('author',      authors);
+    if (developers)  qp.append('developers',  developers);
+    if (year)        qp.append('year',        year);
+
+    if (yearOrder  !== 'none') qp.append('year_order',  yearOrder);
+    if (titleOrder !== 'none') qp.append('title_order', titleOrder);
+    if (scoreOrder !== 'none') qp.append('score_order', scoreOrder);
+
+    // ── INSERTED DOUJINS BRANCH HERE ──
+    let url;
+    if (categorySlug === 'visual-novel') {
+        url = `/category/${categorySlug}/${listFilter}?${qp.toString()}`;
+    } else if (categorySlug === 'doujins') {
+        if (nameOrder !== 'none') {
+            qp.append('name_order', nameOrder);
+        }
+        url = `/category/${categorySlug}?${qp.toString()}`;
+    } else {
+        url = `/category/${categorySlug}/${listFilter}/${mediaStatus}/${titleOrder}/${scoreOrder}/${dateOrder}?${qp.toString()}`;
+    }
+
+    history.pushState(null, '', url);
+    toggleSpinner(true);
+
+    fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(r => r.text())
+        .then(html => {
+            const tmp = document.createElement('div');
+            tmp.innerHTML = html;
+            document.getElementById('mediaContainer').innerHTML    =
+                tmp.querySelector('#mediaContainer').innerHTML;
+            document.getElementById('paginationContainer').innerHTML =
+                tmp.querySelector('#paginationContainer').innerHTML;
+        })
+        .catch(console.error)
+        .finally(() => {
+            if (thisId === currentRequestId) toggleSpinner(false);
+        });
+}
+
+
+function toggleSpinner (busy) {
+    const o = busy ? '0.5' : '1';
+    document.getElementById('mediaContainer').style.opacity    = o;
+    document.getElementById('paginationContainer').style.opacity = o;
+}
+
+const debouncedRedirectWithFilters = debounce(redirectWithFilters, 500);
+
+window.addEventListener('DOMContentLoaded', () => {
+    const urlParams = new URLSearchParams(location.search);
+
+    const langParam = urlParams.get('language');
+    if (langParam) {
+        const langs = langParam.split(',').filter(Boolean);
+        document.querySelectorAll('input[name="language[]"]').forEach(cb => {
+            cb.checked = langs.includes(cb.value);
+        });
+    }
+});
+
+window.addEventListener('load', function(){
+    const urlParams = new URLSearchParams(window.location.search);
+    const tagsParam = urlParams.get('tags');
+    if (tagsParam) {
+        dropdowns.Tags.selectedItems = tagsParam.split(',').filter(tag => tag !== '');
+        updateSelectedDropdown('Tags');
+        updateDropdownMenu('Tags');
+    }
+    const studioParam = urlParams.get('studio');
+    if (studioParam && dropdowns.Studio) {
+        dropdowns.Studio.selectedItems = studioParam.split(',').filter(studio => studio !== '');
+        updateSelectedDropdown('Studio');
+        updateDropdownMenu('Studio');
+    }
+    const authorParam = urlParams.get('author');
+    if (authorParam && dropdowns.Author) {
+        dropdowns.Author.selectedItems = authorParam.split(',').filter(author => author !== '');
+        updateSelectedDropdown('Author');
+        updateDropdownMenu('Author');
+    }
+    const devsParam = urlParams.get('developers');
+    if (devsParam) {
+        dropdowns.Developers.selectedItems = devsParam.split(',').filter(t=>t);
+        updateSelectedDropdown('Developers');
+        updateDropdownMenu('Developers');
+    }
+});
+
+// Also add event listeners on genre checkboxes:
+document.querySelectorAll('input[name="genre[]"]').forEach(cb => {
+    cb.addEventListener('change', debouncedRedirectWithFilters);
+});
+</script>
+@endsection

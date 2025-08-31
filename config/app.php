@@ -165,4 +165,5 @@ return [
         App\Providers\FortifyServiceProvider::class,  // your custom Fortify bindings
     ],
 
+    'local_only' => env('APP_LOCAL_ONLY', false),
 ];

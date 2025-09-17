@@ -62,17 +62,21 @@ class AnilistController extends Controller
      */
     public function getAllMedia()
     {
-        $all = Media::query()->get()->map(fn ($m) => [
-            'id'         => $m->id,
-            'type'       => strtoupper($m->type), // 'ANIME' | 'MANGA'
-            'title'      => ['english' => $m->title, 'romaji' => $m->alt_title],
-            'coverImage' => ['extraLarge' => $this->coverUrl($m->cover_path)],
-            'genres'     => $this->toArray($m->genres),
-            'isAdult'    => (bool) $m->is_adult,
-            'countryOfOrigin' => $m->origin, // 'JP' | 'KR' | ...
-        ])->values()->all();
+        $publisher = $this->toArray($m->publisher);
+        $studios   = in_array($m->type, ['anime','hentai'], true) ? $publisher : [];
+        $authors   = in_array($m->type, ['manga','manwha'], true) ? $publisher : [];
 
-        return response()->json($all);
+        return [
+            'id'         => $m->id,
+            'type'       => strtoupper($m->type),
+            'title'      => ['english' => $m->title_english, 'romaji' => $m->title_romaji],
+            'coverImage' => ['extraLarge' => $this->coverUrl($m->cover_url)],
+            'genres'     => $this->toArray($m->genres),
+            'isAdult'    => (bool) ($m->is_adult ?? false),
+            'countryOfOrigin' => $m->origin,
+            'studios'    => $studios,
+            'authors'    => $authors,
+        ];
     }
 
     /**
@@ -121,39 +125,58 @@ class AnilistController extends Controller
 
     private function mapMediaRow(Media $m): array
     {
-        $genres = $this->toArray($m->genres);
-        $tags   = $this->toArray($m->tags);
+        // JSON-ish columns in your table
+        $genres   = $this->toArray($m->genres);
+        $tags     = $this->toArray($m->tags);
+        $publisher = $this->toArray($m->publisher);
+        $languages= $this->toArray($m->languages);
+
+        $studios = in_array($m->type, ['anime','hentai'], true) ? $publisher : [];
+        $authors = in_array($m->type, ['manga','manwha'], true) ? $publisher : [];
+
+        // start_date (DATE) -> year/month/day
+        $year  = $m->year ?: (optional(\Carbon\Carbon::parse($m->start_date))->year);
+        $month = optional(\Carbon\Carbon::parse($m->start_date))->month;
+        $day   = optional(\Carbon\Carbon::parse($m->start_date))->day;
 
         return [
             'id'          => $m->id,
-            'type'        => strtoupper($m->type), // 'ANIME' | 'MANGA'
-            'title'       => ['english' => $m->title, 'romaji' => $m->alt_title],
-            'coverImage'  => ['extraLarge' => $this->coverUrl($m->cover_path)],
-            'bannerImage' => null,
+            'type'        => strtoupper($m->type), // 'ANIME' | 'MANGA' (others ok)
+            'title'       => [
+                'english' => $m->title_english,
+                'romaji'  => $m->title_romaji,
+            ],
+            'coverImage'  => ['extraLarge' => $m->cover_url ? asset($m->cover_url) : asset('images/no-image.jpg')],
+            'bannerImage' => $this->coverUrl($m->banner_url),
             'description' => $m->description ?: 'No synopsis available.',
             'genres'      => $genres,
-            'tags'        => $tags,            // strings are fine; blade handles both
+            'tags'        => $tags,
             'averageScore'=> $m->avg_score,
-            'episodes'    => null,             // your blade shows N/A if null
-            'chapters'    => null,
-            'volumes'     => null,
+            // use your *_cnt columns
+            'episodes'    => $m->episodes_cnt ?: null,
+            'chapters'    => $m->chapters_cnt ?: null,
+            'volumes'     => $m->volumes_cnt ?: null,
             'format'      => null,
-            'status'      => $m->media_status, // optional column (e.g., FINISHED)
-            'isAdult'     => (bool) $m->is_adult,
-            'startDate'   => ['year' => $m->year, 'month' => null, 'day' => null],
-            'countryOfOrigin' => $m->origin,   // 'JP', 'KR', ...
-            // list entry fields your blade uses for "My Score" and progress
+            'status'      => $m->media_status,
+            'isAdult'     => false, // set true if you add an nsfw column later
+            'startDate'   => ['year' => $year, 'month' => $month, 'day' => $day],
+            'countryOfOrigin' => $m->origin,   // 'JP','KR',...
+            'studios'     => $studios,
+            'authors'     => $authors,
+
             'mediaListEntry' => [
                 'score'    => $m->user_score,
-                'progress' => $m->progress,
-                'status'   => $m->list_status, // e.g., CURRENT / DROPPED
+                'progress' => null,            // no column in your table
+                'status'   => $m->list_status,
             ],
-            // convenience copies used by home page
             'userScore'   => $m->user_score,
-            'userProgress'=> $m->progress,
+            'userProgress'=> null,
             'listStatus'  => $m->list_status,
+            'languages'   => $languages,
         ];
     }
+
+
 
     private function toArray($maybeJson): array
     {

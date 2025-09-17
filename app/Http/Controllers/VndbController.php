@@ -2,156 +2,139 @@
 
 namespace App\Http\Controllers;
 
-use GuzzleHttp\Client;
+use App\Models\Media;
 use App\Models\Collection;
 use App\Models\CollectionItem;
 use App\Models\Favorite;
+use Illuminate\Http\Request;
 
 class VndbController extends Controller
 {
-    private array $labelMap = [
-        'playing'  => 1,
-        'finished' => 2,
-        'stalled'  => 3,
-        'dropped'  => 4,
-        'wishlist' => 5,
+    // kept only if you use ?status=… filters
+    private array $labelMapDb = [
+        'playing'  => 'PLAYING',
+        'finished' => 'FINISHED',
+        'stalled'  => 'STALLED',
+        'dropped'  => 'DROPPED',
+        'wishlist' => 'WISHLIST',
     ];
 
-    private Client $client;
-
-    public function __construct()
+    /**
+     * Pull VNs from your DB (media.type='vn'), shaped like your old VNDB array.
+     */
+    public function getUserVnList(string $username = '', string $status = '')
     {
-        $this->client = new Client([
-            'base_uri' => 'https://api.vndb.org/kana/',
-            'headers'  => [
-                'Authorization' => 'Token ' . env('VNDB_API_TOKEN'),
-                'Accept'        => 'application/json',
-            ],
-        ]);
+        $q = Media::query()->where('type', 'vn');
+
+        if ($status && isset($this->labelMapDb[strtolower($status)])) {
+            $q->where('list_status', $this->labelMapDb[strtolower($status)]);
+        }
+
+        $req = request();
+
+        // language=EN,JP
+        if ($langs = $this->csv($req->query('language'))) {
+            $q->where(function ($qq) use ($langs) {
+                foreach ($langs as $lang) {
+                    $qq->orWhereRaw('JSON_CONTAINS(languages, ?)', [json_encode($lang)]);
+                }
+            });
+        }
+
+        // developers param -> stored in studios
+        if ($devs = $this->csv($req->query('developers'))) {
+            $q->where(function ($qq) use ($devs) {
+                foreach ($devs as $d) {
+                    $qq->orWhereRaw('JSON_CONTAINS(publisher, ?)', [json_encode($d)]);
+                }
+            });
+        }
+
+        // tags=tag1,tag2
+        if ($tags = $this->csv($req->query('tags'))) {
+            $q->where(function ($qq) use ($tags) {
+                foreach ($tags as $t) {
+                    $qq->orWhereRaw('JSON_CONTAINS(tags, ?)', [json_encode($t)]);
+                }
+            });
+        }
+
+        // year=YYYY
+        if ($year = $req->query('year')) {
+            $q->where('year', (int) $year);
+        }
+
+        // ordering
+        $titleOrder = $req->query('title_order', 'none');   // az|za
+        $scoreOrder = $req->query('score_order', 'none');   // avg_desc|avg_asc|personal_desc|personal_asc
+        $yearOrder  = $req->query('year_order',  'none');   // year_desc|year_asc
+
+        if ($titleOrder === 'az') {
+            $q->orderByRaw('COALESCE(NULLIF(title_english,""), NULLIF(title_romaji,""), slug) asc');
+        } elseif ($titleOrder === 'za') {
+            $q->orderByRaw('COALESCE(NULLIF(title_english,""), NULLIF(title_romaji,""), slug) desc');
+        }
+
+        if ($scoreOrder === 'avg_desc')       $q->orderBy('avg_score', 'desc');
+        elseif ($scoreOrder === 'avg_asc')    $q->orderBy('avg_score', 'asc');
+        elseif ($scoreOrder === 'personal_desc') $q->orderBy('user_score', 'desc');
+        elseif ($scoreOrder === 'personal_asc')  $q->orderBy('user_score', 'asc');
+
+        if ($yearOrder === 'year_desc')       $q->orderBy('year', 'desc');
+        elseif ($yearOrder === 'year_asc')    $q->orderBy('year', 'asc');
+
+        $q->orderBy('start_date', 'desc');
+
+        // Return paginator (so your pagination UI works)
+        $paginator = $q->paginate(24)->appends($req->query());
+
+        // Map each Media to the VNDB-ish shape your partial expects
+        $media = $paginator->getCollection()->map(function (Media $m) {
+            $title = $m->title_english ?: ($m->title_romaji ?: 'No Title');
+            $tags  = array_map(fn ($t) => ['name' => $t], $m->tags ?? []);
+            $devs  = array_map(fn ($d) => ['name' => $d], $m->publisher ?? []);
+
+            $hasNoSex = false;
+            foreach (($m->tags ?? []) as $t) {
+                if (mb_strtolower($t) === 'no sexual content') { $hasNoSex = true; break; }
+            }
+
+            return [
+                'id'        => (int) $m->source_id,
+                'title'     => $title,
+                'image'     => ['url' => $m->cover_url],
+                'tags'      => $tags,
+                'developers'=> $devs,
+                'languages' => $m->languages ?? [],
+                'status'    => $m->list_status ? strtolower($m->list_status) : null,
+                'score'     => (int) ($m->user_score ?? 0),
+                'average'   => (float) ($m->avg_score ?? 0),
+                'year'      => (int) ($m->year ?? 0),
+                'hasNoSexualContent' => $hasNoSex,
+            ];
+        });
+
+        // Replace the paginator collection with our mapped array
+        $paginator->setCollection($media);
+
+        // You can return just the array (for JSON), but your category blade
+        // expects both $media (array) and $paginatedMedia (paginator).
+        // In the controller that calls this, pass both.
+        return $paginator;
     }
 
-    /**
-     * Fetch a user’s VN list from VNDB,
-     * and return it in a “frontend‐friendly” shape.
-     *
-     * Now adds “hasNoSexualContent” = true if any VN tag is exactly “No sexual content.”
-     *
-     * @param string $username
-     * @param string $status
-     * @return array
-     */
-    public function getUserVnList(string $username, string $status = 'finished'): array
+    private function csv(?string $s): array
     {
-        // 1) Look up numeric VNDB user ID
-        $res  = $this->client->get('user', ['query' => ['q' => $username]]);
-        $json = json_decode((string)$res->getBody(), true);
-
-        $userRec = null;
-        foreach ($json as $rec) {
-            if (is_array($rec) && isset($rec['id'])) {
-                $userRec = $rec;
-                break;
-            }
-        }
-        if (!$userRec) {
-            return [];  
-        }
-        $userId = $userRec['id'];
-
-        // 2) Build a big “ulist” query with all necessary fields
-        $fields = implode(',', [
-            'vn.id',
-            'vn.title',
-            'vn.description',
-            'vn.image.url',
-            'vn.tags.name',
-            'vn.developers.name',
-            'vn.languages',
-            'labels.id',
-            'labels.label',
-            'vote',
-            'vn.rating',
-            'vn.released',
-        ]);
-
-        $allEntries = [];
-        $page       = 1;
-        do {
-            $payload = [
-                'user'    => $userId,
-                'fields'  => $fields,
-                'results' => 100,
-                'page'    => $page,
-            ];
-            if (isset($this->labelMap[$status])) {
-                $payload['filters'] = ['label', '=', $this->labelMap[$status]];
-            }
-
-            $res  = $this->client->post('ulist', ['json' => $payload]);
-            $data = json_decode((string)$res->getBody(), true);
-
-            $entries    = $data['results'] ?? [];
-            $allEntries = array_merge($allEntries, $entries);
-
-            $more = ! empty($data['more']);
-            $page++;
-        } while ($more);
-
-        // 3) Transform each “raw” VNDB object into our frontend shape:
-        return array_map(function($e) {
-            $vn = $e['vn'] ?? [];
-
-            $id = $vn['id'] 
-                  ?? $e['id'] 
-                  ?? null;
-
-            // Flatten title:
-            $titleData = $vn['title'] ?? null;
-            if (is_array($titleData)) {
-                $title = $titleData['english'] 
-                       ?? $titleData['romaji'] 
-                       ?? 'No Title';
-            } else {
-                $title = is_string($titleData) 
-                       ? $titleData 
-                       : 'No Title';
-            }
-
-            // Build “hasNoSexualContent” if any tag is exactly “No sexual content”
-            $rawTags           = $vn['tags'] ?? [];
-            $hasNoSexualContent = false;
-            foreach ($rawTags as $t) {
-                $tagName = strtolower($t['name'] ?? '');
-                if ($tagName === 'no sexual content') {
-                    $hasNoSexualContent = true;
-                    break;
-                }
-            }
-
-            // Return everything—note: we no longer rely on minage/etc.
-            return [
-                'id'                  => $id,
-                'title'               => $title,
-                'image'               => ['url' => $vn['image']['url'] ?? null],
-                'tags'                => array_map(fn($t) => ['name' => $t['name']], $vn['tags'] ?? []),
-                'developers'          => array_map(fn($d) => ['name' => $d['name'] ?? null], $vn['developers'] ?? []),
-                'languages'           => $vn['languages'] ?? [],
-                'status'              => $e['labels'][0]['label'] ?? null,
-                'score'               => isset($e['vote']) ? (int)$e['vote'] : 0,
-                'average'             => isset($e['vn']['rating']) ? (float)$e['vn']['rating'] : 0,
-                'year'                => isset($vn['released']) ? (int)substr($vn['released'], 0, 4) : 0,
-                'hasNoSexualContent'  => $hasNoSexualContent,
-            ];
-        }, $allEntries);
+        return array_values(array_filter(array_map('trim', explode(',', (string) $s))));
     }
 
     public function show(string $rawId)
     {
         $id = (int) ltrim($rawId, 'v');
+
+        // Now reads from DB via helper below
         $vn = $this->fetchVnById($id);
-        if (!$vn) {
-            abort(404);
-        }
+        if (!$vn) abort(404);
 
         $category = 'visual-novel';
 
@@ -161,13 +144,12 @@ class VndbController extends Controller
         ])->exists();
 
         $allCollections = Collection::orderBy('is_system', 'desc')
-                                    ->orderBy('name')
-                                    ->get();
+            ->orderBy('name')->get();
 
         $attachedIds = CollectionItem::where('item_type', $category)
-                                     ->where('item_id',   $id)
-                                     ->pluck('collection_id')
-                                     ->toArray();
+            ->where('item_id', $id)
+            ->pluck('collection_id')
+            ->toArray();
 
         return view('media.vndb', [
             'item'           => $vn,
@@ -180,76 +162,37 @@ class VndbController extends Controller
 
     public function fetchVnById(int $id): ?array
     {
-        // 1) Fetch /vn for this single ID
-        $fields = implode(',', [
-            'id',
-            'title',
-            'description',
-            'image.url',
-            'tags.name',
-            'developers.name',
-            'languages',
-            'rating',
-            'released',
-        ]);
+        $m = Media::where('type','vn')->where('source_id', $id)->first();
+        if (!$m) return null;
 
-        $res = $this->client->post('vn', [
-            'json' => [
-                'filters' => ['id', '=', (string)$id],
-                'fields'  => $fields,
-                'results' => 1,
-            ]
-        ]);
-        $raw = json_decode((string)$res->getBody(), true)['results'][0] ?? null;
-        if (!$raw) {
-            return null;
-        }
+        $title = $m->title_english ?: ($m->title_romaji ?: 'No Title');
+        $tags  = array_map(fn ($t) => ['name' => $t], $m->tags ?? []);
+        $devs  = array_map(fn ($d) => ['name' => $d], $m->studios ?? []);
 
-        // 2) Find the user’s personal vote (if it exists) by reusing getUserVnList()
-        $all  = $this->getUserVnList(env('VNDB_USERNAME'), '');
-        $vote = null;
-        foreach ($all as $entry) {
-            if ((int)$entry['id'] === $id) {
-                $vote = $entry['score'];
-                break;
-            }
-        }
-
-        // Flatten & return
-        $title = is_array($raw['title'] ?? null)
-            ? ($raw['title']['english'] ?? $raw['title']['romaji'] ?? 'No Title')
-            : ($raw['title'] ?? 'No Title');
-
-        // Recompute “hasNoSexualContent” for the detail view as well
-        $rawTags           = $raw['tags'] ?? [];
-        $hasNoSexualContent = false;
-        foreach ($rawTags as $t) {
-            $tagName = strtolower($t['name'] ?? '');
-            if ($tagName === 'no sexual content') {
-                $hasNoSexualContent = true;
-                break;
-            }
+        $hasNoSex = false;
+        foreach (($m->tags ?? []) as $t) {
+            if (mb_strtolower($t) === 'no sexual content') { $hasNoSex = true; break; }
         }
 
         return [
-            'id'                 => $raw['id'],
+            'id'                 => (int) $m->source_id,
             'title'              => $title,
-            'description'        => $raw['description'] ?? '',
-            'image'              => ['url' => $raw['image']['url'] ?? null],
-            'tags'               => array_map(fn($t) => ['name' => $t['name']], $raw['tags'] ?? []),
-            'developers'         => array_map(fn($d) => ['name' => $d['name']], $raw['developers'] ?? []),
-            'languages'          => $raw['languages'] ?? [],
-            'average'            => isset($raw['rating']) ? (float)$raw['rating'] : 0,
-            'released'           => $raw['released'] ?? null,
-            'score'              => $vote,
-            'hasNoSexualContent' => $hasNoSexualContent,
+            'description'        => $m->description ?? '',
+            'image'              => ['url' => $m->cover_url],
+            'tags'               => $tags,
+            'developers'         => $devs,
+            'languages'          => $m->languages ?? [],
+            'average'            => (float) ($m->avg_score ?? 0),
+            'released'           => $m->start_date ?: null,
+            'score'              => (int) ($m->user_score ?? 0),
+            'hasNoSexualContent' => $hasNoSex,
+            'year'               => (int) ($m->year ?? 0),
         ];
     }
 
     public function apiList()
     {
-        $username = env('VNDB_USERNAME');
-        $list     = $this->getUserVnList($username, '');
-        return response()->json($list);
+        $paginator = $this->getUserVnList('', request('list_filter',''));
+        return response()->json($paginator->items());
     }
 }

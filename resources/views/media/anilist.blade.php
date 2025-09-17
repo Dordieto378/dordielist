@@ -12,13 +12,13 @@
     if (strtoupper($item['type'] ?? '') === 'ANIME') {
         $firstEpisode = Episode::where('media_id', $item['id'])
                               ->orderBy('episode_number')
-                              ->first();  
+                              ->first();
     }
     $firstChapter = null;
     if (strtoupper($item['type'] ?? '') === 'MANGA') {
         $firstChapter = Chapter::where('item_id', $item['id'])
                                ->orderBy('chapter_number')
-                               ->first();   
+                               ->first();
     }
 
     $releaseDate = 'N/A';
@@ -36,7 +36,7 @@
     if (isset($item['mediaListEntry']) && !empty($item['mediaListEntry']['score']) && $item['mediaListEntry']['score'] > 0) {
         $myScore = $item['mediaListEntry']['score'] . '%';
     }
-    
+
     $statusMapping = [
         'FINISHED' => 'Finished',
         'RELEASING' => 'Releasing',
@@ -70,7 +70,7 @@
                 </div>
                 @auth
                 <div class="mt-4 flex flex-col space-y-3 w-[325px] font-bold">
-                    @php 
+                    @php
                         $isAnime   = strtoupper($item['type'] ?? '') === 'ANIME';
                         $enabled   = $isAnime ? $firstEpisode   : $firstChapter;
                         $url       = $isAnime
@@ -111,7 +111,7 @@
                     @endif
                     @php
                     $id       = $item['id'];
-                    $category = $category; 
+                    $category = $category;
                     @endphp
 
                     <form action="{{ route('favorites.toggle') }}" method="POST" class="mt-2 w-full">
@@ -216,9 +216,9 @@
                                       class="ml-[1.4rem] h-[1.1rem] w-[1.1rem] mr-[0.5rem] mb-[0.1rem]"
                                       fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                   <path stroke-linecap="round" stroke-linejoin="round"
-                                          d="M15.232 5.232l3.536 3.536M4 21h4.586a1 1 
-                                          0 00.707-.293l10-10a1 1 0 000-1.414L14.414 
-                                          4.293a1 1 0 00-1.414 0l-10 10A1 1 
+                                          d="M15.232 5.232l3.536 3.536M4 21h4.586a1 1
+                                          0 00.707-.293l10-10a1 1 0 000-1.414L14.414
+                                          4.293a1 1 0 00-1.414 0l-10 10A1 1
                                           0 004 14.586V19a2 2 0 002 2z" />
                                   </svg>
                                   <span class="ml-1">Add Episode</span>
@@ -226,10 +226,10 @@
 
                               <!-- Modal Overlay -->
                               <div x-show="showUpload"
-                                  class="fixed inset-0 flex items-start pt-[130px] justify-center 
+                                  class="fixed inset-0 flex items-start pt-[130px] justify-center
                                           bg-black bg-opacity-50 z-50">
                                   <div @click.away="showUpload = false"
-                                      class="relative bg-white p-4 text-left shadow-2xl 
+                                      class="relative bg-white p-4 text-left shadow-2xl
                                               w-[800px] rounded-lg">
 
                                   <!-- Header -->
@@ -260,16 +260,16 @@
 
                                       <!-- Drop Zone -->
                                       <div id="drop-zone"
-                                          class="flex flex-col items-center justify-center 
-                                                  border-2 border-dashed border-gray-300 
+                                          class="flex flex-col items-center justify-center
+                                                  border-2 border-dashed border-gray-300
                                                   rounded-lg h-56 cursor-pointer relative">
                                           <input id="video-input" type="file" name="videos[]"
                                               accept="video/mp4,video/webm"
                                               class="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                                               required />
                                           <p class="mt-2 text-lg font-medium text-gray-600 z-10">
-                                          Drag & drop an episode here 
-                                          <span class="text-blue-600 hover:underline" 
+                                          Drag & drop an episode here
+                                          <span class="text-blue-600 hover:underline"
                                                   onclick="document.getElementById('video-input').click()">
                                               or browse
                                           </span>
@@ -279,8 +279,8 @@
                                           MP4, WEBM
                                           </p>
                                       </div>
-                                      @error('videos') 
-                                          <p class="text-red-600 text-sm">{{ $message }}</p> 
+                                      @error('videos')
+                                          <p class="text-red-600 text-sm">{{ $message }}</p>
                                       @enderror
 
                                       <!-- Progress bar -->
@@ -367,8 +367,8 @@
                                         class="w-[735px]
                                         rounded-md
                                         border border-gray-200
-                                        px-3    
-                                        py-2     
+                                        px-3
+                                        py-2
                                         text-base
                                         bg-gray-100
                                         focus:outline-none focus:ring-[0.2rem] focus:ring-red-600
@@ -434,60 +434,67 @@
                     <div>Episodes</div>
                     <div>{{ $item['episodes'] ?? 'N/A' }}</div>
                 @endif
-                    
+
                     <div>Status</div>
                     <div>{{ $status }}</div>
-                    
+
                     <div>Release Date</div>
                     <div>{{ $releaseDate }}</div>
-                    
+
                     <div>Average Score</div>
                     <div>{{ $averageScore }}</div>
-                    
+
                     <div>My Score</div>
                     <div>{{ $myScore }}</div>
                     @if(strtoupper($item['type'] ?? '') === 'MANGA')
                         <div>Author</div>
                         @php
-                            // Filter staff to get a collection of author names
-                            $authors = collect($item['staff']['edges'] ?? [])
-                                ->filter(function($edge) {
-                                    return isset($edge['node']['name']['full']) &&
-                                        in_array(strtolower($edge['role']), ['story', 'art', 'story & art']);
-                                })
-                                ->pluck('node.name.full')
-                                ->unique();
+                            $authors = collect($item['authors'] ?? [])->filter()->unique()->values();
                         @endphp
                         <div>
                             @if($authors->isEmpty())
                                 N/A
                             @else
-                              @foreach($authors as $name)
-                                  <a  href="{{ category_filter_url('mangas', 'author', $name) }}"
-                                      class="text-blue-600 hover:underline cursor-pointer">
-                                      {{ $name }}
-                                  </a>@if(!$loop->last), @endif
-                              @endforeach
+                                @foreach($authors as $name)
+                                    <a href="{{ category_filter_url('mangas', 'author', $name) }}"
+                                       class="text-blue-600 hover:underline cursor-pointer">
+                                        {{ $name }}
+                                    </a>@if(!$loop->last), @endif
+                                @endforeach
+                            @endif
+                        </div>
+                    @elseif(strtoupper($item['type'] ?? '') === 'MANWHA')
+                        <div>Author</div>
+                        @php
+                            $authors = collect($item['authors'] ?? [])->filter()->unique()->values();
+                        @endphp
+                        <div>
+                            @if($authors->isEmpty())
+                                N/A
+                            @else
+                                @foreach($authors as $name)
+                                    <a href="{{ category_filter_url('manwhas', 'author', $name) }}"
+                                       class="text-blue-600 hover:underline cursor-pointer">
+                                        {{ $name }}
+                                    </a>@if(!$loop->last), @endif
+                                @endforeach
                             @endif
                         </div>
                     @else
                         <div>Studios</div>
                         @php
-                        $studios = collect($item['studios']['edges'] ?? [])
-                            ->filter(fn ($e) => !empty($e['isMain']) && $e['isMain'])
-                            ->pluck('node.name')
-                            ->unique();
+                            $studios = collect($item['studios'] ?? [])->filter()->unique()->values();
                         @endphp
                         <div>
                             @if($studios->isEmpty())
                                 N/A
                             @else
-                              @foreach($studios as $studio)
-                                  <a  href="{{ category_filter_url('animes', 'studio', $studio) }}"
-                                      class="text-blue-600 hover:underline cursor-pointer">
-                                      {{ $studio }}
-                                  </a>@if(!$loop->last), @endif
-                              @endforeach
+                                @foreach($studios as $studio)
+                                    <a href="{{ category_filter_url('animes', 'studio', $studio) }}"
+                                       class="text-blue-600 hover:underline cursor-pointer">
+                                        {{ $studio }}
+                                    </a>@if(!$loop->last), @endif
+                                @endforeach
                             @endif
                         </div>
                     @endif
@@ -527,7 +534,7 @@
             </div>
         </div>
     </div>
- 
+
 @php
   use Illuminate\Support\Facades\Storage;
 
@@ -538,7 +545,7 @@
   // break into rows of 4
   $rows = $episodes->chunk(4);
 @endphp
-@auth  
+@auth
 @if($episodes->isNotEmpty())
   <div class="space-y-6 mt-8 mb-[-120px] w-[1278px] mx-auto">
     @foreach($rows as $rowIndex => $chunk)
@@ -558,7 +565,7 @@
 
           @foreach($reversed as $ep)
             @php
-              $url = Storage::disk('b2')->url($ep->file_path);
+                $url = Storage::url($ep->file_path);
             @endphp
             <div class="flex flex-col items-stretch">
               <a
@@ -597,7 +604,7 @@
           {{-- even row: normal order --}}
           @foreach($chunk as $ep)
             @php
-              $url = Storage::disk('b2')->url($ep->file_path);
+                $url = Storage::url($ep->file_path);
             @endphp
             <div class="flex flex-col items-stretch">
               <a
@@ -642,10 +649,10 @@
 @php
     // one query – eager-load first pages
     $chapters = Chapter::with(['pages' => function ($q) {
-                    $q->orderBy('chapter_number');   
+                    $q->orderBy('page_number');   // <-- correct for pages
                 }])
                 ->where('item_id', $item['id'])
-                ->orderBy('chapter_number')    
+                ->orderBy('chapter_number')
                 ->get();
 
     $chapterRows = $chapters->chunk(4);
@@ -680,9 +687,9 @@
             $firstPage = $chapter->pages->first();
             $ext       = strtolower(pathinfo($firstPage->file_path ?? '', PATHINFO_EXTENSION));
             $isImage   = $firstPage && in_array($ext, $allowedExts, true);
-            $thumb     = $isImage
-                         ? Storage::disk('b2')->url($firstPage->file_path)
-                         : asset('images/no-thumb.jpg');
+            $thumb = $isImage
+                     ? Storage::url($firstPage->file_path)
+                     : asset('images/no-thumb.jpg');
           @endphp
 
           <div
@@ -856,8 +863,8 @@
                 class="w-[735px] ml-4
                     rounded-md
                     border border-gray-200
-                    px-3    
-                    py-2     
+                    px-3
+                    py-2
                     text-base
                     bg-gray-100
                     focus:outline-none focus:ring-[0.2rem] focus:ring-red-600
@@ -931,7 +938,7 @@ const closeCreateBtn = document.getElementById('closeCreateModal');
 const createForm     = document.getElementById('collectionCreateForm');
 const listContainer  = document.getElementById('collectionCheckboxList');
 const dropZone = document.getElementById('drop-zone');
-const fileInput = document.getElementById('video-input');   
+const fileInput = document.getElementById('video-input');
 const fileInfo  = document.getElementById('video-info');
 const form        = document.getElementById('uploadForm');
 const progressBar = document.getElementById('progressBar');

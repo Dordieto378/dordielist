@@ -12,9 +12,9 @@ if (!function_exists('shortTitle')) {
         return substr($title, 0, $maxLen - 1) . '…';
     }
 }
-@endphp 
+@endphp
 <script>
-  const categorySlug = @json(Str::slug($category)); 
+  const categorySlug = @json(Str::slug($category));
 </script>
 <div class="mt-6 ml-4 flex flex-col items-center py-[4.5rem]">
     <div class="w-[1320px] flex justify-between items-center">
@@ -59,8 +59,8 @@ if (!function_exists('shortTitle')) {
                                 @forelse ($selectedAuthors as $auth)
                                     <span class="px-3 py-2 rounded-[0.2rem] bg-gray-200 text-gray-900 text-sm flex items-center">
                                         {{ $auth }}
-                                        <span 
-                                            onclick="removeTag('{{ $auth }}','Author')" 
+                                        <span
+                                            onclick="removeTag('{{ $auth }}','Author')"
                                             class="ml-2 cursor-pointer text-gray-500 hover:text-gray-800 select-none"
                                         >
                                             ×
@@ -122,7 +122,7 @@ if (!function_exists('shortTitle')) {
                     <div class="relative mb-4">
                         <label class="block text-sm font-medium text-gray-900 mb-2">TITLE</label>
                         <select name="title_order" onchange="redirectWithFilters()"
-                                class="appearance-none w-full px-3 py-2 border rounded-sm focus:border-red-600 
+                                class="appearance-none w-full px-3 py-2 border rounded-sm focus:border-red-600
                                         focus:outline-none focus:ring-2 focus:ring-red-600 h-[2.5rem] text-gray-900 font-medium">
                             <option value="none" {{ ($titleOrder ?? 'none')=='none' ? 'selected':'' }}>None</option>
                             <option value="az"   {{ ($titleOrder ?? '')=='az'   ? 'selected':'' }}>A–Z</option>
@@ -142,21 +142,21 @@ if (!function_exists('shortTitle')) {
                             <option value="avg_asc" {{ ($scoreOrder ?? '')=='avg_asc' ? 'selected':'' }}>Average (Low to High)</option>
                             <option value="personal_desc" {{ ($scoreOrder ?? '')=='personal_desc' ? 'selected':'' }}>Personal (High to Low)</option>
                             <option value="personal_asc" {{ ($scoreOrder ?? '')=='personal_asc' ? 'selected':'' }}>Personal (Low to High)</option>
-                        </select>    
+                        </select>
                         <svg class="pointer-events-none absolute right-3 top-1/2 transform -translate-y-1/2 h-3 w-3 text-gray-400 mt-3.5"
                             xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="4" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
                         </svg>
                     </div>
                     <div class="relative mb-4">
-                        <label class="block text-sm font-medium text-gray-900 mb-2">YEAR</label>
+                        <label class="block text-sm font-medium text-gray-900 mb-2">RELEASE</label>
                         <select name="year_order" onchange="redirectWithFilters()"
                             class="appearance-none w-full px-3 py-2 border rounded-sm focus:border-red-600 focus:outline-none focus:ring-2 focus:ring-red-600 h-[2.5rem] text-gray-900 font-medium">
                             <option value="none" {{ ($yearOrder ?? 'none')=='none' ? 'selected':'' }}>None</option>
                             <option value="year_desc" {{ ($yearOrder ?? '')=='year_desc' ? 'selected':'' }}>New to Old</option>
                             <option value="year_asc"  {{ ($yearOrder ?? '')=='year_asc'  ? 'selected':'' }}>Old to New</option>
                         </select>
-                        </select>    
+                        </select>
                         <svg class="pointer-events-none absolute right-3 top-1/2 transform -translate-y-1/2 h-3 w-3 text-gray-400 mt-3.5"
                             xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="4" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
@@ -217,7 +217,7 @@ if (!function_exists('shortTitle')) {
                                 onchange="debouncedRedirectWithFilters()"
                                 {{ in_array($lang, $selectedLanguages) ? 'checked' : '' }}
                             >
-                            <span class="mr-1 inline-block h-4 w-4 rounded border border-gray-300 bg-gray-50 transition 
+                            <span class="mr-1 inline-block h-4 w-4 rounded border border-gray-300 bg-gray-50 transition
                                 peer-checked:bg-red-600 peer-checked:border-red-600 group-hover:bg-gray-100 flex items-center justify-center">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-white hidden peer-checked:block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
@@ -269,7 +269,7 @@ if (!function_exists('shortTitle')) {
                         </ul>
                     </div>
                     </div>
-                </form>    
+                </form>
             @else
                 <form method="GET"
                     action="{{ route('category', [
@@ -385,7 +385,7 @@ if (!function_exists('shortTitle')) {
                             <div id="selectedTags" class="flex flex-wrap gap-2 flex-1">
                                 <span class="text-gray-900 font-medium text-sm">Select Tags</span>
                             </div>
-                            <svg class="pointer-events-none h-3 w-3 text-gray-400" xmlns="http://www.w3.org/2000/svg" 
+                            <svg class="pointer-events-none h-3 w-3 text-gray-400" xmlns="http://www.w3.org/2000/svg"
                                     fill="none" viewBox="0 0 24 24" stroke-width="4" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                             </svg>
@@ -395,7 +395,7 @@ if (!function_exists('shortTitle')) {
                                 @foreach($allTags as $tagName)
                                     <li class="px-1.5 py-[1px] cursor-pointer text-gray-900 font-medium text-sm transition-all duration-200 ease-in-out bg-white"
                                         onclick="toggleTag('{{ $tagName }}', 'Tags')">
-                                        <span class="block w-full h-full px-3 py-2 rounded-[0.2rem] transition-all duration-200 ease-in-out 
+                                        <span class="block w-full h-full px-3 py-2 rounded-[0.2rem] transition-all duration-200 ease-in-out
                                             hover:bg-red-600 hover:text-white hover:font-semibold">
                                             {{ $tagName }}
                                         </span>
@@ -413,7 +413,7 @@ if (!function_exists('shortTitle')) {
                                         <input type="checkbox" name="genre[]" value="{{ $genre }}" class="sr-only peer"
                                             onchange="debouncedRedirectWithFilters()"
                                             {{ in_array($genre, $selectedGenres) ? 'checked' : '' }}>
-                                        <span class="mr-1 inline-block h-4 w-4 rounded border border-gray-300 bg-gray-50 transition 
+                                        <span class="mr-1 inline-block h-4 w-4 rounded border border-gray-300 bg-gray-50 transition
                                             peer-checked:bg-red-600 peer-checked:border-red-600 group-hover:bg-gray-100 flex items-center justify-center">
                                             <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-white hidden peer-checked:block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
@@ -448,7 +448,7 @@ if (!function_exists('shortTitle')) {
                                     @foreach($allStudios as $studio)
                                         <li class="px-1.5 py-[1px] cursor-pointer text-gray-900 font-medium text-sm transition-all duration-200 ease-in-out bg-white"
                                             onclick="toggleTag('{{ $studio }}', 'Studio')">
-                                            <span class="block w-full h-full px-3 py-2 rounded-[0.2rem] transition-all duration-200 ease-in-out 
+                                            <span class="block w-full h-full px-3 py-2 rounded-[0.2rem] transition-all duration-200 ease-in-out
                                                 hover:bg-red-600 hover:text-white hover:font-semibold">
                                                 {{ $studio }}
                                             </span>
@@ -487,8 +487,8 @@ if (!function_exists('shortTitle')) {
                             </div>
                         </div>
                     @endif
-                </form>    
-            @endif   
+                </form>
+            @endif
         </aside>
 
         <!-- Main Content -->
@@ -504,12 +504,12 @@ if (!function_exists('shortTitle')) {
     @if($paginatedMedia->lastPage() > 1)
         <div class="flex items-center justify-center space-x-2 ml-[280px] mb-6">
             <span class="text-gray-900 text-lg font-medium">Pages</span>
-    
+
             @if($paginatedMedia->currentPage() > 1)
                 <a href="{{ $paginatedMedia->url(1) }}" class="pagination-arrow mb-1">&laquo;</a>
                 <a href="{{ $paginatedMedia->previousPageUrl() }}" class="pagination-arrow mb-1">&lsaquo;</a>
             @endif
-    
+
             @php
                 $maxVisible = 7;
                 $start = max(1, $paginatedMedia->currentPage() - intdiv($maxVisible,2));
@@ -518,7 +518,7 @@ if (!function_exists('shortTitle')) {
                     $start = max(1, $end - $maxVisible + 1);
                 }
             @endphp
-    
+
             <div class="flex space-x-2 text-lg">
                 @for($i = $start; $i <= $end; $i++)
                     @if($i === $paginatedMedia->currentPage())
@@ -530,7 +530,7 @@ if (!function_exists('shortTitle')) {
                     @endif
                 @endfor
             </div>
-    
+
             @if($paginatedMedia->currentPage() < $paginatedMedia->lastPage())
                 <a href="{{ $paginatedMedia->nextPageUrl() }}" class="pagination-arrow mb-1">&rsaquo;</a>
                 <a href="{{ $paginatedMedia->url($paginatedMedia->lastPage()) }}" class="pagination-arrow mb-1">&raquo;</a>
@@ -700,7 +700,8 @@ function redirectWithFilters () {
     // ── INSERTED DOUJINS BRANCH HERE ──
     let url;
     if (categorySlug === 'visual-novel') {
-        url = `/category/${categorySlug}/${listFilter}?${qp.toString()}`;
+        qp.set('list_filter', listFilter);       // MUST be in the query string for VN
+        url = `/category/${categorySlug}?${qp.toString()}`;
     } else if (categorySlug === 'doujins') {
         if (nameOrder !== 'none') {
             qp.append('name_order', nameOrder);

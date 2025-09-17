@@ -44,20 +44,59 @@ class ImportAnilist extends Command
                 $tags      = array_values(array_filter(array_map(fn($t) => $t['name'] ?? null, $media['tags'] ?? [])));
                 $origin    = $media['countryOfOrigin'] ?? null;
                 $avgScore  = $media['averageScore'] ?? null;
-                $mStatus   = $media['status'] ?? null;       // FINISHED / RELEASING...
-                $lStatus   = $entry['status'] ?? null;       // CURRENT / COMPLETED...
+                $mStatus   = $media['status'] ?? null;
+                $lStatus   = $entry['status'] ?? null;
                 $uScore    = isset($entry['score']) ? (int)$entry['score'] : null;
 
-                // studios (main) for anime-type things
-                $studios = [];
+
+                $publishers = [];
+
                 if ($type === 'ANIME' && !empty($media['studios']['edges'])) {
+                    $mainStudios = [];
+                    $producers   = [];
                     foreach ($media['studios']['edges'] as $edge) {
-                        if (!empty($edge['isMain']) && !empty($edge['node']['name'])) {
-                            $studios[] = $edge['node']['name'];
+                        $name   = $edge['node']['name'] ?? null;
+                        $isMain = !empty($edge['isMain']);
+                        $isAnim = $edge['node']['name'] ?? null; // false => producer
+                        if (!$name) continue;
+
+                        if ($isMain)           $mainStudios[] = $name;   // keep main animation studios
+                        if ($isAnim === false) $producers[]   = $name;   // also keep producers
+                    }
+                    $publishers = array_merge($mainStudios, $producers);
+
+                } elseif (in_array($type, ['MANGA'], true) && !empty($media['staff']['edges'])) {
+                    $allow = [
+                        'story', 'art', 'story & art',         // strict authoring roles
+                        // uncomment if you ALSO want these typical author roles:
+                        // 'author', 'writer', 'original creator',
+                    ];
+                    $denySubstrings = ['assistant', 'letter', 'touch-up', 'touch up', 'editor', 'translation', 'translator', 'publisher'];
+
+                    foreach ($media['staff']['edges'] as $edge) {
+                        $rawRole = strtolower($edge['role'] ?? '');
+                        $name    = $edge['node']['name']['full'] ?? null;
+                        if (!$name || $rawRole === '') continue;
+
+                        // quick deny if role mentions support work
+                        $isDenied = false;
+                        foreach ($denySubstrings as $bad) {
+                            if (str_contains($rawRole, $bad)) { $isDenied = true; break; }
+                        }
+                        if ($isDenied) continue;
+
+                        // normalize role: remove parentheticals, unify separators, collapse spaces
+                        $role = preg_replace('/\s*\(.*?\)\s*/', ' ', $rawRole); // drop "(manga)" etc
+                        $role = str_replace([' and ', ',', '/', '・'], [' & ', ' & ', ' & ', ' & '], $role);
+                        $role = trim(preg_replace('/\s+/', ' ', $role));        // collapse spaces
+
+                        if (in_array($role, $allow, true)) {
+                            $publishers[] = $name;
                         }
                     }
-                    $studios = array_values(array_unique($studios));
                 }
+
+                $publishers = array_values(array_unique(array_filter($publishers)));
 
                 // start/release date
                 $y = $media['startDate']['year']  ?? null;
@@ -79,6 +118,13 @@ class ImportAnilist extends Command
                 $cover   = $media['coverImage']['extraLarge'] ?? null;
                 $banner  = $media['bannerImage'] ?? null;
                 $desc    = $media['description'] ?? null;
+                $episodesCnt = $media['episodes'] ?? null;
+                $chaptersCnt = $media['chapters'] ?? null;
+                $volumesCnt  = $media['volumes']  ?? null;
+
+                $episodesToSave = ($type === 'ANIME') ? $episodesCnt : null;
+                $chaptersToSave = ($type === 'MANGA') ? $chaptersCnt : null;
+                $volumesToSave  = ($type === 'MANGA') ? $volumesCnt  : null;
 
                 // ----- local type mapping -----
                 if ($type === 'ANIME') {
@@ -104,16 +150,18 @@ class ImportAnilist extends Command
                         'description'    => $desc,
                         'genres'         => $genres,
                         'tags'           => $tags,
-                        'studios'        => $studios ?: null,
+                        'publisher'      => $publishers ?: null,
                         'origin'         => $origin,
-                        'media_status'   => $mStatus,
                         'list_status'    => $lStatus,
+                        'media_status'   => $mStatus,
                         'user_score'     => $uScore,
                         'avg_score'      => $avgScore,
                         'year'           => $y,
                         'start_date'     => $startDate,
-                        'list_created_at'=> $listCreatedAt,
-                        'list_updated_at'=> $listUpdatedAt,
+                        'episodes_cnt'   => $episodesToSave,
+                        'chapters_cnt'   => $chaptersToSave,
+                        'volumes_cnt'    => $volumesToSave,
+                        'languages'      => null
                     ]
                 );
 
@@ -162,8 +210,26 @@ class ImportAnilist extends Command
                   averageScore
                   tags { name }
                   studios {
-                    edges { isMain node { name } }
-                  }
+                       edges {
+                           isMain
+                           node {
+                               name
+                           }
+                       }
+                   }
+                   staff {
+                       edges {
+                           node {
+                               name {
+                                   full
+                               }
+                           }
+                           role
+                       }
+                   }
+                episodes
+                chapters
+                volumes
                 }
               }
             }

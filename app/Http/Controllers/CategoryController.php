@@ -13,6 +13,74 @@ use App\Models\Favorite;
 
 class CategoryController extends Controller
 {
+    private function toCard($row): array
+    {
+        // If it’s already a normalized card, just return it
+        if (is_array($row) && isset($row['url'], $row['cover'])) {
+            return $row;
+        }
+
+        // Doujin model
+//        if ($row instanceof \App\Models\Doujin) {
+//            $raw = $row->cover_url;
+//            $cover = str_starts_with($raw, 'images/')
+//                ? asset($raw)
+//                : \Storage::disk('b2')->url($raw);
+//
+//            return [
+//                'id'    => $row->id,
+//                'url'   => route('media.doujin', ['doujin' => $row->id]),
+//                'cover' => $cover,
+//                'title' => $row->doujin_name,
+//                'nsfw'  => true,
+//            ];
+//        }
+
+        // Media model (anime/manga/hentai/manwha/vn)
+        if ($row instanceof \App\Models\Media) {
+            $isVN = ($row->type === 'vn');
+
+            // tags can be cast to array or stored as JSON; normalize to array
+            $tags = $this->toArray($row->tags);
+
+            // VN rule: censor unless tag includes "No Sexual Content"
+            $hasNoSex = false;
+            if ($isVN && $tags) {
+                foreach ($tags as $t) {
+                    if (mb_strtolower(trim($t)) === 'no sexual content') {
+                        $hasNoSex = true;
+                        break;
+                    }
+                }
+            }
+
+            // Non-VN rule: keep your old logic (Hentai genre or explicit flag)
+            $isNonVnNsfw = in_array('Hentai', (array)($row->genres ?? []), true) || (bool)($row->is_adult ?? false);
+
+            $nsfw = $isVN ? !$hasNoSex : $isNonVnNsfw;
+
+            return [
+                'id'    => $row->id,
+                'url'   => $isVN
+                    ? route('vn.show', ['id' => $row->source_id])
+                    : route('media.show', ['id' => $row->id]),
+                'cover' => $row->cover_url ?: asset('images/default.jpg'),
+                'title' => $row->title_english ?: ($row->title_romaji ?: 'No Title'),
+                'nsfw'  => $nsfw,
+            ];
+        }
+
+        // Fallback safe card
+        return [
+            'id'    => 0,
+            'url'   => '#',
+            'cover' => asset('images/default.jpg'),
+            'title' => 'No Title',
+            'nsfw'  => false,
+        ];
+    }
+
+
     public function show(Request $request, $category, $listFilter = 'all', $mediaStatus = 'all', $titleOrder = 'none', $scoreOrder = 'none', $dateOrder = 'none')
     {
         $normalized = strtoupper($category);
@@ -56,6 +124,131 @@ class CategoryController extends Controller
                 'selectedGenres'  => [],
                 'allYears'        => [],
                 'selectedYears'   => [],
+            ]);
+        }
+
+        if ($normalized === 'VISUAL-NOVEL') {
+            $q = Media::query()->where('type', 'vn');
+
+            // Filters from query string
+            // list_filter (playing/finished/stalled/dropped/wishlist)
+            $listFilter = strtolower($request->query('list_filter', 'all'));
+            if ($listFilter !== 'all') {
+                $q->where('list_status', strtoupper($listFilter));
+            }
+
+            // title_order, score_order, year_order
+            $titleOrder = $request->query('title_order', 'none');
+            $scoreOrder = $request->query('score_order', 'none');     // avg_* or personal_*
+            $yearOrder  = $request->query('year_order',  'none');
+
+            // tags (comma-separated)
+            if ($tagsCsv = $request->query('tags')) {
+                foreach (explode(',', $tagsCsv) as $t) {
+                    $t = trim($t);
+                    if ($t !== '') $q->whereJsonContains('tags', $t);
+                }
+            }
+
+            // languages (checkboxes -> ?language=en,ja)
+            $selectedLanguages = $request->query('language', []);
+            if (!is_array($selectedLanguages)) {
+                $selectedLanguages = explode(',', $selectedLanguages);
+            }
+            foreach ($selectedLanguages as $lang) {
+                if ($lang !== '') $q->whereJsonContains('languages', $lang);
+            }
+
+            // developers (multi-select button → comma list)
+            $selectedDevelopers = $request->query('developers', '');
+            $devArr = $selectedDevelopers ? explode(',', $selectedDevelopers) : [];
+            foreach ($devArr as $dev) {
+                $dev = trim($dev);
+                if ($dev !== '') $q->whereJsonContains('publisher', $dev);
+            }
+
+            // year (single)
+            if ($year = $request->query('year')) {
+                $q->where('year', (int)$year);
+            }
+
+            // ordering
+            $titleExpr = 'COALESCE(title_english, title_romaji)';
+            if ($scoreOrder !== 'none') {
+                $q->orderBy(
+                    (str_contains($scoreOrder, 'avg') ? 'avg_score' : 'user_score'),
+                    (str_contains($scoreOrder, 'desc') ? 'desc' : 'asc')
+                );
+            } elseif ($yearOrder !== 'none') {
+                $q->orderBy('year', $yearOrder === 'year_desc' ? 'desc' : 'asc');
+            } elseif ($titleOrder !== 'none') {
+                $q->orderByRaw("$titleExpr " . ($titleOrder === 'za' ? 'DESC' : 'ASC'));
+            } else {
+                $q->orderByRaw("$titleExpr ASC");
+            }
+
+            $perPage = 40;
+            $p = $q->paginate($perPage)->appends($request->query());
+
+            // Sidebar data
+            $allTags = Media::where('type','vn')
+                ->pluck('tags')
+                ->flatten()
+                ->filter()
+                ->unique()
+                ->sort()
+                ->values()
+                ->all();
+
+            $allDevelopers = Media::where('type','vn')
+                ->pluck('publisher')
+                ->flatten()
+                ->filter()
+                ->unique()
+                ->sort()
+                ->values()
+                ->all();
+
+            $allLanguages = Media::where('type','vn')
+                ->pluck('languages')
+                ->flatten()
+                ->filter()
+                ->unique()
+                ->sort()
+                ->values()
+                ->all();
+
+            $allYears = Media::where('type','vn')
+                ->whereNotNull('year')
+                ->distinct()->orderBy('year')->pluck('year')->toArray();
+
+            $cards = $p->getCollection()
+                ->map(fn ($row) => $this->toCard($row))
+                ->values();
+
+            $p->setCollection($cards);
+
+            return view('category', [
+                'category'           => 'VISUAL-NOVEL',
+                'media'           => $cards->all(),
+                'paginatedMedia'     => $p,
+
+                'listFilter'         => $listFilter,
+                'titleOrder'         => $titleOrder,
+                'scoreOrder'         => $scoreOrder,
+                'yearOrder'          => $yearOrder,
+
+                'allTags'            => $allTags,
+                'selectedTags'       => array_filter(explode(',', (string)$request->query('tags',''))),
+
+                'allDevelopers'      => $allDevelopers,
+                'selectedDevelopers' => $devArr,
+
+                'allLanguages'       => $allLanguages,
+                'selectedLanguages'  => $selectedLanguages,
+
+                'allYears'           => $allYears,
+                'selectedYears'      => (array)$request->query('year', []),
             ]);
         }
 
@@ -142,31 +335,6 @@ class CategoryController extends Controller
         $perPage = 40;
         $p = $q->paginate($perPage)->appends($request->query());
 
-        $items = $p->getCollection()->map(function (Media $m) {
-            return [
-                'media' => [
-                    'id'               => $m->id,
-                    'title'            => [
-                        'english' => $m->title_english,
-                        'romaji'  => $m->title_romaji,
-                    ],
-                    'coverImage'       => ['extraLarge' => $m->cover_url], // stored full URL from importer
-                    'genres'           => $this->toArray($m->genres),
-                    'isAdult'          => (bool)($m->is_adult ?? false),
-                    'startDate'        => ['year' => $m->year ?? null],
-                    'averageScore'     => $m->avg_score ?? null,
-                    'countryOfOrigin'  => $m->origin,
-                    'type'             => strtoupper($m->type),
-                    // studios for possible display (optional)
-                    'studios'          => $this->toArray($m->studios ?? []),
-                ],
-                'status'    => $m->list_status ?? null,
-                'score'     => $m->user_score ?? null,
-                'updatedAt' => optional($m->updated_at)->timestamp,
-                'createdAt' => optional($m->created_at)->timestamp,
-            ];
-        })->all();
-
         // Sidebar data
         $allGenres = Media::selectRaw('JSON_EXTRACT(genres, "$") as g')
             ->whereNotNull('genres')->get()
@@ -184,8 +352,8 @@ class CategoryController extends Controller
         $allStudios = [];
         if (in_array($normalized, ['ANIMES','HENTAIS'])) {
             $allStudios = Media::whereIn('type', ['anime','hentai'])
-                ->whereNotNull('studios')
-                ->pluck('studios')
+                ->whereNotNull('publisher')
+                ->pluck('publisher')
                 ->flatMap(fn ($arr) => (array) $arr)
                 ->filter()
                 ->unique()
@@ -199,9 +367,15 @@ class CategoryController extends Controller
         $allAuthors      = [];
         $selectedAuthor  = [];
 
+        $cards = $p->getCollection()
+            ->map(fn ($row) => $this->toCard($row))
+            ->values();
+
+        $p->setCollection($cards);
+
         return view('category', [
             'category'        => ucfirst(str_replace('-', ' ', $category)),
-            'media'           => $items,
+            'media'           => $cards->all(),
             'paginatedMedia'  => $p,
             'listFilter'      => $listFilter,
             'mediaStatus'     => $mediaStatus,

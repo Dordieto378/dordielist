@@ -167,7 +167,8 @@ class VndbController extends Controller
 
         $title = $m->title_english ?: ($m->title_romaji ?: 'No Title');
         $tags  = array_map(fn ($t) => ['name' => $t], $m->tags ?? []);
-        $devs  = array_map(fn ($d) => ['name' => $d], $m->studios ?? []);
+        $devs  = array_map(fn ($d) => ['name' => $d], $m->publisher ?? []);
+        $descHtml = $this->renderVnDescription($m->description ?? '');
 
         $hasNoSex = false;
         foreach (($m->tags ?? []) as $t) {
@@ -177,13 +178,13 @@ class VndbController extends Controller
         return [
             'id'                 => (int) $m->source_id,
             'title'              => $title,
-            'description'        => $m->description ?? '',
+            'description_html'   => $descHtml,
             'image'              => ['url' => $m->cover_url],
             'tags'               => $tags,
             'developers'         => $devs,
             'languages'          => $m->languages ?? [],
             'average'            => (float) ($m->avg_score ?? 0),
-            'released'           => $m->start_date ?: null,
+            'released'           => $m->year ? sprintf('%04d', (int)$m->year) : null,
             'score'              => (int) ($m->user_score ?? 0),
             'hasNoSexualContent' => $hasNoSex,
             'year'               => (int) ($m->year ?? 0),
@@ -195,4 +196,65 @@ class VndbController extends Controller
         $paginator = $this->getUserVnList('', request('list_filter',''));
         return response()->json($paginator->items());
     }
+
+    private function renderVnDescription(string $raw, string $linkClass = 'text-blue-600 hover:underline cursor-pointer'): string
+    {
+        $text = str_replace(["\r\n", "\r"], "\n", $raw);
+
+        // build anchors safely via tokens
+        $tokens = [];
+        $cls = ' class="'.htmlspecialchars($linkClass, ENT_QUOTES, 'UTF-8').'"';
+
+        // [url=https://example]Label[/url]
+        $text = preg_replace_callback(
+            '/\[url=(https?:\/\/[^\]\s]+)\](.*?)\[\/url\]/i',
+            function ($m) use (&$tokens, $cls) {
+                $url   = filter_var($m[1], FILTER_SANITIZE_URL);
+                if (!preg_match('#^https?://#i', $url)) return $m[0];
+                $label = $m[2];
+                $tok   = '__A'.count($tokens).'__';
+                $tokens[$tok] =
+                    '<a'.$cls.' href="'.htmlspecialchars($url, ENT_QUOTES, 'UTF-8').'" target="_blank" rel="noopener noreferrer">'.
+                    htmlspecialchars($label, ENT_QUOTES, 'UTF-8').'</a>';
+                return $tok;
+            }, $text
+        );
+
+        // [url]https://example[/url]
+        $text = preg_replace_callback(
+            '/\[url\](https?:\/\/.*?)\[\/url\]/i',
+            function ($m) use (&$tokens, $cls) {
+                $url = trim($m[1]);
+                $safe = filter_var($url, FILTER_SANITIZE_URL);
+                if (!preg_match('#^https?://#i', $safe)) return $m[0];
+                $tok = '__A'.count($tokens).'__';
+                $tokens[$tok] =
+                    '<a'.$cls.' href="'.htmlspecialchars($safe, ENT_QUOTES, 'UTF-8').'" target="_blank" rel="noopener noreferrer">'.
+                    htmlspecialchars($safe, ENT_QUOTES, 'UTF-8').'</a>';
+                return $tok;
+            }, $text
+        );
+
+        // SPOILER tags → markers BEFORE escaping
+        $text = preg_replace('/\[(spoiler)(?:=[^\]]*)?\]/i', '__SPOILER_OPEN__', $text);
+        $text = preg_replace('/\[\/spoiler\]/i', '__SPOILER_CLOSE__', $text);
+
+        // Escape everything else
+        $escaped = htmlspecialchars($text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+
+        // Restore anchors
+        $html = strtr($escaped, $tokens);
+
+        // Restore spoiler wrappers (DON'T re-escape after this)
+        $html = str_replace(
+            ['__SPOILER_OPEN__', '__SPOILER_CLOSE__'],
+            ['<span class="spoiler" tabindex="0" role="button" aria-expanded="false">', '</span>'],
+            $html
+        );
+
+        // Keep newlines
+        return nl2br($html, false);
+    }
+
+
 }

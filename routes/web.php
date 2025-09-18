@@ -1,14 +1,14 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use Illuminate\Http\Request;  
+use Illuminate\Http\Request;
 use Laravel\Fortify\Http\Controllers\AuthenticatedSessionController;
 use Laravel\Fortify\Http\Controllers\TwoFactorAuthenticatedSessionController;
 use Laravel\Fortify\Http\Controllers\TwoFactorAuthenticationController;
 use Laravel\Fortify\Http\Controllers\RecoveryCodeController;
 use App\Http\Controllers\ConfirmTwoFactorAuthenticationController;
 use Illuminate\Support\Facades\Storage;
-use App\Models\Doujin;   
+use App\Models\Doujin;
 use App\Http\Controllers\AnilistController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\VndbController;
@@ -91,13 +91,13 @@ Route::middleware('auth')->group(function () {
 
 Route::get('/home-paginated', [AnilistController::class, 'paginatedMedia'])->name('home.paginated');
 
-Route::get('/api/media', [AnilistController::class, 'getAllMedia']); 
+Route::get('/api/media', [AnilistController::class, 'getAllMedia']);
 
 Route::get('/api/doujins', function (Request $request) {
     $doujins = Doujin::all();
 
     $mapped = $doujins->map(function ($doujin) {
-          $rawPath      = $doujin->cover_url;   
+          $rawPath      = $doujin->cover_url;
           $fullCoverUrl = Storage::disk('b2')->url($rawPath);
 
         return [
@@ -129,8 +129,8 @@ Route::get('/vn/{id}', [VndbController::class, 'show'])->name('vn.show');
 Route::get('/api/vndb-media', [VndbController::class, 'apiList']);
 
 Route::prefix('vndb')->group(function () {
-    Route::get('search', [VndbController::class, 'searchVN']);  
-    Route::get('vn/{id}',  [VndbController::class, 'getVNDetails']); 
+    Route::get('search', [VndbController::class, 'searchVN']);
+    Route::get('vn/{id}',  [VndbController::class, 'getVNDetails']);
 });
 
 Route::middleware(['web', 'auth'])->group(function () {
@@ -182,7 +182,7 @@ Route::middleware(['auth'])->prefix('settings')->group(function () {
     // 2) Users
     Route::get('users', [SettingsController::class, 'users'])
          ->name('settings.users');
-         
+
      Route::get('/settings/doujin/add', [SettingsController::class, 'addDoujin'])
           ->name('settings.addDoujin');
 
@@ -203,16 +203,16 @@ Route::middleware(['auth'])->group(function () {
      Route::get('/media/doujin/{doujin}/page/{page}', [MediaController::class, 'readPage'])
           ->name('media.doujin.page');
 
-     Route::post('/media/{media}/episodes', [EpisodeController::class, 'store'])
-         ->name('episodes.store');
+    Route::post('/media/{media}/episodes', [EpisodeController::class, 'syncFromDisk'])
+        ->name('episodes.sync');
 
 
      Route::get('media/{media}/episodes/{episode}', [EpisodeController::class, 'show'])
      ->name('episodes.show');
 
      Route::post ('/media/{media}/chapters', [ChapterController::class,'store'])->name('chapters.store');
-     Route::get  ('/media/{media}/chapters/{chapter}', [ChapterController::class,'show'])->name('chapters.show');
-     Route::get('/media/{media}/chapters/{chapter}/{page}', 
+     Route::get  ('/media/{media}/chapters/{chapter}', [ChapterController::class,'s how'])->name('chapters.show');
+     Route::get('/media/{media}/chapters/{chapter}/{page}',
                [ChapterController::class,'readPage'])
           ->name('chapters.page');
 

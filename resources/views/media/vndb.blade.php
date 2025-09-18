@@ -5,22 +5,28 @@
     $title = $item['title'] ?? 'No Title';
 
     $releaseDate = 'N/A';
-    if (!empty($item['released'])) {
-        $dt = DateTime::createFromFormat('Y-m-d', $item['released']);
-        if ($dt) {
-            $releaseDate = $dt->format('j M Y');
+    $raw = $item['released'] ?? ($item['year'] ?? null);
+
+    if (!empty($raw)) {
+        // if it's just a year like "2020", show it as-is
+        if (preg_match('/^\d{4}$/', (string)$raw)) {
+            $releaseDate = (string)$raw;
         } else {
-            $releaseDate = $item['released'];
+            // otherwise try to format any parseable date
+            try {
+                $releaseDate = \Illuminate\Support\Carbon::parse($raw)->format('j M Y');
+            } catch (\Throwable $e) {
+                $releaseDate = (string)$raw;
+            }
         }
     }
 
     $averageScore = isset($item['average']) ? $item['average'].'%' : 'N/A';
-    $scoreValue = request()->query('score');
+    $scoreValue = $item['score'] ?? request()->query('score');
     $myScore = (is_numeric($scoreValue) && (int)$scoreValue > 0)
              ? ((int)$scoreValue) . '%'
              : 'N/A';
     $isAdult = ! ($item['hasNoSexualContent'] ?? false);
-    $shouldBlur = $isAdult && ! Auth::check();
 
 @endphp
 
@@ -30,24 +36,17 @@
             {{-- Left Column: Image & Buttons --}}
             <div class="flex flex-col items-center">
                 <div class="w-[325px] h-[450px] overflow-hidden rounded">
-                    @if($shouldBlur)
-                        <img
-                            src="{{ asset('images/18-plus.png') }}"
-                            alt="18+"
-                            class="absolute top-2 right-2 w-8 h-8 z-10"
-                        >
-                    @endif
                     <img
                         src="{{ $item['image']['url'] ?? asset('images/no-image.jpg') }}"
                         alt="Cover Image"
-                        class="w-full h-full object-cover {{ $shouldBlur ? 'filter blur-2xl' : '' }}"
+                        class="w-full h-full object-cover"
                     >
                 </div>
                 @auth
                   <div class="mt-4 flex flex-col space-y-3 w-[325px] font-bold">
                       @php
                       $id       = $item['id'];
-                      $category = $category; 
+                      $category = $category;
                       @endphp
 
                       <form action="{{ route('favorites.toggle') }}" method="POST" class="mt-2 w-full">
@@ -107,7 +106,7 @@
             <div class="flex flex-col justify-start ml-8 mt-4 md:mt-2 text-gray-900 font-medium">
                 <h1 class="text-2xl font-bold text-red-600 mb-2">{{ $title }}</h1>
                 <div class="grid grid-cols-[7rem,1fr] gap-x-3 gap-y-4 text-sm mt-2 mb-2">
-                    <div>Release Date</div>
+                    <div>Release Year</div>
                     <div>{{ $releaseDate }}</div>
 
                     <div>Average Score</div>
@@ -128,8 +127,8 @@
                       @endforelse
                     </div>
                 </div>
-                <p class="text-sm mb-2 mt-2">
-                    {{ $item['description'] ?? 'No synopsis available.' }}
+                <p class="vn-desc text-sm mb-2 mt-2">
+                    {!! $item['description_html'] ?? 'No synopsis available.' !!}
                 </p>
                 <div class="mb-2 mt-2">
                     <div class="flex flex-wrap gap-2 text-xs text-gray-700">
@@ -146,6 +145,34 @@
         </div>
     </div>
 </div>
+<style>
+    .vn-desc a{ color:#2563eb; text-decoration:none; cursor:pointer }
+    .vn-desc a:hover{ text-decoration:underline }
+
+    /* hidden by default */
+    .vn-desc .spoiler{
+        display:inline-block;
+        background:#000;
+        color:transparent;
+        border-radius:3px;
+        padding:0 .25rem;
+        transition: color .15s, background-color .15s;
+    }
+
+    /* reveal on hover/focus (desktop + keyboard) */
+    .vn-desc .spoiler:hover,
+    .vn-desc .spoiler:focus,
+    .vn-desc .spoiler:focus-within{
+        background:transparent;
+        color:inherit !important;
+    }
+
+    /* links only clickable when revealed */
+    .vn-desc .spoiler a{ pointer-events:none }
+    .vn-desc .spoiler:hover a,
+    .vn-desc .spoiler:focus a,
+    .vn-desc .spoiler:focus-within a{ pointer-events:auto }
+</style>
 
 <div
   id="addToCollectionModal"
@@ -285,8 +312,8 @@
                 class="w-[735px] ml-4
                     rounded-md
                     border border-gray-200
-                    px-3    
-                    py-2     
+                    px-3
+                    py-2
                     text-base
                     bg-gray-100
                     focus:outline-none focus:ring-[0.2rem] focus:ring-red-600
@@ -389,6 +416,29 @@ document.addEventListener('DOMContentLoaded', () => {
     // close the Create modal
     hideCreate();
   });
+    const spoilers = document.querySelectorAll('.vn-desc .spoiler');
+
+    const setExpanded = (el, on) => {
+        el.classList.toggle('revealed', on);
+        el.setAttribute('aria-expanded', on ? 'true' : 'false');
+    };
+
+    spoilers.forEach(el => {
+        // hover
+        el.addEventListener('mouseenter', () => setExpanded(el, true));
+        el.addEventListener('mouseleave', () => setExpanded(el, false));
+        // keyboard focus
+        el.addEventListener('focus',      () => setExpanded(el, true));
+        el.addEventListener('blur',       () => setExpanded(el, false));
+        // tap/click toggle (mobile support)
+        el.addEventListener('click', e => {
+            // if already revealed and user clicks a link inside, let it pass
+            if (e.target.closest('a') && el.classList.contains('revealed')) return;
+            e.preventDefault();
+            setExpanded(el, !el.classList.contains('revealed'));
+        });
+    });
+
 });
 </script>
 

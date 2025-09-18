@@ -10,7 +10,7 @@
 
     $firstEpisode = null;
     if (strtoupper($item['type'] ?? '') === 'ANIME') {
-        $firstEpisode = Episode::where('media_id', $item['id'])
+        $firstEpisode = Episode::where('media_fk', $item['id'])
                               ->orderBy('episode_number')
                               ->first();
     }
@@ -45,8 +45,6 @@
     ];
     $status = $item['status'] ?? 'N/A';
     $status = $statusMapping[$status] ?? ucfirst(strtolower($status));
-    $isNsfw     = $item['isAdult'] ?? false;
-    $shouldBlur = $isNsfw && ! Auth::check();
 @endphp
 
 <div class="flex flex-col items-center py-[8.5rem]">
@@ -55,17 +53,10 @@
             {{-- Left Column: Image & Buttons --}}
             <div class="flex flex-col items-center">
                 <div class="relative w-[325px] h-[450px] overflow-hidden rounded">
-                    @if($shouldBlur)
-                        <img
-                            src="{{ asset('images/18-plus.png') }}"
-                            alt="18+"
-                            class="absolute top-2 right-2 w-8 h-8 z-10"
-                        >
-                    @endif
                     <img
                         src="{{ $item['coverImage']['extraLarge'] ?? asset('images/no-image.jpg') }}"
                         alt="Cover Image"
-                        class="w-full h-full object-cover {{ $shouldBlur ? 'filter blur-2xl' : '' }}"
+                        class="w-full h-full object-cover"
                     >
                 </div>
                 @auth
@@ -165,157 +156,21 @@
                     </button>
                     @if(optional(auth()->user()->role)->role === 'Admin')
                       @if(strtoupper($item['type'] ?? '') === 'ANIME')
-                          <div x-data="{
-                              showUpload: false,
-                              uploading: false,
-                              xhr: null,
-                              startUpload(e) {
-                                  e.preventDefault();
-                                  this.uploading = true;
-                                  const form = this.$refs.uploadForm;
-                                  const data = new FormData(form);
-                                  this.xhr = new XMLHttpRequest();
-                                  this.xhr.open('POST', form.action, true);
-
-                                  this.xhr.upload.onprogress = ev => {
-                                  if (ev.lengthComputable) {
-                                      const pct = Math.round(ev.loaded/ev.total*100);
-                                      this.$refs.progressBar.style.width = pct+'%';
-                                      this.$refs.progressText.textContent = pct+'%';
-                                  }
-                                  };
-
-                                  this.xhr.onload = () => {
-                                  if (this.xhr.status === 200) {
-                                      location.reload();
-                                  } else {
-                                      this.uploading = false;
-                                      this.$refs.progressText.textContent = 'Error';
-                                  }
-                                  };
-                                  this.xhr.onerror = () => {
-                                  this.uploading = false;
-                                  this.$refs.progressText.textContent = 'Error';
-                                  };
-
-                                  this.xhr.send(data);
-                              },
-                              cancelUpload() {
-                                  if (this.xhr) this.xhr.abort();
-                                  this.uploading = false;
-                                  this.$refs.progressBar.style.width = '0%';
-                                  this.$refs.progressText.textContent = '0%';
-                              }
-                              }"   x-cloak
-                              x-effect="document.body.classList.toggle('overflow-hidden', showUpload)">
-
-                              <!-- Trigger Button -->
-                              <button @click="showUpload = true"
-                                      class="flex items-center justify-start w-full text-blue-950 py-2 rounded-sm hover:text-yellow-400">
-                                  <svg xmlns="http://www.w3.org/2000/svg"
-                                      class="ml-[1.4rem] h-[1.1rem] w-[1.1rem] mr-[0.5rem] mb-[0.1rem]"
-                                      fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                  <path stroke-linecap="round" stroke-linejoin="round"
-                                          d="M15.232 5.232l3.536 3.536M4 21h4.586a1 1
-                                          0 00.707-.293l10-10a1 1 0 000-1.414L14.414
-                                          4.293a1 1 0 00-1.414 0l-10 10A1 1
-                                          0 004 14.586V19a2 2 0 002 2z" />
-                                  </svg>
-                                  <span class="ml-1">Add Episode</span>
-                              </button>
-
-                              <!-- Modal Overlay -->
-                              <div x-show="showUpload"
-                                  class="fixed inset-0 flex items-start pt-[130px] justify-center
-                                          bg-black bg-opacity-50 z-50">
-                                  <div @click.away="showUpload = false"
-                                      class="relative bg-white p-4 text-left shadow-2xl
-                                              w-[800px] rounded-lg">
-
-                                  <!-- Header -->
-
-                                  <div class="flex justify-between items-start pb-4 pt-2 border-b ml-4 mr-4 border-gray-200">
-                                  <h3 class="text-lg font-bold text-gray-800">Upload Episode</h3>
-                                  <button @click="showUpload = false" type="button" class="text-gray-400 hover:text-gray-900" aria-label="Close Add Modal">
-                                      <span class="sr-only">Close</span>
-                                      <!-- you can swap this SVG for your .icon-times -->
-                                      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none"
-                                          viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
-                                      <path stroke-linecap="round" stroke-linejoin="round"
-                                              d="M6 18L18 6M6 6l12 12"/>
-                                      </svg>
-                                      </button>
-                                  </div>
-
-                                  <!-- Body -->
-                                  <div class="space-y-4 mr-4 ml-4">
-                                      <form x-ref="uploadForm"
-                                          action="{{ route('episodes.store', ['media' => $item['id']]) }}"
-                                          method="POST"
-                                          enctype="multipart/form-data"
-                                          @submit.prevent="startUpload($event)"
-                                          class="space-y-4">
-                                      @csrf
-                                      <input type="hidden" name="media_type" value="{{ $category }}">
-
-                                      <!-- Drop Zone -->
-                                      <div id="drop-zone"
-                                          class="flex flex-col items-center justify-center
-                                                  border-2 border-dashed border-gray-300
-                                                  rounded-lg h-56 cursor-pointer relative">
-                                          <input id="video-input" type="file" name="videos[]"
-                                              accept="video/mp4,video/webm"
-                                              class="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                                              required />
-                                          <p class="mt-2 text-lg font-medium text-gray-600 z-10">
-                                          Drag & drop an episode here
-                                          <span class="text-blue-600 hover:underline"
-                                                  onclick="document.getElementById('video-input').click()">
-                                              or browse
-                                          </span>
-                                          </p>
-                                          <p x-ref="videoInfo" id="video-info"
-                                          class="mt-1 text-sm text-gray-400 font-medium">
-                                          MP4, WEBM
-                                          </p>
-                                      </div>
-                                      @error('videos')
-                                          <p class="text-red-600 text-sm">{{ $message }}</p>
-                                      @enderror
-
-                                      <!-- Progress bar -->
-                                      <div x-show="uploading" class="w-full bg-gray-200 rounded h-2 overflow-hidden">
-                                          <div x-ref="progressBar" class="h-full bg-[#08875b] w-0"></div>
-                                      </div>
-                                      <p
-                                          x-show="uploading"
-                                          x-ref="progressText"
-                                          class="w-full text-center text-sm text-gray-600 mt-1"
-                                      >0%</p>
-
-
-                                      <!-- Actions -->
-                                      <div class="flex justify-center space-x-2">
-                                          <button x-show="!uploading"
-                                                  type="submit"
-                                                  class="h-12 w-40 rounded-md bg-[#08875b] text-white text-lg
-                                                      hover:bg-emerald-700 focus:outline-none">
-                                          Upload
-                                          </button>
-                                          <button x-show="uploading"
-                                                  type="button"
-                                                  @click="cancelUpload"
-                                                  class="h-12 w-40 rounded-md bg-red-600 text-white text-lg
-                                                      hover:bg-flatRed focus:outline-none">
-                                          Cancel
-                                          </button>
-                                      </div>
-                                      </form>
-                                  </div>
-
-                                  </div>
-                              </div>
-                          </div>
+                            <form method="POST" action="{{ route('episodes.sync', ['media' => $item['id']]) }}">
+                                @csrf
+                                <button type="submit"
+                                        class="flex items-center justify-start w-full text-blue-950 py-2 rounded-sm hover:text-yellow-400">
+                                    <svg xmlns="http://www.w3.org/2000/svg"
+                                         class="ml-[1.4rem] h-[1.1rem] w-[1.1rem] mr-[0.5rem] mb-[0.1rem]"
+                                         fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                              d="M15.232 5.232l3.536 3.536M4 21h4.586a1 1
+                                      0 00.707-.293l10-10a1 1 0 000-1.414L14.414 4.293a1 1
+                                      0 00-1.414 0l-10 10A1 1 0 004 14.586V19a2 2 0 002 2z"/>
+                                    </svg>
+                                    <span class="ml-1">Add Episode(s)</span>
+                                </button>
+                            </form>
                       @elseif(strtoupper($item['type'] ?? '') === 'MANGA')
                       <div x-data="chapterUpload()" x-cloak
                           x-effect="document.body.classList.toggle('overflow-hidden',showUpload)">
@@ -517,7 +372,7 @@
                     </div>
                 </div>
                 <p class="text-sm mb-2 mt-2">
-                    {{ $item['description'] ?? 'No synopsis available.' }}
+                    {!! nl2br(e($item['description'] ?? 'No synopsis available.')) !!}
                 </p>
                 <div class="mb-2 mt-2">
                     <div class="flex flex-wrap gap-2 text-xs text-gray-700">
@@ -538,7 +393,7 @@
 @php
   use Illuminate\Support\Facades\Storage;
 
-  $episodes = Episode::where('media_id', $item['id'])
+  $episodes = Episode::where('media_fk', $item['id'])
                      ->orderBy('episode_number')
                      ->get();
 
@@ -700,19 +555,11 @@
             class="cursor-pointer"
           >
             <div class="relative w-full rounded-lg overflow-hidden shadow-lg">
-              {{-- 18+ badge if needed --}}
-              @if($isGuest && ($item['isAdult'] ?? false))
-                <img
-                  src="{{ asset('images/18-plus.png') }}"
-                  alt="18+"
-                  class="absolute top-2 right-2 w-6 h-6 z-10"
-                >
-              @endif
 
               <img
                 src="{{ $thumb }}"
                 alt="Chapter {{ $chapter->chapter_number }}"
-                class="w-full h-auto object-contain {{ ($isGuest && ($item['isAdult'] ?? false)) ? 'filter blur-2xl' : '' }}"
+                class="w-full h-auto object-contain"
               >
             </div>
               <p class="text-center text-sm text-gray-600 mt-2">

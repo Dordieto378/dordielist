@@ -12,32 +12,24 @@ use App\Models\Favorite;
 
 class AnilistController extends Controller
 {
-    /**
-     * Home page (local DB only).
-     */
     public function home(Request $request)
     {
-        // Pull everything from local Media and map to AniList-like arrays your blades expect.
         $all = Media::query()->get()->map(fn ($m) => $this->mapMediaRow($m))->all();
 
-        // Newest first by startDate.year
         usort($all, fn($a,$b) =>
             (sprintf('%04d%02d%02d', $b['startDate']['year'] ?? 0, $b['startDate']['month'] ?? 0, $b['startDate']['day'] ?? 0))
             <=>
             (sprintf('%04d%02d%02d', $a['startDate']['year'] ?? 0, $a['startDate']['month'] ?? 0, $a['startDate']['day'] ?? 0))
         );
 
-        // Dropped: from list_status on Media
         $dropped = array_values(array_filter($all, fn($m) => ($m['listStatus'] ?? '') === 'DROPPED'));
         usort($dropped, fn($a,$b) => ($b['averageScore'] ?? 0) <=> ($a['averageScore'] ?? 0));
         $dropped = array_slice($dropped, 0, 12);
 
-        // Highest rated 4 by userScore
         $scored = array_values(array_filter($all, fn($m) => ($m['userScore'] ?? 0) > 0));
         usort($scored, fn($a,$b) => ($b['userScore'] ?? 0) <=> ($a['userScore'] ?? 0));
         $highestRated4 = array_slice($scored, 0, 4);
 
-        // Pagination (24/page)
         $page    = (int) $request->input('page', 1);
         $perPage = 24;
         $offset  = ($page - 1) * $perPage;
@@ -56,38 +48,33 @@ class AnilistController extends Controller
         ]);
     }
 
-    /**
-     * Quick-search source: /api/media (local only).
-     * Returns AniList-like objects (ANIME or MANGA).
-     */
     public function getAllMedia()
     {
-        $publisher = $this->toArray($m->publisher);
-        $studios   = in_array($m->type, ['anime','hentai'], true) ? $publisher : [];
-        $authors   = in_array($m->type, ['manga','manwha'], true) ? $publisher : [];
+        $all = Media::query()->get()->map(function (Media $m) {
+            $publisher = $this->toArray($m->publisher);
+            $studios   = in_array($m->type, ['anime','hentai'], true) ? $publisher : [];
+            $authors   = in_array($m->type, ['manga','manwha'], true) ? $publisher : [];
 
-        return [
-            'id'         => $m->id,
-            'type'       => strtoupper($m->type),
-            'title'      => ['english' => $m->title_english, 'romaji' => $m->title_romaji],
-            'coverImage' => ['extraLarge' => $this->coverUrl($m->cover_url)],
-            'genres'     => $this->toArray($m->genres),
-            'isAdult'    => (bool) ($m->is_adult ?? false),
-            'countryOfOrigin' => $m->origin,
-            'studios'    => $studios,
-            'authors'    => $authors,
-        ];
+            return [
+                'id'         => $m->id,
+                'type'       => strtoupper($m->type),
+                'title'      => ['english' => $m->title_english, 'romaji' => $m->title_romaji],
+                'coverImage' => ['extraLarge' => $this->externalOrStorage($m->cover_url)],
+                'genres'     => $this->toArray($m->genres),
+                'countryOfOrigin' => $m->origin,
+                'studios'    => $studios,
+                'authors'    => $authors,
+            ];
+        })->values()->all();
+
+        return response()->json($all);
     }
 
-    /**
-     * Media details page: /media/{id} (renders your existing media.anilist blade).
-     */
     public function show($id)
     {
         $m = Media::findOrFail($id);
-        $item = $this->mapMediaRow($m); // AniList-like array the blade expects
+        $item = $this->mapMediaRow($m);
 
-        // Decide category string for favorites/collections like your old logic
         $genres = $item['genres'] ?? [];
         $type   = strtoupper($item['type'] ?? '');
         $origin = strtoupper($item['countryOfOrigin'] ?? '');
@@ -121,8 +108,6 @@ class AnilistController extends Controller
         ]);
     }
 
-    /* ---------- helpers ---------- */
-
     private function mapMediaRow(Media $m): array
     {
         // JSON-ish columns in your table
@@ -134,6 +119,21 @@ class AnilistController extends Controller
         $studios = in_array($m->type, ['anime','hentai'], true) ? $publisher : [];
         $authors = in_array($m->type, ['manga','manwha'], true) ? $publisher : [];
 
+        $descHtml = $m->description ?? '';
+
+        $desc = preg_replace('/<\s*br\s*\/?>/i', "\n", $descHtml);
+        $desc = preg_replace('/<\/p>\s*<p>/i', "\n\n", $desc);
+
+        $desc = strip_tags($desc);
+        $desc = html_entity_decode($desc, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+        $desc = preg_replace("/\r\n?/", "\n", $desc);
+        $desc = preg_replace("/[ \t]+$/m", "", $desc);
+        $desc = preg_replace("/\n{3,}/", "\n\n", $desc);
+        $desc = trim($desc);
+
+        $descPlain = $desc;
+
         // start_date (DATE) -> year/month/day
         $year  = $m->year ?: (optional(\Carbon\Carbon::parse($m->start_date))->year);
         $month = optional(\Carbon\Carbon::parse($m->start_date))->month;
@@ -141,32 +141,29 @@ class AnilistController extends Controller
 
         return [
             'id'          => $m->id,
-            'type'        => strtoupper($m->type), // 'ANIME' | 'MANGA' (others ok)
+            'type'        => strtoupper($m->type),
             'title'       => [
                 'english' => $m->title_english,
                 'romaji'  => $m->title_romaji,
             ],
             'coverImage'  => ['extraLarge' => $m->cover_url ? asset($m->cover_url) : asset('images/no-image.jpg')],
             'bannerImage' => $this->coverUrl($m->banner_url),
-            'description' => $m->description ?: 'No synopsis available.',
+            'description' => $descPlain ?: 'No synopsis available.',
             'genres'      => $genres,
             'tags'        => $tags,
             'averageScore'=> $m->avg_score,
-            // use your *_cnt columns
             'episodes'    => $m->episodes_cnt ?: null,
             'chapters'    => $m->chapters_cnt ?: null,
             'volumes'     => $m->volumes_cnt ?: null,
             'format'      => null,
             'status'      => $m->media_status,
-            'isAdult'     => false, // set true if you add an nsfw column later
             'startDate'   => ['year' => $year, 'month' => $month, 'day' => $day],
-            'countryOfOrigin' => $m->origin,   // 'JP','KR',...
+            'countryOfOrigin' => $m->origin,
             'studios'     => $studios,
             'authors'     => $authors,
-
             'mediaListEntry' => [
                 'score'    => $m->user_score,
-                'progress' => null,            // no column in your table
+                'progress' => null,
                 'status'   => $m->list_status,
             ],
             'userScore'   => $m->user_score,
@@ -175,8 +172,6 @@ class AnilistController extends Controller
             'languages'   => $languages,
         ];
     }
-
-
 
     private function toArray($maybeJson): array
     {
@@ -191,7 +186,6 @@ class AnilistController extends Controller
     private function coverUrl(?string $path): string
     {
         if (!$path) return asset('images/no-image.jpg');
-        // Uses your default filesystem disk (public for local, b2 for B2).
         return Storage::url($path);
     }
 }

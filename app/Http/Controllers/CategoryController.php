@@ -36,14 +36,11 @@ class CategoryController extends Controller
 //            ];
 //        }
 
-        // Media model (anime/manga/hentai/manwha/vn)
         if ($row instanceof \App\Models\Media) {
             $isVN = ($row->type === 'vn');
 
-            // tags can be cast to array or stored as JSON; normalize to array
             $tags = $this->toArray($row->tags);
 
-            // VN rule: censor unless tag includes "No Sexual Content"
             $hasNoSex = false;
             if ($isVN && $tags) {
                 foreach ($tags as $t) {
@@ -54,7 +51,6 @@ class CategoryController extends Controller
                 }
             }
 
-            // Non-VN rule: keep your old logic (Hentai genre or explicit flag)
             $isNonVnNsfw = in_array('Hentai', (array)($row->genres ?? []), true) || (bool)($row->is_adult ?? false);
 
             $nsfw = $isVN ? !$hasNoSex : $isNonVnNsfw;
@@ -64,17 +60,16 @@ class CategoryController extends Controller
                 'url'   => $isVN
                     ? route('vn.show', ['id' => $row->source_id])
                     : route('media.show', ['id' => $row->id]),
-                'cover' => $row->cover_url ?: asset('images/default.jpg'),
+                'cover' => $row->cover_url ?: asset('images//no-image.jpg'),
                 'title' => $row->title_english ?: ($row->title_romaji ?: 'No Title'),
                 'nsfw'  => $nsfw,
             ];
         }
 
-        // Fallback safe card
         return [
             'id'    => 0,
             'url'   => '#',
-            'cover' => asset('images/default.jpg'),
+            'cover' => asset('images//no-image.jpg'),
             'title' => 'No Title',
             'nsfw'  => false,
         ];
@@ -85,64 +80,61 @@ class CategoryController extends Controller
     {
         $normalized = strtoupper($category);
 
-        /* -------------------- DOUJINS (keep) -------------------- */
-        if ($normalized === 'DOUJINS') {
-            $perPage   = 40;
-            $nameOrder = $request->query('name_order', 'none');
+        /* -------------------- DOUJINS -------------------- */
+//        if ($normalized === 'DOUJINS') {
+//            $perPage   = 40;
+//            $nameOrder = $request->query('name_order', 'none');
+//
+//            $allAuthors = Doujin::query()->select('author_name')->distinct()->orderBy('author_name')->pluck('author_name')->toArray();
+//
+//            $selectedAuthors = $request->query('author', []);
+//            if (!is_array($selectedAuthors)) $selectedAuthors = explode(',', (string)$selectedAuthors);
+//
+//            $query = Doujin::query();
+//            if ($nameOrder === 'az')      $query->orderBy('doujin_name');
+//            elseif ($nameOrder === 'za')  $query->orderByDesc('doujin_name');
+//            else                          $query->orderBy('id');
+//
+//            foreach ($selectedAuthors as $authorName) {
+//                if ($authorName !== '') $query->where('author_name', 'LIKE', "%{$authorName}%");
+//            }
+//
+//            $paginator = $query->paginate($perPage, ['*'], 'page')->appends([
+//                'author'     => implode(',', $selectedAuthors),
+//                'name_order' => $nameOrder,
+//            ]);
+//
+//            return view('category', [
+//                'category'        => 'DOUJINS',
+//                'media'           => $paginator->items(),
+//                'paginatedMedia'  => $paginator,
+//                'nameOrder'       => $nameOrder,
+//                'allAuthors'      => $allAuthors,
+//                'selectedAuthors' => $selectedAuthors,
+//                // keep Blade happy for fields it might read:
+//                'allStudios'      => [],
+//                'selectedStudio'  => [],
+//                'allTags'         => [],
+//                'allGenres'       => [],
+//                'selectedGenres'  => [],
+//                'allYears'        => [],
+//                'selectedYears'   => [],
+//            ]);
+//        }
 
-            $allAuthors = Doujin::query()->select('author_name')->distinct()->orderBy('author_name')->pluck('author_name')->toArray();
-
-            $selectedAuthors = $request->query('author', []);
-            if (!is_array($selectedAuthors)) $selectedAuthors = explode(',', (string)$selectedAuthors);
-
-            $query = Doujin::query();
-            if ($nameOrder === 'az')      $query->orderBy('doujin_name');
-            elseif ($nameOrder === 'za')  $query->orderByDesc('doujin_name');
-            else                          $query->orderBy('id');
-
-            foreach ($selectedAuthors as $authorName) {
-                if ($authorName !== '') $query->where('author_name', 'LIKE', "%{$authorName}%");
-            }
-
-            $paginator = $query->paginate($perPage, ['*'], 'page')->appends([
-                'author'     => implode(',', $selectedAuthors),
-                'name_order' => $nameOrder,
-            ]);
-
-            return view('category', [
-                'category'        => 'DOUJINS',
-                'media'           => $paginator->items(),
-                'paginatedMedia'  => $paginator,
-                'nameOrder'       => $nameOrder,
-                'allAuthors'      => $allAuthors,
-                'selectedAuthors' => $selectedAuthors,
-                // keep Blade happy for fields it might read:
-                'allStudios'      => [],
-                'selectedStudio'  => [],
-                'allTags'         => [],
-                'allGenres'       => [],
-                'selectedGenres'  => [],
-                'allYears'        => [],
-                'selectedYears'   => [],
-            ]);
-        }
-
+        /* -------------------- VNDB -------------------- */
         if ($normalized === 'VISUAL-NOVEL') {
             $q = Media::query()->where('type', 'vn');
 
-            // Filters from query string
-            // list_filter (playing/finished/stalled/dropped/wishlist)
             $listFilter = strtolower($request->query('list_filter', 'all'));
             if ($listFilter !== 'all') {
                 $q->where('list_status', strtoupper($listFilter));
             }
 
-            // title_order, score_order, year_order
             $titleOrder = $request->query('title_order', 'none');
             $scoreOrder = $request->query('score_order', 'none');     // avg_* or personal_*
             $yearOrder  = $request->query('year_order',  'none');
 
-            // tags (comma-separated)
             if ($tagsCsv = $request->query('tags')) {
                 foreach (explode(',', $tagsCsv) as $t) {
                     $t = trim($t);
@@ -150,7 +142,6 @@ class CategoryController extends Controller
                 }
             }
 
-            // languages (checkboxes -> ?language=en,ja)
             $selectedLanguages = $request->query('language', []);
             if (!is_array($selectedLanguages)) {
                 $selectedLanguages = explode(',', $selectedLanguages);
@@ -159,7 +150,6 @@ class CategoryController extends Controller
                 if ($lang !== '') $q->whereJsonContains('languages', $lang);
             }
 
-            // developers (multi-select button → comma list)
             $selectedDevelopers = $request->query('developers', '');
             $devArr = $selectedDevelopers ? explode(',', $selectedDevelopers) : [];
             foreach ($devArr as $dev) {
@@ -167,13 +157,12 @@ class CategoryController extends Controller
                 if ($dev !== '') $q->whereJsonContains('publisher', $dev);
             }
 
-            // year (single)
             if ($year = $request->query('year')) {
                 $q->where('year', (int)$year);
             }
 
-            // ordering
             $titleExpr = 'COALESCE(title_english, title_romaji)';
+
             if ($scoreOrder !== 'none') {
                 $q->orderBy(
                     (str_contains($scoreOrder, 'avg') ? 'avg_score' : 'user_score'),
@@ -190,7 +179,6 @@ class CategoryController extends Controller
             $perPage = 40;
             $p = $q->paginate($perPage)->appends($request->query());
 
-            // Sidebar data
             $allTags = Media::where('type','vn')
                 ->pluck('tags')
                 ->flatten()
@@ -252,10 +240,9 @@ class CategoryController extends Controller
             ]);
         }
 
-        /* -------------- ANIMES / HENTAIS / MANGAS / MANWHAS -------------- */
+        /* -------------- ANILIST-------------- */
         $q = Media::query();
 
-        // Build selectedStudio early (only applies to ANIMES/HENTAIS)
         $selectedStudio = [];
         if (in_array($normalized, ['ANIMES', 'HENTAIS'])) {
             $studioParam = $request->query('studio', '');
@@ -282,11 +269,9 @@ class CategoryController extends Controller
                 break;
 
             default:
-                // leave $q as-is for other categories
                 break;
         }
 
-        // Optional filters (?year=, ?genre[]=, ?tags=CSV)
         if ($year = $request->query('year')) {
             $q->where('year', $year);
         }
@@ -303,15 +288,13 @@ class CategoryController extends Controller
             }
         }
 
-        // Status filters from path params (listFilter, mediaStatus)
         if ($listFilter !== 'all') {
-            $q->where('list_status', $listFilter); // e.g. CURRENT, DROPPED ...
+            $q->where('list_status', $listFilter);
         }
         if ($mediaStatus !== 'all') {
-            $q->where('media_status', $mediaStatus); // e.g. FINISHED, RELEASING ...
+            $q->where('media_status', $mediaStatus);
         }
 
-        // Sorting
         $titleExpr = 'COALESCE(title_english, title_romaji)';
 
         if ($scoreOrder !== 'none') {
@@ -320,7 +303,6 @@ class CategoryController extends Controller
                 (str_contains($scoreOrder, 'desc') ? 'desc' : 'asc')
             );
         } elseif ($dateOrder !== 'none') {
-            // use AniList list timestamps (what you wanted)
             $col = str_contains($dateOrder,'start')   ? 'start_date'
                 : (str_contains($dateOrder,'updated') ? 'list_updated_at'
                 : (str_contains($dateOrder,'created') ? 'list_created_at' : 'start_date'));
@@ -331,11 +313,9 @@ class CategoryController extends Controller
             $q->orderByRaw("$titleExpr ASC");
         }
 
-        // Pagination + transform each row to the “entry.media = {...}” shape used by your partial
         $perPage = 40;
         $p = $q->paginate($perPage)->appends($request->query());
 
-        // Sidebar data
         $allGenres = Media::selectRaw('JSON_EXTRACT(genres, "$") as g')
             ->whereNotNull('genres')->get()
             ->flatMap(fn($row) => $this->toArray($row->g))
@@ -348,7 +328,6 @@ class CategoryController extends Controller
 
         $allYears  = Media::whereNotNull('year')->distinct()->orderBy('year')->pluck('year')->toArray();
 
-        // Build allStudios only for anime/hentai (safe default empty otherwise)
         $allStudios = [];
         if (in_array($normalized, ['ANIMES','HENTAIS'])) {
             $allStudios = Media::whereIn('type', ['anime','hentai'])
@@ -362,8 +341,6 @@ class CategoryController extends Controller
                 ->all();
         }
 
-        // For non-anime/hentai, your Blade shows an AUTHOR dropdown.
-        // If you don't have authors in your table yet, pass safe defaults to avoid undefined var.
         $allAuthors      = [];
         $selectedAuthor  = [];
 
@@ -387,44 +364,39 @@ class CategoryController extends Controller
             'selectedGenres'  => $genreParams,
             'allYears'        => $allYears,
             'selectedYears'   => (array) $request->query('year', []),
-
-            // NEW: studio data so Blade stops erroring
             'allStudios'      => $allStudios,
             'selectedStudio'  => $selectedStudio,
-
-            // Safe defaults so AUTHOR dropdown section doesn't explode when on MANGAS/MANWHAS
             'allAuthors'      => $allAuthors,
             'selectedAuthor'  => $selectedAuthor,
         ]);
     }
 
-    public function showDoujin(Doujin $doujin)
-    {
-        $encoded = implode('/', array_map('rawurlencode', explode('/', $doujin->cover_url)));
-        $coverUrl = Storage::disk(config('filesystems.default'))->url($encoded);
+//    public function showDoujin(Doujin $doujin)
+//    {
+//        $encoded = implode('/', array_map('rawurlencode', explode('/', $doujin->cover_url)));
+//        $coverUrl = Storage::disk(config('filesystems.default'))->url($encoded);
+//
+//        $isFavorited = Favorite::where([
+//            ['favoritable_type', 'doujins'],
+//            ['favoritable_id',   $doujin->id],
+//        ])->exists();
+//
+//        $allCollections = Collection::orderBy('name')->get();
+//
+//        $attachedIds = CollectionItem::where([
+//            ['item_type', 'doujins'],
+//            ['item_id',   $doujin->id],
+//        ])->pluck('collection_id')->toArray();
+//
+//        return view('media.doujin', [
+//            'doujin'         => $doujin,
+//            'coverUrl'       => $coverUrl,
+//            'allCollections' => $allCollections,
+//            'attachedIds'    => $attachedIds,
+//            'isFavorited'    => $isFavorited,
+//        ]);
+//    }
 
-        $isFavorited = Favorite::where([
-            ['favoritable_type', 'doujins'],
-            ['favoritable_id',   $doujin->id],
-        ])->exists();
-
-        $allCollections = Collection::orderBy('name')->get();
-
-        $attachedIds = CollectionItem::where([
-            ['item_type', 'doujins'],
-            ['item_id',   $doujin->id],
-        ])->pluck('collection_id')->toArray();
-
-        return view('media.doujin', [
-            'doujin'         => $doujin,
-            'coverUrl'       => $coverUrl,
-            'allCollections' => $allCollections,
-            'attachedIds'    => $attachedIds,
-            'isFavorited'    => $isFavorited,
-        ]);
-    }
-
-    /* -------- helpers -------- */
 
     private function toArray($maybeJson): array
     {

@@ -11,11 +11,7 @@
 
             <div onclick="window.location.href='{{ $url }}'" class="cursor-pointer">
                 <div class="relative w-[242px] h-[339px] rounded-lg overflow-hidden shadow-lg">
-                    @if($nsfw && !Auth::check())
-                        <img src="{{ asset('images/18-plus.png') }}" alt="18+" class="absolute top-2 right-2 w-8 h-8 z-10">
-                    @endif
-
-                    <img src="{{ $cover }}" alt="Cover" class="w-full h-full object-cover {{ $blur ? 'filter blur-2xl' : '' }}">
+                    <img src="{{ $cover }}" alt="Cover" class="w-full h-full object-cover">
                 </div>
                 <div class="mt-2">
                     <p class="text-red-600 font-bold">{{ \Illuminate\Support\Str::limit($title, 25) }}</p>

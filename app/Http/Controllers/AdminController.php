@@ -12,28 +12,21 @@ use Illuminate\Support\Carbon;
 
 class AdminController extends Controller
 {
-    /**
-     * Called when the admin clicks “Confirm & Activate User.”
-     */
     public function confirm(Request $request, User $user)
     {
-        // 1) If user is not “not_active,” show “already confirmed”
         if ($user->status !== 'not_active') {
             return view('admin.user_confirmed', [
                 'message' => 'This account is already active or was never pending confirmation.'
             ]);
         }
 
-        // 2) Activate the user
         $user->status = 'active';
         $user->email_verified_at = Carbon::now();
         $user->save();
 
-        // 3) Send a notification to the user themself
         Mail::to($user->email)
             ->send(new UserActivationNotification($user));
 
-        // 4) Return the “admin confirmation” view
         return view('admin.user_confirmed', [
             'user' => $user
         ]);

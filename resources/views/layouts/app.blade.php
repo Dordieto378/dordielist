@@ -32,10 +32,10 @@
             <div class="flex items-center space-x-4 mr-[7.3rem]">
                 <button id="searchButton" type="button" class="relative group w-[80px] md:w-[170px] h-[40px] rounded-[0.8rem] pl-10 pr-4 flex items-center justify-center transition-all group dark:bg-gray-800 dark:bg-opacity-20 text-gray-300 hover:bg-red-600 text-opacity-50 group-hover:opacity-100 hover:text-white">
                     <span class="text-sm">Quick search...</span>
-                    <svg xmlns="http://www.w3.org/2000/svg" 
-                        class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5" 
+                    <svg xmlns="http://www.w3.org/2000/svg"
+                        class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5"
                         fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" 
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
                             d="M21 21l-4.35-4.35m1.65-6.15a7.5 7.5 0 11-15 0 7.5 7.5 0 0115 0z" />
                     </svg>
                 </button>
@@ -147,7 +147,7 @@
         <div class="container mx-auto flex justify-between items-end py-6 px-24">
             <!-- Left Side: Copyright -->
             <p class=" text-gray-500">&copy; DORDIELIST, LLC 2025 All rights reserved.</p>
-            
+
             <!-- Right Side: Navigation Links -->
             <div class="flex space-x-4">
                 <a href="#" class="text-gray-500 hover:text-gray-700">Contact</a>
@@ -167,12 +167,12 @@
             <input type="text" id="searchInput"
                 placeholder="Search..."
                 class="w-full py-4 pl-12 pr-4 text-gray-700 border border-gray-300 rounded-lg outline-none bg-white shadow-md">
-            
+
             <!-- Search Icon -->
-            <svg xmlns="http://www.w3.org/2000/svg" 
-                class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-black" 
+            <svg xmlns="http://www.w3.org/2000/svg"
+                class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-black"
                 fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" 
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
                     d="M21 21l-4.35-4.35m1.65-6.15a7.5 7.5 0 11-15 0 7.5 7.5 0 0115 0z" />
             </svg>
 
@@ -188,7 +188,7 @@
         document.addEventListener('DOMContentLoaded', () => {
             const toggleBtn = document.getElementById('accountToggle');
             const wrapper   = toggleBtn.closest('div.relative');
-            
+
             toggleBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             wrapper.classList.toggle('open-dropdown');
@@ -370,15 +370,15 @@
                     // if item.id is numeric, no need to strip a prefix
                     const numericId = item.id.replace(/^doujin/, "");
                     window.location.href = "/doujin/" + numericId;
-                
+
                 // 2) Anime / Manga / Hentai / Manwha → /media/{id}
                 } else if (["anime","manga","hentai","manwha"].includes(type)) {
                     window.location.href = `/media/${item.id}`;
-                
+
                 // 3) Visual Novel → /vn/{id}
                 } else if (type === "visual novel") {
                     window.location.href = `/vn/${item.id}`;
-                
+
                 // 4) Fallback
                 } else {
                     window.location.href = `/media/${item.id}`;

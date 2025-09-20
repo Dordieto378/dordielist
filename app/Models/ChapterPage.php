@@ -6,11 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class ChapterPage extends Model
 {
-    protected $fillable = [
-        'chapter_id',
-        'chapter_number',  // here this is actually the *page* number
-        'file_path',
-    ];
+    protected $fillable = ['chapter_id', 'page_number', 'file_path'];
 
     public function chapter()
     {

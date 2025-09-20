@@ -185,225 +185,164 @@
 
     <script src="https://cdn.plyr.io/3.7.8/plyr.polyfilled.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener("DOMContentLoaded", function () {
+            const isGuest       = @json(!Auth::check());
+            const searchButton  = document.getElementById("searchButton");
+            const popupOverlay  = document.getElementById("popupOverlay");
+            const body          = document.body;
+            const searchInput   = document.getElementById("searchInput");
+            const searchResults = document.getElementById("searchResults");
             const toggleBtn = document.getElementById('accountToggle');
-            const wrapper   = toggleBtn.closest('div.relative');
+            const menu      = document.getElementById('my-account-drop-links');
 
-            toggleBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            wrapper.classList.toggle('open-dropdown');
+            let aborter = null;
+            let debTimer = null;
+
+            // show popup
+            searchButton.addEventListener("click", () => {
+                popupOverlay.classList.remove("hidden");
+                body.classList.add("overflow-hidden");
+                searchInput.focus();
             });
 
-            // clicking anywhere else closes it
-            document.addEventListener('click', () => {
-            wrapper.classList.remove('open-dropdown');
-            });
-        });
-       document.addEventListener("DOMContentLoaded", function () {
-        // 0) “Are we a guest?” → inline for blur logic
-        const isGuest = @json(!Auth::check());
-
-        const searchButton  = document.getElementById("searchButton");
-        const popupOverlay  = document.getElementById("popupOverlay");
-        const body          = document.body;
-        const searchInput   = document.getElementById("searchInput");
-        const searchResults = document.getElementById("searchResults");
-
-        let allMedia  = null; // Will hold the combined AniList+VNDB list
-        let isLoading = false; // Are we currently fetching?
-
-        // 1) Show popup & fetch data if needed
-        searchButton.addEventListener("click", async () => {
-            popupOverlay.classList.remove("hidden");
-            body.classList.add("overflow-hidden");
-
-            if (allMedia === null && !isLoading) {
-                isLoading = true;
-                try {
-                    // Fetch AniList + VNDB in parallel
-                    const [aniRes, vnRes, doujinRes] = await Promise.all([
-                        fetch("/api/media"),
-                        fetch("/api/vndb-media"),
-                        fetch("/api/doujins")
-                    ]);
-
-                    const aniList = await aniRes.json();
-                    const vnList  = await vnRes.json();
-                    const doujinList = await doujinRes.json();
-
-                    // Normalize VNDB entries into “AniList‐like” objects, adding isAdult = !hasNoSexualContent
-                    const vnItems = vnList.map(vn => ({
-                        id:         vn.id,         // prefix so IDs don’t collide
-                        coverImage: { extraLarge: vn.image.url },
-                        title:      { english: vn.title, romaji: vn.title },
-                        type:       "Visual novel",
-                        genres:     [],                   // if you want, map vn.tags → genres
-                        countryOfOrigin: "",             // optional
-                        // **Here’s the key part**:
-                        // If the VN does NOT have “No sexual content,” then isAdult = true (we must blur).
-                        isAdult:    ! (vn.hasNoSexualContent === true)
-                    }));
-
-                    allMedia = [...aniList, ...vnItems, ...doujinList];
-                } catch (err) {
-                    console.error("Error fetching media lists:", err);
-                    allMedia = [];
+            // hide popup (click backdrop / ESC)
+            popupOverlay.addEventListener("click", (e) => {
+                if (e.target === popupOverlay) {
+                    popupOverlay.classList.add("hidden");
+                    body.classList.remove("overflow-hidden");
                 }
-                isLoading = false;
-
-                // If the user already typed a query, run search again
-                performSearch(searchInput.value.trim().toLowerCase());
-            }
-        });
-
-        // 2) Hide popup if clicked outside or on ESC
-        popupOverlay.addEventListener("click", (event) => {
-            if (event.target === popupOverlay) {
-                popupOverlay.classList.add("hidden");
-                body.classList.remove("overflow-hidden");
-            }
-        });
-        document.addEventListener("keydown", (event) => {
-            if (event.key === "Escape") {
-                popupOverlay.classList.add("hidden");
-                body.classList.remove("overflow-hidden");
-            }
-        });
-
-        // 3) Highlight helper
-        function highlightMatch(text, query) {
-            if (!query) return text;
-            const regex = new RegExp(`(${query})`, "gi");
-            return text.replace(regex, `<span class="text-red-600 underline">$1</span>`);
-        }
-
-        // 4) Media‐type helper (unchanged)
-        function getMediaType(item) {
-            const type    = (item.type || "").toUpperCase();
-            const genres  = (item.genres || []).map(g => g.toLowerCase());
-            const country = (item.countryOfOrigin || "").toUpperCase();
-
-            if (type === "ANIME") {
-                return genres.includes("hentai") ? "Hentai" : "Anime";
-            } else if (type === "MANGA") {
-                if (genres.includes("hentai")) return "Doujin";
-                if (country === "KR") return "Manwha";
-                return "Manga";
-            }
-            return type.charAt(0) + type.slice(1).toLowerCase() || "Unknown";
-        }
-
-        // 5) Main search function (blurs based on item.isAdult && isGuest)
-        function performSearch(query) {
-            searchResults.innerHTML = "";
-
-            // Hide results if empty query
-            if (!query) {
-                searchResults.classList.add("hidden");
-                return;
-            }
-
-            // Show “Loading…” if still fetching
-            if (isLoading || allMedia === null) {
-                searchResults.innerHTML = `<div class="p-4 text-gray-500">Loading...</div>`;
-                searchResults.classList.remove("hidden");
-                return;
-            }
-
-            // Filter allMedia by title match
-            const filteredMedia = allMedia.filter((item) => {
-                const titleLower = (item.title.english || item.title.romaji || "").toLowerCase();
-                return titleLower.includes(query);
+            });
+            document.addEventListener("keydown", (e) => {
+                if (e.key === "Escape") {
+                    popupOverlay.classList.add("hidden");
+                    body.classList.remove("overflow-hidden");
+                }
             });
 
-            // If no matches
-            if (filteredMedia.length === 0) {
-                searchResults.innerHTML = `<div class="p-4 text-gray-500">No results found</div>`;
-                searchResults.classList.remove("hidden");
-                return;
+            function highlightMatch(text, query) {
+                if (!query) return text;
+                const rx = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, "gi");
+                return text.replace(rx, `<span class="text-red-600 underline">$1</span>`);
             }
 
-            // Otherwise, show up to 10 results
-            filteredMedia.slice(0, 6).forEach((item) => {
-                const title            = item.title.english || item.title.romaji || "No Title";
-                const highlightedTitle = highlightMatch(title, query);
-
-                // Determine NSFW for both AniList & VNDB items:
-                //  - AniList items have item.isAdult from the API.
-                //  - VNDB items got isAdult = !hasNoSexualContent in our mapping above.
-                const shouldBlur = (item.isAdult === true) && isGuest;
-
-                // Build a flex row. The thumbnail wrapper is a relative 48×48, so
-                // the badge can absolutely position itself over that <img>.
-                const resultItem = document.createElement("div");
-                resultItem.className = "flex items-center p-3 cursor-pointer rounded-lg group";
-
-                resultItem.innerHTML = `
-                <span class="relative inline-block w-12 h-12 flex-shrink-0 mr-3">
-                    ${shouldBlur
-                    ? `<img
-                        src="/images/18-plus.png"
-                        alt="18+"
-                        class="absolute top-0 right-0 w-4 h-4 z-10"
-                        >`
-                    : ``
-                    }
-                    <img
-                    src="${item.coverImage.extraLarge}"
-                    alt="Cover"
-                    class="w-full h-full rounded object-cover ${shouldBlur ? 'filter blur-2xl' : ''}"
-                    >
-                </span>
-                <div>
-                    <p class="font-semibold text-black group-hover:text-red-600">
-                    ${highlightedTitle}
-                    </p>
-                    <p class="text-gray-600 text-sm">${getMediaType(item)}</p>
-                </div>
-                `;
-
-                // Navigate on click
-                resultItem.addEventListener("click", () => {
-                const type = (item.type || "").toLowerCase();
-                // 1) Doujin → /doujin/{id}
-                if (type === "doujin") {
-                    // if item.id is numeric, no need to strip a prefix
-                    const numericId = item.id.replace(/^doujin/, "");
-                    window.location.href = "/doujin/" + numericId;
-
-                // 2) Anime / Manga / Hentai / Manwha → /media/{id}
-                } else if (["anime","manga","hentai","manwha"].includes(type)) {
-                    window.location.href = `/media/${item.id}`;
-
-                // 3) Visual Novel → /vn/{id}
-                } else if (type === "visual novel") {
-                    window.location.href = `/vn/${item.id}`;
-
-                // 4) Fallback
-                } else {
-                    window.location.href = `/media/${item.id}`;
+            function renderResults(items, query) {
+                searchResults.innerHTML = "";
+                if (!items.length) {
+                    searchResults.innerHTML = `<div class="p-4 text-gray-500">No results found</div>`;
+                    searchResults.classList.remove("hidden");
+                    return;
                 }
+
+                items.slice(0, 10).forEach(item => {
+                    const title = item.title.english || item.title.romaji || "No Title";
+                    const shouldBlur = (item.isAdult === true) && isGuest;
+
+                    const row = document.createElement("div");
+                    row.className = "flex items-center p-3 cursor-pointer rounded-lg group";
+
+                    row.innerHTML = `
+        <span class="relative inline-block w-12 h-12 flex-shrink-0 mr-3">
+          ${shouldBlur ? `
+            <img src="/images/18-plus.png" alt="18+"
+                 class="absolute top-0 right-0 w-4 h-4 z-10">` : ``}
+          <img src="${item.coverImage?.extraLarge ?? '/images/no-image.jpg'}"
+               alt="Cover" class="w-full h-full rounded object-cover ${shouldBlur ? 'filter blur-2xl' : ''}">
+        </span>
+        <div>
+          <p class="font-semibold text-black group-hover:text-red-600">
+            ${highlightMatch(title, query)}
+          </p>
+          <p class="text-gray-600 text-sm">${(item.type || '').replace('-', ' ')}</p>
+        </div>
+      `;
+
+                    row.addEventListener("click", () => {
+                        const t = (item.type || '').toLowerCase();
+                        if (t === 'visual-novel') {
+                            window.location.href = `/vn/${item.id}`;
+                        } else if (t === 'doujin') {
+                            window.location.href = `/doujin/${item.id}`;
+                        } else {
+                            // anime/manga/hentai/manwha/others
+                            window.location.href = `/media/${item.id}`;
+                        }
+                    });
+
+                    searchResults.appendChild(row);
                 });
 
+                searchResults.classList.remove("hidden");
+            }
 
-                searchResults.appendChild(resultItem);
+            async function doSearch(q) {
+                if (aborter) aborter.abort();
+                aborter = new AbortController();
+
+                searchResults.classList.remove("hidden");
+                searchResults.innerHTML = `<div class="p-4 text-gray-500">Loading...</div>`;
+
+                try {
+                    const res = await fetch(`/search?q=${encodeURIComponent(q)}&limit=20`, {
+                        signal: aborter.signal
+                    });
+                    const data = await res.json();
+                    renderResults(Array.isArray(data) ? data : [], q);
+                } catch (e) {
+                    if (e.name === 'AbortError') return;
+                    console.error(e);
+                    searchResults.innerHTML = `<div class="p-4 text-gray-500">Error loading results</div>`;
+                    searchResults.classList.remove("hidden");
+                }
+            }
+
+            searchInput.addEventListener("input", function () {
+                const q = this.value.trim();
+                if (!q) {
+                    searchResults.classList.add("hidden");
+                    return;
+                }
+                clearTimeout(debTimer);
+                debTimer = setTimeout(() => doSearch(q), 250);
             });
 
-            searchResults.classList.remove("hidden");
-        }
+            // click outside the dropdown hides it
+            document.addEventListener("click", (e) => {
+                if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+                    searchResults.classList.add("hidden");
+                }
+            });
 
-        // 6) Attach key listener to input
-        searchInput.addEventListener("input", function () {
-            performSearch(this.value.trim().toLowerCase());
-        });
+            // If user is a guest, those elements won't exist—just bail.
+            if (!toggleBtn || !menu) return;
 
-        // 7) Clicking outside hides results
-        document.addEventListener("click", (event) => {
-            if (!searchInput.contains(event.target) && !searchResults.contains(event.target)) {
-                searchResults.classList.add("hidden");
+            function openMenu() {
+                menu.classList.remove('opacity-0', 'pointer-events-none');
             }
+            function closeMenu() {
+                menu.classList.add('opacity-0', 'pointer-events-none');
+            }
+            function isOpen() {
+                return !menu.classList.contains('opacity-0');
+            }
+
+            toggleBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                isOpen() ? closeMenu() : openMenu();
+            });
+
+            // Clicks outside close it
+            document.addEventListener('click', (e) => {
+                if (!menu.contains(e.target) && !toggleBtn.contains(e.target)) {
+                    closeMenu();
+                }
+            });
+
+            // ESC closes it
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') closeMenu();
+            });
         });
-    });
     </script>
+
 </body>
 </html>

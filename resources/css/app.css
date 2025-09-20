@@ -155,3 +155,7 @@
 /* Disable clicks on links until revealed */
 .vn-desc .spoiler a{ pointer-events:none }
 .vn-desc .spoiler.revealed a{ pointer-events:auto }
+
+.episode-bottom{
+    margin-bottom: -113px;
+}

@@ -1,15 +1,14 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use Illuminate\Http\Request;
 use Laravel\Fortify\Http\Controllers\AuthenticatedSessionController;
 use Laravel\Fortify\Http\Controllers\TwoFactorAuthenticatedSessionController;
 use Laravel\Fortify\Http\Controllers\TwoFactorAuthenticationController;
 use Laravel\Fortify\Http\Controllers\RecoveryCodeController;
 use App\Http\Controllers\ConfirmTwoFactorAuthenticationController;
-use Illuminate\Support\Facades\Storage;
 use App\Models\Doujin;
 use App\Http\Controllers\AnilistController;
+use App\Http\Controllers\DoujinController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\VndbController;
 use App\Http\Controllers\Auth\LoginController;
@@ -18,12 +17,12 @@ use App\Http\Controllers\CollectionController;
 use App\Http\Controllers\FavoriteController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\AdminController;
-use App\Http\Controllers\MediaController;
 use App\Http\Controllers\EpisodeController;
 use App\Http\Controllers\ChapterController;
 use App\Http\Controllers\TwoFactorDisableController;
+use App\Http\Controllers\SearchController;
 
-Auth::routes();
+//Auth::routes();
 
 Route::get('/', [AnilistController::class, 'home'])->name('home');
 
@@ -54,6 +53,8 @@ Route::post('/logout',[AuthenticatedSessionController::class, 'destroy'])
 Route::get('/two_factor_challenge', [TwoFactorAuthenticatedSessionController::class, 'create'])
      ->name('two-factor.login');
 Route::post('/two_factor_challenge', [TwoFactorAuthenticatedSessionController::class, 'store']);
+
+Route::get('/search', [SearchController::class, 'index'])->name('search.index');
 
 Route::middleware('auth')->group(function () {
     // Enable 2FA
@@ -91,32 +92,8 @@ Route::middleware('auth')->group(function () {
 
 Route::get('/home-paginated', [AnilistController::class, 'paginatedMedia'])->name('home.paginated');
 
-Route::get('/api/media', [AnilistController::class, 'getAllMedia']);
-
-Route::get('/api/doujins', function (Request $request) {
-    $doujins = Doujin::all();
-
-    $mapped = $doujins->map(function ($doujin) {
-          $rawPath      = $doujin->cover_url;
-          $fullCoverUrl = Storage::disk('b2')->url($rawPath);
-
-        return [
-            'id'         => 'doujin'.$doujin->id,
-            'coverImage' => ['extraLarge' => $fullCoverUrl],
-            'title'      => [
-                'english' => $doujin->doujin_name,
-                'romaji'  => $doujin->doujin_name,
-            ],
-            'type'    => 'Doujin',
-            'isAdult' => true,
-        ];
-    });
-
-    return response()->json($mapped);
-});
-
-Route::get('/doujin/{doujin}', [CategoryController::class, 'showDoujin'])
-     ->name('media.doujin');
+Route::get('/doujin/{media}', [DoujinController::class, 'show'])
+    ->name('doujins.show');
 
 Route::get('/category/{category}/{listFilter?}/{mediaStatus?}/{titleOrder?}/{scoreOrder?}/{dateOrder?}', [CategoryController::class, 'show'])
     ->where('category', '(?i)(ANIMES|MANGAS|MANWHAS|HENTAIS|DOUJINS|VISUAL-NOVEL)')
@@ -198,10 +175,6 @@ Route::middleware(['auth'])->prefix('settings')->group(function () {
 
 
 Route::middleware(['auth'])->group(function () {
-     Route::get('/media', [MediaController::class, 'index'])->name('media.index');
-
-     Route::get('/media/doujin/{doujin}/page/{page}', [MediaController::class, 'readPage'])
-          ->name('media.doujin.page');
 
     Route::post('/media/{media}/episodes', [EpisodeController::class, 'syncFromDisk'])
         ->name('episodes.sync');
@@ -210,11 +183,12 @@ Route::middleware(['auth'])->group(function () {
      Route::get('media/{media}/episodes/{episode}', [EpisodeController::class, 'show'])
      ->name('episodes.show');
 
-     Route::post ('/media/{media}/chapters', [ChapterController::class,'store'])->name('chapters.store');
-     Route::get  ('/media/{media}/chapters/{chapter}', [ChapterController::class,'s how'])->name('chapters.show');
-     Route::get('/media/{media}/chapters/{chapter}/{page}',
-               [ChapterController::class,'readPage'])
-          ->name('chapters.page');
+
+    Route::get('/media/{media}/chapters/{chapter}/{page?}', [ChapterController::class, 'readPage'])
+        ->name('chapters.page');
+
+    Route::post('/media/{media}/chapters/sync', [ChapterController::class,'syncFromDisk'])
+        ->name('chapters.sync');
 
 });
 

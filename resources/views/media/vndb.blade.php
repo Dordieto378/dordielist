@@ -128,7 +128,7 @@
                     </div>
                 </div>
                 <p class="vn-desc text-sm mb-2 mt-2">
-                    {!! $item['description_html'] ?? 'No synopsis available.' !!}
+                    {!! $item['description_html'] !!}
                 </p>
                 <div class="mb-2 mt-2">
                     <div class="flex flex-wrap gap-2 text-xs text-gray-700">
@@ -145,34 +145,6 @@
         </div>
     </div>
 </div>
-<style>
-    .vn-desc a{ color:#2563eb; text-decoration:none; cursor:pointer }
-    .vn-desc a:hover{ text-decoration:underline }
-
-    /* hidden by default */
-    .vn-desc .spoiler{
-        display:inline-block;
-        background:#000;
-        color:transparent;
-        border-radius:3px;
-        padding:0 .25rem;
-        transition: color .15s, background-color .15s;
-    }
-
-    /* reveal on hover/focus (desktop + keyboard) */
-    .vn-desc .spoiler:hover,
-    .vn-desc .spoiler:focus,
-    .vn-desc .spoiler:focus-within{
-        background:transparent;
-        color:inherit !important;
-    }
-
-    /* links only clickable when revealed */
-    .vn-desc .spoiler a{ pointer-events:none }
-    .vn-desc .spoiler:hover a,
-    .vn-desc .spoiler:focus a,
-    .vn-desc .spoiler:focus-within a{ pointer-events:auto }
-</style>
 
 <div
   id="addToCollectionModal"

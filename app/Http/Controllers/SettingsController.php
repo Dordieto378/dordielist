@@ -1,6 +1,4 @@
 <?php
-// app/Http/Controllers/SettingsController.php
-
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
@@ -8,7 +6,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
-use Illuminate\Support\Facades\Validator;  
+use Illuminate\Support\Facades\Validator;
 use App\Models\User;
 use App\Models\Doujin;
 use App\Models\DoujinPage;
@@ -17,13 +15,9 @@ use Illuminate\Support\Facades\Http;
 set_time_limit(0);
 class SettingsController extends Controller
 {
-    /**
-     * Show the “Edit Profile” form.
-     */
     public function edit()
     {
         $user = Auth::user();
-        // Now return the renamed Blade in resources/views/settings/account.blade.php
         return view('settings.account', compact('user'));
     }
 
@@ -31,7 +25,6 @@ class SettingsController extends Controller
     {
         $user = Auth::user();
 
-        // 1) Define rules exactly as before, including your new password regex:
         $rules = [
             'username' => [
                 'required',
@@ -48,51 +41,40 @@ class SettingsController extends Controller
             'password' => [
                 'nullable',
                 'string',
-                // at least 15 chars, one uppercase, one lowercase, one digit, one special
                 'regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{15,}$/',
                 'confirmed',
             ],
         ];
 
-        // 2) Run the validator “manually” so we can intercept failures
         $validator = Validator::make($request->all(), $rules);
 
         if ($validator->fails()) {
-            // Grab the very first error message from the validator
             $firstError = $validator->errors()->first();
 
-            // Redirect back WITH a single 'status' flash (in red)
             return back()
                 ->with('status', $firstError)
                 ->with('status_color', 'red');
         }
 
-        // 3) If validation passed, we can safely get the validated data
         $data = $validator->validated();
 
-        // 4) Update the user fields
         $user->username = $data['username'];
         $user->email    = $data['email'];
 
         if (!empty($data['password'])) {
-            $user->password = $data['password']; // mutator will bcrypt
+            $user->password = $data['password'];
         }
 
         $user->save();
 
-        // 5) Redirect back WITH a single 'status' flash (in green)
         return redirect()
             ->route('settings.profile.edit')
             ->with('status', 'Profile updated successfully.')
             ->with('status_color', 'green');
     }
 
-    /** 
-     * Show the “Users” section.
-     */
     public function users()
     {
-        // Eager‐load 'role' to avoid N+1 in the loop
         $users = User::with('role')->get();
 
         return view('settings.users', compact('users'));
@@ -100,18 +82,15 @@ class SettingsController extends Controller
 
     public function addDoujin()
     {
-        // Query distinct author_name values from the doujins table
-        // (so that your datalist can autocomplete/search them)
         $authors = Doujin::distinct()
                          ->orderBy('author_name')
-                         ->pluck('author_name'); // returns a Collection of strings
+                         ->pluck('author_name');
 
         return view('settings.addDoujin', compact('authors'));
     }
 
    public function storeDoujin(Request $request)
     {
-        // 1) Validate inputs
         $request->validate([
             'title'   => ['required', 'string', 'max:255'],
             'author'  => ['required', 'string', 'max:255'],
@@ -119,13 +98,11 @@ class SettingsController extends Controller
             'files.*' => ['file', 'image', 'mimes:png,jpeg,jpg,webp,gif'],
         ]);
 
-        $authorRaw = trim($request->input('author')); 
-        $titleRaw  = trim($request->input('title')); 
+        $authorRaw = trim($request->input('author'));
+        $titleRaw  = trim($request->input('title'));
 
-        // 3) Build the B2 folder prefix (e.g. "doujins/my-title-slug")
         $baseFolder = "doujins/{$authorRaw}/{$titleRaw}";
 
-        // 4) Create the Doujin record (leave cover_url blank for now)
         $doujin = Doujin::create([
             'author_name' => $request->input('author'),
             'doujin_name' => $request->input('title'),
@@ -133,7 +110,6 @@ class SettingsController extends Controller
             'cover_url'   => '',
         ]);
 
-        // 5) Authorize B2 account (global endpoint)
         $accountId      = env('B2_KEY_ID');
         $applicationKey = env('B2_APP_KEY');
         $bucketName     = env('B2_BUCKET');
@@ -149,7 +125,7 @@ class SettingsController extends Controller
 
         $authData  = $authResp->json();
         $authToken = $authData['authorizationToken'];
-        $apiUrl    = $authData['apiUrl']; // e.g. "https://api003.backblazeb2.com"
+        $apiUrl    = $authData['apiUrl'];
 
         // 6) List buckets to get bucketId
         $listBucketsResp = Http::withHeaders([

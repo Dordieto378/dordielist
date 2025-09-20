@@ -10,23 +10,26 @@ use Illuminate\Support\Facades\Storage;
 
 class EpisodeController extends Controller
 {
-    /**
-     * POST /media/{media}/episodes
-     * Stores uploaded video files under: anime/{mediaId}/ep-{N}.{ext}
-     */
     public function syncFromDisk(Request $request, int $mediaId)
     {
-        // ensure the media exists
-        $media = Media::findOrFail($mediaId);
+        $media = \App\Models\Media::findOrFail($mediaId);
 
-        $disk = Storage::disk('public'); // storage/app/public
-        $dir  = "anime/{$mediaId}";
+        $type   = strtoupper($media->type ?? 'ANIME');
+        // If your DB stores genres as JSON/text:
+        $genres = is_array($media->genres) ? $media->genres : (json_decode($media->genres ?? '[]', true) ?: []);
+        $hasH   = in_array('Hentai', $genres, true);
 
-        if (! $disk->exists($dir)) {
+        $isHentai   = ($type === 'HENTAI') || ($type === 'ANIME' && $hasH);
+        $baseDir    = $isHentai ? 'hentai' : 'anime';
+        $mediaType  = $isHentai ? 'HENTAI' : 'ANIME';
+
+        $disk = Storage::disk('public');
+        $dir  = "{$baseDir}/{$mediaId}";
+
+        if (!$disk->exists($dir)) {
             return back()->with('status', "Folder not found: {$dir}");
         }
 
-        // find all .mp4/.webm files
         $files = collect($disk->files($dir))
             ->filter(fn($path) => in_array(strtolower(pathinfo($path, PATHINFO_EXTENSION)), ['mp4','webm']))
             ->sortBy(fn($path) => strtolower(basename($path)))
@@ -36,7 +39,6 @@ class EpisodeController extends Controller
             return back()->with('status', "No .mp4/.webm files found in {$dir}");
         }
 
-        // already registered episodes
         $existing = Episode::where('media_fk', $mediaId)
             ->pluck('file_path')
             ->map(fn($p) => ltrim($p, '/'))
@@ -47,7 +49,7 @@ class EpisodeController extends Controller
 
         foreach ($files as $relPath) {
             if (in_array($relPath, $existing, true)) {
-                continue; // skip already added
+                continue;
             }
 
             $basename  = basename($relPath);
@@ -63,7 +65,7 @@ class EpisodeController extends Controller
             Episode::updateOrCreate(
                 ['media_fk' => $mediaId, 'episode_number' => $epNumber],
                 [
-                    'media_type' => 'ANIME',
+                    'media_type' => $mediaType,   // <-- ANIME or HENTAI correctly
                     'file_path'  => $relPath,
                 ]
             );
@@ -73,6 +75,7 @@ class EpisodeController extends Controller
 
         return back()->with('status', "Synced {$created} new episode(s) from {$dir}");
     }
+
 
     private function parseEpisodeNumber(string $filename): ?int
     {
@@ -89,10 +92,6 @@ class EpisodeController extends Controller
         return null;
     }
 
-    /**
-     * GET /media/{media}/episodes/{episode}
-     * Show the player page for a specific episode. (Uses local Media; no AniList.)
-     */
     public function show($mediaId, $episodeNumber)
     {
         $media   = Media::findOrFail($mediaId);
@@ -100,13 +99,15 @@ class EpisodeController extends Controller
             ->where('episode_number', $episodeNumber)
             ->firstOrFail();
 
-        // map a minimal “item” array your blade expects
         $item = [
             'id'          => $media->id,
-            'type'        => strtoupper($media->type), // 'ANIME' | 'MANGA'
-            'title'       => ['english' => $media->title, 'romaji' => $media->alt_title],
+            'type'        => strtoupper($media->type),
+            'title'       => [
+                'english' => $media->title_english,
+                'romaji'  => $media->title_romaji,
+            ],
             'coverImage'  => ['extraLarge' => $media->cover_url ?: asset('images/no-image.jpg')],
-            'description' => $media->description ?: 'No synopsis available.',
+            'description' => $media->description,
             'genres'      => is_array($media->genres) ? $media->genres : (json_decode($media->genres ?? '[]', true) ?: []),
             'tags'        => is_array($media->tags)   ? $media->tags   : (json_decode($media->tags   ?? '[]', true) ?: []),
             'averageScore'=> $media->avg_score,
@@ -124,7 +125,6 @@ class EpisodeController extends Controller
             ],
         ];
 
-        // category string (matches your favorites/collections code)
         $genres  = $item['genres'] ?? [];
         $type    = $item['type'] ?? '';
         $origin  = strtoupper($item['countryOfOrigin'] ?? '');

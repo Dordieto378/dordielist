@@ -345,16 +345,12 @@ if (!function_exists('shortTitle')) {
                         </svg>
                     </div>
                     <div class="relative mb-4">
-                        <label class="block text-sm font-medium text-gray-900 mb-2">DATE</label>
+                        <label class="block text-sm font-medium text-gray-900 mb-2">RELEASE</label>
                         <select name="date_order" onchange="redirectWithFilters()"
                                 class="appearance-none w-full px-3 py-2 border rounded-sm focus:border-red-600 focus:outline-none focus:ring-2 focus:ring-red-600 h-[2.5rem] text-gray-900 font-medium">
                             <option value="none" {{ (isset($dateOrder) && $dateOrder=='none') ? 'selected' : '' }}>None</option>
-                            <option value="updated_desc" {{ (isset($dateOrder) && $dateOrder=='updated_desc') ? 'selected' : '' }}>Last Updated (New to Old)</option>
-                            <option value="updated_asc" {{ (isset($dateOrder) && $dateOrder=='updated_asc') ? 'selected' : '' }}>Last Updated (Old to New)</option>
-                            <option value="created_desc" {{ (isset($dateOrder) && $dateOrder=='created_desc') ? 'selected' : '' }}>Last Added (New to Old)</option>
-                            <option value="created_asc" {{ (isset($dateOrder) && $dateOrder=='created_asc') ? 'selected' : '' }}>Last Added (Old to New)</option>
-                            <option value="start_desc" {{ (isset($dateOrder) && $dateOrder=='start_desc') ? 'selected' : '' }}>Start Date (New to Old)</option>
-                            <option value="start_asc" {{ (isset($dateOrder) && $dateOrder=='start_asc') ? 'selected' : '' }}>Start Date (Old to New)</option>
+                            <option value="start_desc" {{ (isset($dateOrder) && $dateOrder=='start_desc') ? 'selected' : '' }}>New to Old</option>
+                            <option value="start_asc" {{ (isset($dateOrder) && $dateOrder=='start_asc') ? 'selected' : '' }}>Old to New</option>
                         </select>
                         <svg class="pointer-events-none absolute right-3 top-1/2 transform -translate-y-1/2 h-3 w-3 text-gray-400 mt-3.5"
                             xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="4" stroke="currentColor">

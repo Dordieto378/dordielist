@@ -62,11 +62,11 @@ return [
 
         'b2' => [
             'driver'                  => 's3',                          // ← must be "s3"
-            'key'                     => env('B2_KEY_ID'),              // ← from .env
-            'secret'                  => env('B2_APP_KEY'),             // ← from .env
-            'region'                  => env('B2_REGION'),              // ← from .env
-            'bucket'                  => env('B2_BUCKET'),              // ← from .env
-            'endpoint'                => env('B2_ENDPOINT'),            // ← from .env
+            'key'                     => env('B2_KEY_ID'),              // ← from ..env
+            'secret'                  => env('B2_APP_KEY'),             // ← from ..env
+            'region'                  => env('B2_REGION'),              // ← from ..env
+            'bucket'                  => env('B2_BUCKET'),              // ← from ..env
+            'endpoint'                => env('B2_ENDPOINT'),            // ← from ..env
             'use_path_style_endpoint' => true,                          // ← required for B2
             'version'                 => 'latest',                      // ← THIS LINE IS MANDATORY
             'throw'                   => true,                          // ← ADD THIS to force exceptions

@@ -17,7 +17,7 @@ class ImportAnilist extends Command
     {
         $token = env('ANILIST_ACCESS_TOKEN');
         if (!$token) {
-            $this->error('ANILIST_ACCESS_TOKEN is missing in .env');
+            $this->error('ANILIST_ACCESS_TOKEN is missing in ..env');
             return self::FAILURE;
         }
 

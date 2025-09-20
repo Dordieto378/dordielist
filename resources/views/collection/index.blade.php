@@ -89,10 +89,7 @@
                         </div>
                     </div>
                 @empty
-                    <div class="col-span-4 bg-white border border-gray-200 rounded shadow-sm
-                    flex items-center justify-center py-8">
-                        <p class="text-gray-700 text-md font-medium">No custom collections yet.</p>
-                    </div>
+
                 @endforelse
 
             </div>

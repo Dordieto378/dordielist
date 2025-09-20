@@ -1,374 +1,391 @@
 @extends('layouts.app')
 
 @section('content')
-@php
-    use Illuminate\Support\Facades\Storage;
-    function shortTitle($title, $maxLen = 25) {
-        if (strlen($title) <= $maxLen) {
-            return $title;
-        }
-        return substr($title, 0, $maxLen - 1) . '…';
-    }
-
-    $shouldBlur = true && ! Auth::check();
-
-    $pages = $chapter->pages->pluck('chapter_number')->sort()->values();
-    $totalPages = $pages->count();
-
-    $prev = null;
-    $next = null;
-
-    $prevCandidate = $pageNumber - 1;
-    $nextCandidate = $pageNumber + 1;
-
-    if ($prevCandidate >= 1 && $pages->contains($prevCandidate)) {
-        $prev = $prevCandidate;
-    }
-    if ($nextCandidate <= $totalPages && $pages->contains($nextCandidate)) {
-        $next = $nextCandidate;
-    }
-
-    $nums = $pages->all();
-    $currentIndex = array_search($pageNumber, $nums);
-
-    $pairStart = ($currentIndex % 2 === 0) ? $currentIndex : ($currentIndex - 1);
-
-    $nums = $pages->all();
-    $currentIndex = array_search($pageNumber, $nums);
-
-    $pairStart = ($currentIndex % 2 === 0) ? $currentIndex : ($currentIndex - 1);
-
-    $a = $nums[$pairStart] ?? null;
-    $b = $nums[$pairStart + 1] ?? null;
-
-    if ($a !== null && $b !== null && $a < $b) {
-        $leftNum  = $b;
-        $rightNum = $a;
-    } else {
-        $leftNum  = $a;
-        $rightNum = $b;
-    }
-
-    $prevPairPage = null;
-    $nextPairPage = null;
-
-    $prevPairStart = $pairStart - 2;
-    if ($prevPairStart >= 0) {
-        $prevPairPage = $nums[$prevPairStart];
-    }
-
-    $nextPairStart = $pairStart + 2;
-    if ($nextPairStart < count($nums)) {
-        $nextPairPage = $nums[$nextPairStart];
-    }
-
-    $view = request('view', 'one');
-    $allowedExts = ['jpg','jpeg','png','gif','webp'];
-@endphp
-
-<div class="flex flex-col items-center py-[4rem] mt-12">
-  <div class="w-[1280px] bg-white shadow-sm rounded-md p-6 ml-[0.5rem] space-y-6">
-    <div class="relative flex items-center mb-4">
-      <div class="flex-1">
-        @if($view === 'one')
-            <h1 class="text-2xl font-bold text-red-600">
-                <a href="{{ route('chapters.show', ['media' => $chapter->item_id, 'chapter' => $chapter->chapter_number]) }}"
-                    class="hover:underline">
-                    {{ shortTitle('Chapter '.$chapter->chapter_number, 30) }}
-                </a>
-                - Page {{ $pageNumber }}
-            </h1>
-        @elseif($view === 'double')
-          <h1 class="text-2xl font-bold text-red-600">
-                <a href="{{ route('chapters.show', ['media' => $chapter->item_id, 'chapter' => $chapter->chapter_number]) }}"
-                    class="hover:underline">
-                    {{ shortTitle('Chapter '.$chapter->chapter_number, 30) }}
-                </a>
-            @if($rightNum)
-              - Pages {{ $leftNum }} &amp; {{ $rightNum }}
-            @else
-              - Page {{ $leftNum }}
-            @endif
-          </h1>
-        @else
-          <h1 class="text-2xl font-bold text-red-600">
-            <a href="{{ route('chapters.show', ['media' => $chapter->item_id, 'chapter' => $chapter->chapter_number]) }}"
-                class="hover:underline">
-                {{ shortTitle('Chapter '.$chapter->chapter_number, 30) }}
-            </a>
-          </h1>
-        @endif
-      </div>
-      <div class="absolute inset-x-0 flex justify-center pointer-events-none">
-        <button 
-          onclick="zoomOut()" 
-          class="pointer-events-auto px-3 py-1 bg-gray-200 text-gray-700 rounded transition"
-          title="Zoom Out"
-        >-</button>
-        <button 
-          onclick="zoomIn()" 
-          class="pointer-events-auto ml-2 px-3 py-1 bg-gray-200 text-gray-700 rounded transition"
-          title="Zoom In"
-        >+</button>
-      </div>
-      @php
-        $baseParams = ['media'=>$chapter->item_id,'chapter'=>$chapter->chapter_number];
-      @endphp
-      <div class="flex-1 flex justify-end space-x-4">
-        <a
-          href="{{ route('chapters.page', array_merge($baseParams, ['page' => $pageNumber, 'view' => 'scroll'])) }}"
-          class="p-2 rounded {{ $view === 'scroll' ? 'bg-gray-800 text-white' : 'bg-gray-200 text-gray-700' }} transition hover:bg-white hover:text-black"
-          title="Scroll Mode"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-            <path fill-rule="evenodd" d="M3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm5-4a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1zm-2 8a1 1 0 011-1h6a1 1 0 110 2H8a1 1 0 01-1-1z" clip-rule="evenodd" />
-          </svg>
-        </a>
-        <a
-          href="{{ route('chapters.page', array_merge($baseParams, ['page' => $pageNumber, 'view' => 'one'])) }}"
-          class="p-2 rounded {{ $view === 'one' ? 'bg-gray-800 text-white' : 'bg-gray-200 text-gray-700' }} transition hover:bg-white hover:text-black"
-          title="One Page Mode"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-            <path d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V8.414A2 2 0 0015.586 7L12 3.414A2 2 0 0010.586 3H4zM12 4.414L15.586 8H12V4.414z" />
-          </svg>
-        </a>
-        <a
-          href="{{ route('chapters.page', array_merge($baseParams, ['page' => $pageNumber, 'view' => 'double'])) }}"
-          class="p-2 rounded {{ $view === 'double' ? 'bg-gray-800 text-white' : 'bg-gray-200 text-gray-700' }} transition hover:bg-white hover:text-black"
-          title="Double Page Mode"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M2 3a1 1 0 011-1h7a1 1 0 011 1v2h4V3a1 1 0 011-1h7a1 1 0 011 1v15a2 2 0 01-2 2H4a2 2 0 01-2-2V3zm2 3v12h3V6H4zm5 0v12h3V6H9zm5 0v12h5V6h-5z" />
-          </svg>
-        </a>
-
-      </div>
-    </div>
-    @if($view === 'scroll')
-    <div>
-        @foreach($chapter->pages as $p)
-        @php
-            $ext = strtolower(pathinfo($p->file_path, PATHINFO_EXTENSION) ?? '');
-            $isImage = in_array($ext, $allowedExts, true);
-            $url = $isImage ? Storage::disk('b2')->url($p->file_path) : null;
-        @endphp
-
-        @if($isImage)
-            <div class="relative w-full overflow-hidden">
-            @if($shouldBlur)
-                <img
-                src="{{ asset('images/18-plus.png') }}"
-                alt="18+"
-                class="absolute top-4 right-4 w-10 h-10 z-30"
-                >
-            @endif
-            <img
-                src="{{ $url }}"
-                alt="Page {{ $p->chapter_number }}"
-                class="zoomable w-full h-auto object-contain mx-auto {{ $shouldBlur ? 'filter blur-2xl' : '' }}"
-            >
-            </div>
-        @endif
-        @endforeach
-    </div>
-
-    @elseif($view === 'one')
-        @php
-            $extOne = strtolower(pathinfo($chapter->pages->where('chapter_number', $pageNumber)->first()->file_path, PATHINFO_EXTENSION) ?? '');
-            $isSingleImage = in_array($extOne, $allowedExts, true);
-            $singleUrl = $isSingleImage ? $pageUrl : null;
-        @endphp
-
-        @if($isSingleImage)
-            <div class="relative w-full overflow-hidden">
-                @if($shouldBlur)
-                    <img
-                        src="{{ asset('images/18-plus.png') }}"
-                        alt="18+"
-                        class="absolute top-4 right-4 w-10 h-10 z-30"
-                    >
-                @endif
-
-                <img
-                    src="{{ $singleUrl }}"
-                    alt="Page {{ $pageNumber }}"
-                    class="zoomable w-full h-auto object-contain mx-auto {{ $shouldBlur ? 'filter blur-2xl' : '' }} z-10"
-                >
-
-                @if($next)
-                <a href="{{ route('chapters.page', ['media' => $chapter->item_id, 'chapter' => $chapter->chapter_number, 'page' => $next, 'view' => 'one']) }}">
-                    <div class="absolute inset-y-0 left-0 w-1/2 z-20" style="cursor:pointer;"></div>
-                </a>
-                @endif
-                @if($prev)
-                <a
-                    href="{{ route('chapters.page', ['media' => $chapter->item_id, 'chapter' => $chapter->chapter_number, 'page' => $prev, 'view' => 'one']) }}"
-                >
-                    <div class="absolute inset-y-0 right-0 w-1/2 z-20" style="cursor:pointer;"></div>
-                </a>
-                @endif
-        
-            </div>
-        @endif
-   @elseif($view === 'double')
     @php
-        $extLeft  = $leftNum  !== null
-                    ? strtolower(pathinfo(
-                        $chapter->pages->where('chapter_number', $leftNum)->first()->file_path,
-                        PATHINFO_EXTENSION
-                    ) ?? '')
-                    : '';
-        $extRight = $rightNum !== null
-                    ? strtolower(pathinfo(
-                        $chapter->pages->where('chapter_number', $rightNum)->first()->file_path,
-                        PATHINFO_EXTENSION
-                    ) ?? '')
-                    : '';
-        $isLeftImage  = in_array($extLeft,  $allowedExts, true);
-        $isRightImage = in_array($extRight, $allowedExts, true);
-        $leftUrl  = $isLeftImage  ? Storage::disk('b2')->url(
-                    $chapter->pages->where('chapter_number', $leftNum)->first()->file_path
-                    ) : null;
-        $rightUrl = $isRightImage ? Storage::disk('b2')->url(
-                    $chapter->pages->where('chapter_number', $rightNum)->first()->file_path
-                    ) : null;
+
+        if (!function_exists('shortTitle')) {
+            function shortTitle($title, $maxLen = 25) {
+                if (strlen($title) <= $maxLen) {
+                    return $title;
+                }
+                return substr($title, 0, $maxLen - 1) . '…';
+            }
+        }
+        $shouldBlur  = ! Auth::check();
+        $allowedExts = ['jpg','jpeg','png','gif','webp'];
+
+        // --- FORCE VIEW FOR MANWHA ---
+        $view = request('view', 'one');
+        $isManwha = $isManwha ?? false; // passed from controller
+        if ($isManwha) {
+            $view = 'scroll';
+        }
+
+        // Header link points back to page 1 of the same chapter + current view
+        $headerLink = route('chapters.page', [
+            'media'   => $chapter->item_id,
+            'chapter' => $chapter->chapter_number,
+            'page'    => 1,
+            'view'    => $view,
+        ]);
+
+        // View switcher base params
+        $baseParams = ['media' => $chapter->item_id, 'chapter' => $chapter->chapter_number];
+
+        // For Double view we still compute the pair (used only when !$isManwha)
+        $pageNums      = $chapter->pages->pluck('page_number')->sort()->values();
+        $nums          = $pageNums->all();
+        $currentIndex  = array_search($pageNumber, $nums, true);
+        $pairStart     = ($currentIndex % 2 === 0) ? $currentIndex : ($currentIndex - 1);
+
+        $a = $nums[$pairStart]     ?? null;
+        $b = $nums[$pairStart + 1] ?? null;
+
+        // Right-to-left style swap (larger page left, smaller right)
+        if ($a !== null && $b !== null && $a < $b) {
+            $leftNum  = $b;
+            $rightNum = $a;
+        } else {
+            $leftNum  = $a;
+            $rightNum = $b;
+        }
+
+        // Pair nav targets (for double view)
+        $prevPairPage = null;
+        $nextPairPage = null;
+
+        $prevPairStart = $pairStart - 2;
+        if ($prevPairStart >= 0) {
+            $prevPairPage = $nums[$prevPairStart] ?? null;
+        }
+
+        $nextPairStart = $pairStart + 2;
+        if ($nextPairStart < count($nums)) {
+            $nextPairPage = $nums[$nextPairStart] ?? null;
+        }
+
+        // Pair links (fallback to controller links if needed)
+        $prevPairLink = $prevPairPage
+            ? route('chapters.page', ['media' => $chapter->item_id, 'chapter' => $chapter->chapter_number, 'page' => $prevPairPage, 'view' => 'double'])
+            : ($prevLink ?? null);
+
+        $nextPairLink = $nextPairPage
+            ? route('chapters.page', ['media' => $chapter->item_id, 'chapter' => $chapter->chapter_number, 'page' => $nextPairPage, 'view' => 'double'])
+            : ($nextLink ?? null);
     @endphp
 
-    <div class="relative w-full overflow-hidden">
-        <div class="flex justify-center space-x-2">
-        @if($isLeftImage)
-            <div class="relative overflow-hidden">
-            @if($shouldBlur)
-                <img
-                src="{{ asset('images/18-plus.png') }}"
-                alt="18+"
-                class="absolute top-4 right-4 w-10 h-10 z-30"
-                >
-            @endif
-            <img
-                src="{{ $leftUrl }}"
-                alt="Page {{ $leftNum }}"
-                class="zoomable h-auto object-contain mx-auto {{ $shouldBlur ? 'filter blur-2xl' : '' }}"
-            >
+    <div class="flex flex-col items-center py-[4rem] mt-12">
+        <div class="w-[1280px] bg-white shadow-sm rounded-md p-6 ml-[0.5rem] space-y-6">
+            <div class="relative flex items-center mb-4">
+                <div class="flex-1">
+                    <h1 class="text-2xl font-bold text-red-600">
+                        <a href="{{ $itemUrl }}" class="hover:underline">
+                            {{ shortTitle($itemTitle, 20) }}
+                        </a>
+                        - {{ shortTitle($chapter->chapter_title, 20) }}
+                    </h1>
+                </div>
+
+                {{-- zoom buttons --}}
+                <div class="absolute inset-x-0 flex justify-center pointer-events-none">
+                    <button onclick="zoomOut()" class="pointer-events-auto px-3 py-1 bg-gray-200 text-gray-700 rounded transition" title="Zoom Out">-</button>
+                    <button onclick="zoomIn()"  class="pointer-events-auto ml-2 px-3 py-1 bg-gray-200 text-gray-700 rounded transition" title="Zoom In">+</button>
+                </div>
+
+                {{-- View switcher (hidden for MANWHA) --}}
+                <div class="flex-1 flex justify-end space-x-4">
+                    @if(!$isManwha)
+                        <a href="{{ route('chapters.page', array_merge($baseParams, ['page' => $pageNumber, 'view' => 'scroll'])) }}"
+                           class="p-2 rounded {{ $view === 'scroll' ? 'bg-gray-800 text-white' : 'bg-gray-200 text-gray-700' }}"
+                           title="Scroll Mode">Scroll</a>
+                        <a href="{{ route('chapters.page', array_merge($baseParams, ['page' => $pageNumber, 'view' => 'one'])) }}"
+                           class="p-2 rounded {{ $view === 'one' ? 'bg-gray-800 text-white' : 'bg-gray-200 text-gray-700' }}"
+                           title="One Page Mode">One</a>
+                        <a href="{{ route('chapters.page', array_merge($baseParams, ['page' => $pageNumber, 'view' => 'double'])) }}"
+                           class="p-2 rounded {{ $view === 'double' ? 'bg-gray-800 text-white' : 'bg-gray-200 text-gray-700' }}"
+                           title="Double Page Mode">Double</a>
+                    @endif
+                </div>
             </div>
-        @endif
-        @if($isRightImage)
-            <div class="relative overflow-hidden">
-            @if($shouldBlur)
-                <img
-                src="{{ asset('images/18-plus.png') }}"
-                alt="18+"
-                class="absolute top-4 right-4 w-10 h-10 z-30"
-                >
+
+            {{-- ============== SCROLL MODE ============== --}}
+            @if($view === 'scroll')
+                @php
+                    $hasNextCh = !empty($nextChapterLink);
+                    $hasPrevCh = !empty($prevChapterLink);
+
+                    // Default (Manga): left=NEXT, right=PREV
+                    $leftLink  = $nextChapterLink;
+                    $rightLink = $prevChapterLink;
+
+                    // Manwha: flip (left=PREV, right=NEXT)
+                    if ($isManwha) {
+                        $leftLink  = $prevChapterLink;
+                        $rightLink = $nextChapterLink;
+                    }
+
+                    $scrollTopJustify = ($leftLink && $rightLink) ? 'justify-between'
+                                        : ($leftLink ? 'justify-start'
+                                        : 'justify-end');
+                @endphp
+                {{-- Top chapter jump buttons --}}
+                <div class="flex {{ $scrollTopJustify }} mb-4">
+                    @if($leftLink)
+                        <a href="{{ $leftLink }}" class="px-4 py-2 flatGreen text-white rounded-[0.19rem] transition">
+                            {{ $isManwha ? 'Prev Chapter' : 'Next Chapter' }}
+                        </a>
+                    @endif
+                    @if($rightLink)
+                        <a href="{{ $rightLink }}" class="px-4 py-2 flatGreen text-white rounded-[0.19rem] transition">
+                            {{ $isManwha ? 'Next Chapter' : 'Prev Chapter' }}
+                        </a>
+                    @endif
+                </div>
+
+                <div>
+                    @foreach($chapter->pages as $p)
+                        @php
+                            $ext = strtolower(pathinfo($p->file_path, PATHINFO_EXTENSION) ?? '');
+                            $isImage = in_array($ext, $allowedExts, true);
+                            $url = $isImage ? asset('storage/'.$p->file_path) : null;
+                        @endphp
+
+                        @if($isImage)
+                            <div class="relative w-full overflow-hidden">
+                                @if($shouldBlur)
+                                    <img src="{{ asset('images/18-plus.png') }}" alt="18+" class="absolute top-4 right-4 w-10 h-10 z-30">
+                                @endif
+                                <img
+                                    src="{{ $url }}"
+                                    alt="Page {{ $p->page_number }}"
+                                    class="zoomable w-full h-auto object-contain mx-auto {{ $shouldBlur ? 'filter blur-2xl' : '' }}"
+                                >
+                            </div>
+                        @endif
+                    @endforeach
+                </div>
+
+                @php
+                    // Same flip logic for the bottom buttons
+                    $leftBottom  = $nextChapterLink;
+                    $rightBottom = $prevChapterLink;
+                    if ($isManwha) {
+                        $leftBottom  = $prevChapterLink;
+                        $rightBottom = $nextChapterLink;
+                    }
+                    $scrollBottomJustify = ($leftBottom && $rightBottom) ? 'justify-between'
+                                            : ($leftBottom ? 'justify-start'
+                                            : 'justify-end');
+                @endphp
+                {{-- Bottom chapter jump buttons --}}
+                <div class="flex {{ $scrollBottomJustify }} mt-4">
+                    @if($leftBottom)
+                        <a href="{{ $leftBottom }}" class="px-4 py-2 flatGreen text-white rounded-[0.19rem] transition">
+                            {{ $isManwha ? 'Prev Chapter' : 'Next Chapter' }}
+                        </a>
+                    @endif
+                    @if($rightBottom)
+                        <a href="{{ $rightBottom }}" class="px-4 py-2 flatGreen text-white rounded-[0.19rem] transition">
+                            {{ $isManwha ? 'Next Chapter' : 'Prev Chapter' }}
+                        </a>
+                    @endif
+                </div>
+
+                {{-- ============== ONE PAGE MODE ============== --}}
+            @elseif($view === 'one' && !$isManwha)
+                @php
+                    $current   = $chapter->pages->firstWhere('page_number', $pageNumber);
+                    $extOne    = strtolower(pathinfo(optional($current)->file_path ?? '', PATHINFO_EXTENSION));
+                    $isImage   = in_array($extOne, $allowedExts, true);
+                    $singleUrl = $isImage ? $pageUrl : null; // from controller
+                @endphp
+
+                @if($isImage)
+                    <div class="relative w-full overflow-hidden">
+                        @if($shouldBlur)
+                            <img src="{{ asset('images/18-plus.png') }}" alt="18+" class="absolute top-4 right-4 w-10 h-10 z-30">
+                        @endif
+
+                        <img
+                            src="{{ $singleUrl }}"
+                            alt="Page {{ $pageNumber }}"
+                            class="zoomable w-full h-auto object-contain mx-auto {{ $shouldBlur ? 'filter blur-2xl' : '' }} z-10"
+                        >
+
+                        {{-- Half-screen click zones: LEFT = NEXT, RIGHT = PREVIOUS --}}
+                        @if($nextLink)
+                            <a href="{{ $nextLink }}">
+                                <div class="absolute inset-y-0 left-0 w-1/2 z-20" style="cursor:pointer;"></div>
+                            </a>
+                        @endif
+                        @if($prevLink)
+                            <a href="{{ $prevLink }}">
+                                <div class="absolute inset-y-0 right-0 w-1/2 z-20" style="cursor:pointer;"></div>
+                            </a>
+                        @endif
+                    </div>
+                @endif
+
+                @php
+                    $hasNext = !empty($nextLink);
+                    $hasPrev = !empty($prevLink);
+                    $oneJustify = $hasNext && $hasPrev ? 'justify-between' : ($hasNext ? 'justify-start' : 'justify-end');
+                @endphp
+                {{-- footer buttons (LEFT = NEXT, RIGHT = PREVIOUS) --}}
+                <div class="flex {{ $oneJustify }}">
+                    @if($nextLink)
+                        <a href="{{ $nextLink }}" class="px-4 py-2 flatGreen text-white rounded-[0.19rem] transition">Next</a>
+                    @endif
+                    @if($prevLink)
+                        <a href="{{ $prevLink }}" class="px-4 py-2 flatGreen text-white rounded-[0.19rem] transition">Prev</a>
+                    @endif
+                </div>
+
+                {{-- ============== DOUBLE PAGE MODE ============== --}}
+            @elseif($view === 'double' && !$isManwha)
+                @php
+                    $leftObj   = $leftNum  !== null ? $chapter->pages->firstWhere('page_number', $leftNum)  : null;
+                    $rightObj  = $rightNum !== null ? $chapter->pages->firstWhere('page_number', $rightNum) : null;
+
+                    $extLeft   = strtolower(pathinfo(optional($leftObj)->file_path ?? '', PATHINFO_EXTENSION));
+                    $extRight  = strtolower(pathinfo(optional($rightObj)->file_path ?? '', PATHINFO_EXTENSION));
+
+                    $isLeftImg  = in_array($extLeft,  $allowedExts, true);
+                    $isRightImg = in_array($extRight, $allowedExts, true);
+
+                    $leftUrl    = $isLeftImg  ? asset('storage/'.$leftObj->file_path)  : null;
+                    $rightUrl   = $isRightImg ? asset('storage/'.$rightObj->file_path) : null;
+
+                    // Pair-aware targets for this view
+                    $doubleNext = $nextPairLink ?? $nextLink ?? null;
+                    $doublePrev = $prevPairLink ?? $prevLink ?? null;
+
+                    $hasDoubleNext = !empty($doubleNext);
+                    $hasDoublePrev = !empty($doublePrev);
+                    $doubleJustify = $hasDoubleNext && $hasDoublePrev ? 'justify-between' : ($hasDoubleNext ? 'justify-start' : 'justify-end');
+                @endphp
+
+                <div class="relative w-full overflow-hidden">
+                    <div class="flex justify-center space-x-2">
+                        @if($isLeftImg)
+                            <div class="relative overflow-hidden">
+                                @if($shouldBlur)
+                                    <img src="{{ asset('images/18-plus.png') }}" alt="18+" class="absolute top-4 right-4 w-10 h-10 z-30">
+                                @endif
+                                <img
+                                    src="{{ $leftUrl }}"
+                                    alt="Page {{ $leftNum }}"
+                                    class="zoomable h-auto object-contain mx-auto {{ $shouldBlur ? 'filter blur-2xl' : '' }}"
+                                >
+                            </div>
+                        @endif
+
+                        @if($isRightImg)
+                            <div class="relative overflow-hidden">
+                                @if($shouldBlur)
+                                    <img src="{{ asset('images/18-plus.png') }}" alt="18+" class="absolute top-4 right-4 w-10 h-10 z-30">
+                                @endif
+                                <img
+                                    src="{{ $rightUrl }}"
+                                    alt="Page {{ $rightNum }}"
+                                    class="zoomable h-auto object-contain mx-auto {{ $shouldBlur ? 'filter blur-2xl' : '' }}"
+                                >
+                            </div>
+                        @endif
+                    </div>
+
+                    {{-- LEFT = NEXT (pair), RIGHT = PREVIOUS (pair) --}}
+                    @if($doubleNext)
+                        <a href="{{ $doubleNext }}">
+                            <div class="absolute inset-y-0 left-0 w-1/2 z-20" style="cursor:pointer;"></div>
+                        </a>
+                    @endif
+                    @if($doublePrev)
+                        <a href="{{ $doublePrev }}">
+                            <div class="absolute inset-y-0 right-0 w-1/2 z-20" style="cursor:pointer;"></div>
+                        </a>
+                    @endif
+                </div>
+
+                {{-- footer buttons (LEFT = NEXT, RIGHT = PREVIOUS) --}}
+                <div class="flex {{ $doubleJustify }}">
+                    @if($doubleNext)
+                        <a href="{{ $doubleNext }}" class="px-4 py-2 flatGreen text-white rounded-[0.19rem] transition">Next</a>
+                    @endif
+                    @if($doublePrev)
+                        <a href="{{ $doublePrev }}" class="px-4 py-2 flatGreen text-white rounded-[0.19rem] transition">Prev</a>
+                    @endif
+                </div>
             @endif
-            <img
-                src="{{ $rightUrl }}"
-                alt="Page {{ $rightNum }}"
-                class="zoomable h-auto object-contain mx-auto {{ $shouldBlur ? 'filter blur-2xl' : '' }}"
-            >
-            </div>
-        @endif
+
         </div>
-        @if($nextPairPage)
-        <a
-            href="{{ route('chapters.page', ['media' => $chapter->item_id, 'chapter' => $chapter->chapter_number, 'page' => $nextPairPage, 'view' => 'double']) }}"
-        >
-            <div class="absolute inset-y-0 left-0 w-1/2 z-20" style="cursor:pointer;"></div>
-        </a>
-        @endif
-        @if($prevPairPage)
-        <a
-            href="{{ route('chapters.page', ['media' => $chapter->item_id, 'chapter' => $chapter->chapter_number, 'page' => $prevPairPage, 'view' => 'double']) }}"
-        >
-            <div class="absolute inset-y-0 right-0 w-1/2 z-20" style="cursor:pointer;"></div>
-        </a>
-        @endif
     </div>
-    @endif
-    @if($view === 'one')
-        @php
-            if ($next && $prev) {          // both buttons
-                $footerJustify = 'justify-between';
-            } elseif ($next) {             // only “Next” → left
-                $footerJustify = 'justify-start';
-            } else {                       // only “Prev” → right
-                $footerJustify = 'justify-end';
+
+    <script>
+        // Persisted zoom
+        let zoomLevel = parseFloat(localStorage.getItem('chapterZoom')) || 1.0;
+
+        function applyZoom(img) {
+            const natural = img.naturalHeight || img.clientHeight || 1200;
+            const newMax  = Math.max(1, natural * zoomLevel);
+            img.style.maxHeight = newMax + 'px';
+            img.style.width = 'auto';
+        }
+
+        function updateZoomAll() {
+            document.querySelectorAll('.zoomable').forEach(img => applyZoom(img));
+            localStorage.setItem('chapterZoom', zoomLevel);
+        }
+
+        function hookImage(img) {
+            if (img.complete && img.naturalHeight > 0) {
+                applyZoom(img);
+            } else {
+                img.addEventListener('load', () => applyZoom(img), { once: true });
+                setTimeout(() => { if (!img.style.maxHeight) applyZoom(img); }, 300);
             }
-        @endphp
+        }
 
-        <div class="flex {{ $footerJustify }}">
-        @if($next)
-            <a
-            href="{{ route('chapters.page', ['media' => $chapter->item_id, 'chapter' => $chapter->chapter_number, 'page' => $next, 'view' => 'one']) }}"
-            class="px-4 py-2 flatGreen text-white rounded-[0.19rem] transition"
-            >Next</a>
-        @endif
+        function zoomIn()  { zoomLevel = Math.min(zoomLevel + 0.05, 1.0); updateZoomAll(); }
+        function zoomOut() { zoomLevel = Math.max(zoomLevel - 0.05, 0.2); updateZoomAll(); }
 
-        @if($prev)
-            <a
-            href="{{ route('chapters.page', ['media' => $chapter->item_id, 'chapter' => $chapter->chapter_number, 'page' => $prev, 'view' => 'one']) }}"
-            class="px-4 py-2 flatGreen text-white rounded-[0.19rem] transition"
-            >Prev</a>
-        @endif
-        </div>
-    @elseif($view === 'double')
-        @php
-            if ($next && $prev) {          // both buttons
-                $footerJustify = 'justify-between';
-            } elseif ($next) {             // only “Next” → left
-                $footerJustify = 'justify-start';
-            } else {                       // only “Prev” → right
-                $footerJustify = 'justify-end';
+        window.zoomIn = zoomIn;
+        window.zoomOut = zoomOut;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('.zoomable').forEach(img => {
+                img.style.removeProperty('max-height');
+                img.style.width = 'auto';
+                hookImage(img);
+            });
+            updateZoomAll();
+        });
+
+        // Arrow keys: flip for Manwha
+        document.addEventListener('keydown', (e) => {
+            const tag = (document.activeElement && document.activeElement.tagName) || '';
+            if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+
+            const isDouble = @json($view === 'double');
+            const nextPair = @json($nextPairLink ?? null);
+            const prevPair = @json($prevPairLink ?? null);
+            const nextPage = @json($nextLink ?? null);
+            const prevPage = @json($prevLink ?? null);
+            const isManwha = @json($isManwha);
+
+            // Defaults (Manga): LEFT = NEXT, RIGHT = PREV
+            let leftTarget  = isDouble ? (nextPair || nextPage) : nextPage;
+            let rightTarget = isDouble ? (prevPair || prevPage) : prevPage;
+
+            // Flip for Manwha: LEFT = PREV, RIGHT = NEXT
+            if (isManwha) {
+                const tmp = leftTarget;
+                leftTarget  = rightTarget;
+                rightTarget = tmp;
             }
-        @endphp
 
-        <div class="flex {{ $footerJustify }}">
-        @if($nextPairPage)
-        <a
-           class="px-4 py-2 flatGreen text-white rounded-[0.19rem] transition" href="{{ route('chapters.page', ['media' => $chapter->item_id, 'chapter' => $chapter->chapter_number, 'page' => $nextPairPage, 'view' => 'double']) }}"
-        >Next
-        </a>
-        @endif
-        @if($prevPairPage)
-        <a
-           class="px-4 py-2 flatGreen text-white rounded-[0.19rem] transition" href="{{ route('chapters.page', ['media' => $chapter->item_id, 'chapter' => $chapter->chapter_number, 'page' => $prevPairPage, 'view' => 'double']) }}"
-        >
-            Prev
-        </a>
-        @endif
-        </div>
-    @endif
-
-  </div>
-</div>
-
-<script>
-  let zoomLevel = parseFloat(localStorage.getItem('chapterZoom')) || 1.0;
-
-  function updateZoom() {
-    document.querySelectorAll('.zoomable').forEach(img => {
-      if (!img.dataset.originalHeight) {
-        img.dataset.originalHeight = img.clientHeight;
-      }
-      const originalPx = parseFloat(img.dataset.originalHeight);
-      const newMaxPx   = originalPx * zoomLevel;
-      img.style.maxHeight = newMaxPx + 'px';
-      img.style.width     = 'auto';
-    });
-    localStorage.setItem('chapterZoom', zoomLevel);
-  }
-
-  function zoomIn()  { zoomLevel = Math.min(zoomLevel + 0.05, 1.0); updateZoom(); }
-  function zoomOut() { zoomLevel = Math.max(zoomLevel - 0.05, 0.2); updateZoom(); }
-
-  document.addEventListener('DOMContentLoaded', () => {
-    document.querySelectorAll('.zoomable').forEach(img => {
-      img.dataset.originalHeight = img.clientHeight;
-      img.style.removeProperty('max-height');
-      img.style.width = 'auto';
-    });
-    updateZoom();
-  });
-</script>
+            if (e.key === 'ArrowLeft'  && leftTarget)  window.location.href = leftTarget;
+            if (e.key === 'ArrowRight' && rightTarget) window.location.href = rightTarget;
+        });
+    </script>
 @endsection

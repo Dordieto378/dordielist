@@ -28,7 +28,34 @@ class AnilistController extends Controller
 
         $scored = array_values(array_filter($all, fn($m) => ($m['userScore'] ?? 0) > 0));
         usort($scored, fn($a,$b) => ($b['userScore'] ?? 0) <=> ($a['userScore'] ?? 0));
-        $highestRated4 = array_slice($scored, 0, 4);
+
+        $wishlikeStatuses = ['WISHLIST', 'PLANNING', 'PLAN TO WATCH', 'PLAN TO READ'];
+
+        $wish = array_values(array_filter($all, function ($m) use ($wishlikeStatuses) {
+            $status = strtoupper($m['listStatus'] ?? '');
+            $avg    = $m['averageScore'] ?? null;
+
+            return in_array($status, $wishlikeStatuses, true)
+                && $avg !== null && $avg !== '' && is_numeric($avg);
+        }));
+
+        usort($wish, function ($a, $b) {
+            $avgA = (float) ($a['averageScore'] ?? -1);
+            $avgB = (float) ($b['averageScore'] ?? -1);
+
+            if ($avgB === $avgA) {
+                // tie-break: your personal score then newer startDate
+                $cmp = ((int)($b['userScore'] ?? 0)) <=> ((int)($a['userScore'] ?? 0));
+                if ($cmp !== 0) return $cmp;
+
+                $dateA = sprintf('%04d%02d%02d', $a['startDate']['year'] ?? 0, $a['startDate']['month'] ?? 0, $a['startDate']['day'] ?? 0);
+                $dateB = sprintf('%04d%02d%02d', $b['startDate']['year'] ?? 0, $b['startDate']['month'] ?? 0, $b['startDate']['day'] ?? 0);
+                return $dateB <=> $dateA;
+            }
+            return $avgB <=> $avgA;
+        });
+
+        $highestRated4 = array_slice($wish, 0, 4);
 
         $page    = (int) $request->input('page', 1);
         $perPage = 24;
@@ -146,9 +173,15 @@ class AnilistController extends Controller
                 'english' => $m->title_english,
                 'romaji'  => $m->title_romaji,
             ],
-            'coverImage'  => ['extraLarge' => $m->cover_url ? asset($m->cover_url) : asset('images/no-image.jpg')],
-            'bannerImage' => $this->coverUrl($m->banner_url),
-            'description' => $descPlain ?: 'No synopsis available.',
+            'coverImage'  => [
+                'extraLarge' => $m->cover_url
+                    ? (strtoupper($m->type) === 'DOUJIN'
+                        ? Storage::url(ltrim($m->cover_url, '/'))  // use storage for doujins
+                        : asset($m->cover_url))                    // keep old behavior for others
+                    : asset('images/no-image.jpg'),
+            ],
+            'bannerImage' => $m->banner_url,
+            'description' => $descPlain,
             'genres'      => $genres,
             'tags'        => $tags,
             'averageScore'=> $m->avg_score,

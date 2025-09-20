@@ -21,20 +21,26 @@ class CategoryController extends Controller
         }
 
         // Doujin model
-//        if ($row instanceof \App\Models\Doujin) {
-//            $raw = $row->cover_url;
-//            $cover = str_starts_with($raw, 'images/')
-//                ? asset($raw)
-//                : \Storage::disk('b2')->url($raw);
-//
-//            return [
-//                'id'    => $row->id,
-//                'url'   => route('media.doujin', ['doujin' => $row->id]),
-//                'cover' => $cover,
-//                'title' => $row->doujin_name,
-//                'nsfw'  => true,
-//            ];
-//        }
+        if ($row->type === 'doujin') {
+            $title = $row->title_english ?: ($row->title_romaji ?: 'No Title');
+
+            // cover_url may be a relative storage path (preferred). If so, resolve to public URL.
+            $cover = $row->cover_url ?: null;
+            if ($cover && !preg_match('#^https?://#i', $cover)) {
+                $cover = \Storage::url(ltrim($cover, '/'));
+            }
+            if (!$cover) {
+                $cover = asset('images/no-image.jpg');
+            }
+
+            return [
+                'id'    => $row->id,
+                'url'   => route('doujins.show', ['media' => $row->id]),
+                'cover' => $cover,
+                'title' => $title,
+                'nsfw'  => true,
+            ];
+        }
 
         if ($row instanceof \App\Models\Media) {
             $isVN = ($row->type === 'vn');
@@ -58,7 +64,7 @@ class CategoryController extends Controller
             return [
                 'id'    => $row->id,
                 'url'   => $isVN
-                    ? route('vn.show', ['id' => $row->source_id])
+                    ? route('vn.show', ['id' => $row->id])
                     : route('media.show', ['id' => $row->id]),
                 'cover' => $row->cover_url ?: asset('images//no-image.jpg'),
                 'title' => $row->title_english ?: ($row->title_romaji ?: 'No Title'),
@@ -81,47 +87,72 @@ class CategoryController extends Controller
         $normalized = strtoupper($category);
 
         /* -------------------- DOUJINS -------------------- */
-//        if ($normalized === 'DOUJINS') {
-//            $perPage   = 40;
-//            $nameOrder = $request->query('name_order', 'none');
-//
-//            $allAuthors = Doujin::query()->select('author_name')->distinct()->orderBy('author_name')->pluck('author_name')->toArray();
-//
-//            $selectedAuthors = $request->query('author', []);
-//            if (!is_array($selectedAuthors)) $selectedAuthors = explode(',', (string)$selectedAuthors);
-//
-//            $query = Doujin::query();
-//            if ($nameOrder === 'az')      $query->orderBy('doujin_name');
-//            elseif ($nameOrder === 'za')  $query->orderByDesc('doujin_name');
-//            else                          $query->orderBy('id');
-//
-//            foreach ($selectedAuthors as $authorName) {
-//                if ($authorName !== '') $query->where('author_name', 'LIKE', "%{$authorName}%");
-//            }
-//
-//            $paginator = $query->paginate($perPage, ['*'], 'page')->appends([
-//                'author'     => implode(',', $selectedAuthors),
-//                'name_order' => $nameOrder,
-//            ]);
-//
-//            return view('category', [
-//                'category'        => 'DOUJINS',
-//                'media'           => $paginator->items(),
-//                'paginatedMedia'  => $paginator,
-//                'nameOrder'       => $nameOrder,
-//                'allAuthors'      => $allAuthors,
-//                'selectedAuthors' => $selectedAuthors,
-//                // keep Blade happy for fields it might read:
-//                'allStudios'      => [],
-//                'selectedStudio'  => [],
-//                'allTags'         => [],
-//                'allGenres'       => [],
-//                'selectedGenres'  => [],
-//                'allYears'        => [],
-//                'selectedYears'   => [],
-//            ]);
-//        }
+        if ($normalized === 'DOUJINS') {
+            $q = Media::query()->where('type', 'doujin');
 
+            // filters
+            $nameOrder = $request->query('name_order', 'none');
+
+            // selected authors from query (comma-separated)
+            $selectedAuthors = $request->query('author', []);
+            if (!is_array($selectedAuthors)) {
+                $selectedAuthors = array_filter(array_map('trim', explode(',', (string)$selectedAuthors)));
+            }
+            $selectedAuthors = array_values(array_filter($selectedAuthors)); // clean
+
+            // ▶ AND semantics: the doujin must contain ALL selected authors
+            if (!empty($selectedAuthors)) {
+                $q->where(function ($and) use ($selectedAuthors) {
+                    // strict: every selected author must be present as its own JSON element
+                    foreach ($selectedAuthors as $auth) {
+                        $and->whereJsonContains('publisher', $auth);
+                    }
+                    // fallback: if some rows still store a single composite string, match JSON text
+                    // REQUIRE all tokens to appear in the JSON string as well (still AND)
+                    $and->orWhere(function ($textAnd) use ($selectedAuthors) {
+                        foreach ($selectedAuthors as $auth) {
+                            $textAnd->where('publisher', 'LIKE', '%"'.$auth.'"%');
+                        }
+                    });
+                });
+            }
+
+            // Sort by title (romaji -> english -> slug)
+            $titleExpr = 'COALESCE(NULLIF(title_romaji,""), NULLIF(title_english,""), slug)';
+            if ($nameOrder === 'az')      $q->orderByRaw("$titleExpr ASC");
+            elseif ($nameOrder === 'za')  $q->orderByRaw("$titleExpr DESC");
+            else                          $q->orderBy('id');
+
+            // paginate
+            $perPage = 40;
+            $p = $q->paginate($perPage)->appends($request->query());
+
+            // Sidebar authors come from DB publisher JSON (split any composites just for the list)
+            $allAuthors = Media::where('type', 'doujin')
+                ->pluck('publisher')                // collection of arrays
+                ->flatten()                         // strings (some may be "A and B")
+                ->flatMap(fn ($v) => $this->splitAuthorsFromValue($v))
+                ->filter()
+                ->unique(fn ($v) => mb_strtolower($v))
+                ->sort()
+                ->values()
+                ->all();
+
+            // map to cards
+            $cards = $p->getCollection()
+                ->map(fn($row) => $this->toCard($row))
+                ->values();
+            $p->setCollection($cards);
+
+            return view('category', [
+                'category'        => 'DOUJINS',
+                'media'           => $cards->all(),
+                'paginatedMedia'  => $p,
+                'nameOrder'       => $nameOrder,
+                'allAuthors'      => $allAuthors,
+                'selectedAuthors' => $selectedAuthors,
+            ]);
+        }
         /* -------------------- VNDB -------------------- */
         if ($normalized === 'VISUAL-NOVEL') {
             $q = Media::query()->where('type', 'vn');
@@ -133,7 +164,7 @@ class CategoryController extends Controller
 
             $titleOrder = $request->query('title_order', 'none');
             $scoreOrder = $request->query('score_order', 'none');     // avg_* or personal_*
-            $yearOrder  = $request->query('year_order',  'none');
+            $yearOrder = $request->query('year_order', 'none');
 
             if ($tagsCsv = $request->query('tags')) {
                 foreach (explode(',', $tagsCsv) as $t) {
@@ -179,7 +210,7 @@ class CategoryController extends Controller
             $perPage = 40;
             $p = $q->paginate($perPage)->appends($request->query());
 
-            $allTags = Media::where('type','vn')
+            $allTags = Media::where('type', 'vn')
                 ->pluck('tags')
                 ->flatten()
                 ->filter()
@@ -188,7 +219,7 @@ class CategoryController extends Controller
                 ->values()
                 ->all();
 
-            $allDevelopers = Media::where('type','vn')
+            $allDevelopers = Media::where('type', 'vn')
                 ->pluck('publisher')
                 ->flatten()
                 ->filter()
@@ -197,7 +228,7 @@ class CategoryController extends Controller
                 ->values()
                 ->all();
 
-            $allLanguages = Media::where('type','vn')
+            $allLanguages = Media::where('type', 'vn')
                 ->pluck('languages')
                 ->flatten()
                 ->filter()
@@ -206,77 +237,116 @@ class CategoryController extends Controller
                 ->values()
                 ->all();
 
-            $allYears = Media::where('type','vn')
+            $allYears = Media::where('type', 'vn')
                 ->whereNotNull('year')
                 ->distinct()->orderBy('year')->pluck('year')->toArray();
 
             $cards = $p->getCollection()
-                ->map(fn ($row) => $this->toCard($row))
+                ->map(fn($row) => $this->toCard($row))
                 ->values();
 
             $p->setCollection($cards);
 
             return view('category', [
-                'category'           => 'VISUAL-NOVEL',
-                'media'           => $cards->all(),
-                'paginatedMedia'     => $p,
+                'category' => 'VISUAL-NOVEL',
+                'media' => $cards->all(),
+                'paginatedMedia' => $p,
 
-                'listFilter'         => $listFilter,
-                'titleOrder'         => $titleOrder,
-                'scoreOrder'         => $scoreOrder,
-                'yearOrder'          => $yearOrder,
+                'listFilter' => $listFilter,
+                'titleOrder' => $titleOrder,
+                'scoreOrder' => $scoreOrder,
+                'yearOrder' => $yearOrder,
 
-                'allTags'            => $allTags,
-                'selectedTags'       => array_filter(explode(',', (string)$request->query('tags',''))),
+                'allTags' => $allTags,
+                'selectedTags' => array_filter(explode(',', (string)$request->query('tags', ''))),
 
-                'allDevelopers'      => $allDevelopers,
+                'allDevelopers' => $allDevelopers,
                 'selectedDevelopers' => $devArr,
 
-                'allLanguages'       => $allLanguages,
-                'selectedLanguages'  => $selectedLanguages,
+                'allLanguages' => $allLanguages,
+                'selectedLanguages' => $selectedLanguages,
 
-                'allYears'           => $allYears,
-                'selectedYears'      => (array)$request->query('year', []),
+                'allYears' => $allYears,
+                'selectedYears' => (array)$request->query('year', []),
             ]);
         }
 
         /* -------------- ANILIST-------------- */
         $q = Media::query();
 
-        $selectedStudio = [];
-        if (in_array($normalized, ['ANIMES', 'HENTAIS'])) {
-            $studioParam = $request->query('studio', '');
-            $selectedStudio = is_array($studioParam)
-                ? $studioParam
-                : array_filter(array_map('trim', explode(',', (string)$studioParam)));
-        }
+        /** -----------------------
+         * Read filters from query
+         * ----------------------*/
+// --- selected filters coming from query ---
+        $studioParam = $request->query('studio', '');
+        $selectedStudio = is_array($studioParam)
+            ? array_filter($studioParam)
+            : array_filter(array_map('trim', explode(',', (string)$studioParam)));
 
-        switch ($normalized) {
+        $authorParam = $request->query('author', '');
+        $selectedAuthor = is_array($authorParam)
+            ? array_filter($authorParam)
+            : array_filter(array_map('trim', explode(',', (string)$authorParam)));
+
+// --- apply filters: studios only for anime/hentai; authors only for manga/manwha ---
+        $applyPublisherFilter = function ($query, $value) {
+            $query->where(function ($qq) use ($value) {
+                $qq->whereJsonContains('publisher', $value)
+                    ->orWhere('publisher', 'LIKE', '%"'.$value.'"%')
+                    ->orWhere('publisher', 'LIKE', '%'.$value.'%');
+            });
+        };
+
+        /** ------------------------------------------
+         * Category narrowing (type)
+         * -----------------------------------------*/
+        switch (strtoupper($normalized)) {
             case 'ANIMES':
                 $q->where('type', 'anime');
                 break;
-
             case 'HENTAIS':
                 $q->where('type', 'hentai');
                 break;
-
             case 'MANGAS':
                 $q->where('type', 'manga');
                 break;
-
             case 'MANWHAS':
                 $q->where('type', 'manwha');
                 break;
-
+            case 'DOUJINS':                                  // ← add this
+                $q->where('type', 'doujin');
+                break;
             default:
                 break;
         }
 
+        /** ------------------------------------------
+         * Apply studio/author filters
+         * - Studios live in `publisher` for anime/hentai
+         * - Authors live in `publisher` for manga/manwha
+         *   (adjust column to `authors` if your schema has it)
+         * -----------------------------------------*/
+        if (in_array($normalized, ['ANIMES','HENTAIS'])) {
+            foreach ($selectedStudio as $studio) {
+                if ($studio !== '') $applyPublisherFilter($q, $studio);
+            }
+        }
+
+        if (in_array($normalized, ['MANGAS','MANWHAS','DOUJINS'])) {
+            foreach ($selectedAuthor as $author) {
+                if ($author !== '') $applyPublisherFilter($q, $author);
+            }
+        }
+
+
+        /** ------------------------------------------
+         * Other filters (year, genres, tags, statuses)
+         * -----------------------------------------*/
         if ($year = $request->query('year')) {
             $q->where('year', $year);
         }
 
-        $genreParams = (array) $request->query('genre', []);
+        $genreParams = (array)$request->query('genre', []);
         foreach ($genreParams as $g) {
             if ($g !== '') $q->whereJsonContains('genres', $g);
         }
@@ -288,13 +358,12 @@ class CategoryController extends Controller
             }
         }
 
-        if ($listFilter !== 'all') {
-            $q->where('list_status', $listFilter);
-        }
-        if ($mediaStatus !== 'all') {
-            $q->where('media_status', $mediaStatus);
-        }
+        if ($listFilter !== 'all') $q->where('list_status', $listFilter);
+        if ($mediaStatus !== 'all') $q->where('media_status', $mediaStatus);
 
+        /** ------------------------------------------
+         * Sorting
+         * -----------------------------------------*/
         $titleExpr = 'COALESCE(title_english, title_romaji)';
 
         if ($scoreOrder !== 'none') {
@@ -303,19 +372,25 @@ class CategoryController extends Controller
                 (str_contains($scoreOrder, 'desc') ? 'desc' : 'asc')
             );
         } elseif ($dateOrder !== 'none') {
-            $col = str_contains($dateOrder,'start')   ? 'start_date'
-                : (str_contains($dateOrder,'updated') ? 'list_updated_at'
-                : (str_contains($dateOrder,'created') ? 'list_created_at' : 'start_date'));
-            $q->orderBy($col, str_contains($dateOrder,'desc') ? 'desc' : 'asc');
+            $col = str_contains($dateOrder, 'start') ? 'start_date'
+                : (str_contains($dateOrder, 'updated') ? 'list_updated_at'
+                    : (str_contains($dateOrder, 'created') ? 'list_created_at' : 'start_date'));
+            $q->orderBy($col, str_contains($dateOrder, 'desc') ? 'desc' : 'asc');
         } elseif ($titleOrder !== 'none') {
             $q->orderByRaw("$titleExpr " . ($titleOrder === 'za' ? 'DESC' : 'ASC'));
         } else {
             $q->orderByRaw("$titleExpr ASC");
         }
 
+        /** ------------------------------------------
+         * Pagination
+         * -----------------------------------------*/
         $perPage = 40;
         $p = $q->paginate($perPage)->appends($request->query());
 
+        /** ------------------------------------------
+         * Sidebar lists (don’t nuke selected values)
+         * -----------------------------------------*/
         $allGenres = Media::selectRaw('JSON_EXTRACT(genres, "$") as g')
             ->whereNotNull('genres')->get()
             ->flatMap(fn($row) => $this->toArray($row->g))
@@ -326,76 +401,82 @@ class CategoryController extends Controller
             ->flatMap(fn($row) => $this->toArray($row->t))
             ->unique()->sort()->values()->all();
 
-        $allYears  = Media::whereNotNull('year')->distinct()->orderBy('year')->pluck('year')->toArray();
+        $allYears = Media::whereNotNull('year')->distinct()->orderBy('year')->pluck('year')->toArray();
 
         $allStudios = [];
-        if (in_array($normalized, ['ANIMES','HENTAIS'])) {
-            $allStudios = Media::whereIn('type', ['anime','hentai'])
+        if ($normalized === 'ANIMES') {
+            $allStudios = Media::where('type','anime')
                 ->whereNotNull('publisher')
                 ->pluck('publisher')
                 ->flatMap(fn ($arr) => (array) $arr)
-                ->filter()
-                ->unique()
-                ->sort()
-                ->values()
-                ->all();
+                ->filter()->unique()->sort()->values()->all();
+        } elseif ($normalized === 'HENTAIS') {
+            $allStudios = Media::where('type','hentai')
+                ->whereNotNull('publisher')
+                ->pluck('publisher')
+                ->flatMap(fn ($arr) => (array) $arr)
+                ->filter()->unique()->sort()->values()->all();
         }
 
-        $allAuthors      = [];
-        $selectedAuthor  = [];
-
-        $cards = $p->getCollection()
-            ->map(fn ($row) => $this->toCard($row))
-            ->values();
-
+        $allAuthors = [];
+        if ($normalized === 'MANGAS') {
+            $allAuthors = Media::where('type','manga')
+                ->whereNotNull('publisher')
+                ->pluck('publisher')
+                ->flatMap(fn ($arr) => (array) $arr)
+                ->filter()->unique()->sort()->values()->all();
+        } elseif ($normalized === 'MANWHAS') {
+            $allAuthors = Media::where('type','manwha')
+                ->whereNotNull('publisher')
+                ->pluck('publisher')
+                ->flatMap(fn ($arr) => (array) $arr)
+                ->filter()->unique()->sort()->values()->all();
+        } elseif ($normalized === 'DOUJINS') {                      // ← add this
+            $allAuthors = Media::where('type','doujin')
+                ->whereNotNull('publisher')
+                ->pluck('publisher')
+                ->flatMap(fn ($arr) => (array) $arr)
+                ->filter()->unique()->sort()->values()->all();
+        }
+        /** ------------------------------------------
+         * Map to cards + return
+         * -----------------------------------------*/
+        $cards = $p->getCollection()->map(fn($row) => $this->toCard($row))->values();
         $p->setCollection($cards);
 
         return view('category', [
-            'category'        => ucfirst(str_replace('-', ' ', $category)),
-            'media'           => $cards->all(),
-            'paginatedMedia'  => $p,
-            'listFilter'      => $listFilter,
-            'mediaStatus'     => $mediaStatus,
-            'titleOrder'      => $titleOrder,
-            'scoreOrder'      => $scoreOrder,
-            'dateOrder'       => $dateOrder,
-            'allTags'        => $allTags,
-            'allGenres'       => $allGenres,
-            'selectedGenres'  => $genreParams,
-            'allYears'        => $allYears,
-            'selectedYears'   => (array) $request->query('year', []),
-            'allStudios'      => $allStudios,
-            'selectedStudio'  => $selectedStudio,
-            'allAuthors'      => $allAuthors,
-            'selectedAuthor'  => $selectedAuthor,
+            'category' => ucfirst(str_replace('-', ' ', $category)),
+            'media' => $cards->all(),
+            'paginatedMedia' => $p,
+
+            'listFilter' => $listFilter,
+            'mediaStatus' => $mediaStatus,
+            'titleOrder' => $titleOrder,
+            'scoreOrder' => $scoreOrder,
+            'dateOrder' => $dateOrder,
+
+            'allTags' => $allTags,
+            'allGenres' => $allGenres,
+            'selectedGenres' => $genreParams,
+
+            'allYears' => $allYears,
+            'selectedYears' => (array)$request->query('year', []),
+
+            'allStudios' => $allStudios,
+            'selectedStudio' => $selectedStudio,
+
+            'allAuthors' => $allAuthors,
+            'selectedAuthor' => $selectedAuthor,
         ]);
     }
 
-//    public function showDoujin(Doujin $doujin)
-//    {
-//        $encoded = implode('/', array_map('rawurlencode', explode('/', $doujin->cover_url)));
-//        $coverUrl = Storage::disk(config('filesystems.default'))->url($encoded);
-//
-//        $isFavorited = Favorite::where([
-//            ['favoritable_type', 'doujins'],
-//            ['favoritable_id',   $doujin->id],
-//        ])->exists();
-//
-//        $allCollections = Collection::orderBy('name')->get();
-//
-//        $attachedIds = CollectionItem::where([
-//            ['item_type', 'doujins'],
-//            ['item_id',   $doujin->id],
-//        ])->pluck('collection_id')->toArray();
-//
-//        return view('media.doujin', [
-//            'doujin'         => $doujin,
-//            'coverUrl'       => $coverUrl,
-//            'allCollections' => $allCollections,
-//            'attachedIds'    => $attachedIds,
-//            'isFavorited'    => $isFavorited,
-//        ]);
-//    }
+    private function splitAuthorsFromValue($v): array
+    {
+        if (!is_string($v) || $v === '') return [];
+        // split on common joiners: ",", "&", " and ", " x ", "×"
+        $parts = preg_split('/\s*(?:,|&| and | x |×)\s*/i', $v);
+        return array_values(array_filter(array_map('trim', $parts)));
+    }
 
 
     private function toArray($maybeJson): array

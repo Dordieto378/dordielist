@@ -44,7 +44,7 @@ class ImportVndb extends Command
 
         $username = env('VNDB_USERNAME');
         if (!$username) {
-            $this->error('VNDB_USERNAME is not set in .env');
+            $this->error('VNDB_USERNAME is not set in ..env');
             return self::FAILURE;
         }
 

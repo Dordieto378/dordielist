@@ -45,6 +45,12 @@
                 return substr($title, 0, $maxLen - 1) . '…';
             }
         }
+
+        if (!function_exists('shouldBlurItem')) {
+            function shouldBlurItem(array $item): bool {
+                return ((int)($item['isNsfw'] ?? 0) === 1) && !Auth::check();
+            }
+        }
     @endphp
 
     <div id="preContent" class="py-[4.5rem] {{ !$isOnFirstPage ? 'hidden' : '' }}">
@@ -66,8 +72,7 @@
                             @foreach($dropped as $item)
                                 @php
                                     // Blur logic: doujins are always NSFW for guests, others use isAdult
-                                    $isNsfw     = ($item['type'] === 'DOUJIN') ? true : ($item['isAdult'] ?? false);
-                                    $shouldBlur = $isNsfw && ! Auth::check();
+                                    $shouldBlur = shouldBlurItem($item);
 
                                     // Title logic:
                                     $fullTitle = $item['title']['english']
@@ -155,8 +160,7 @@
                 <!-- Show top 4 series you rated the highest -->
                 @foreach($highestRated4 as $item)
                     @php
-                        $isNsfw     = ($item['type'] === 'DOUJIN') ? true : ($item['isAdult'] ?? false);
-                        $shouldBlur = $isNsfw && ! Auth::check();
+                        $shouldBlur = shouldBlurItem($item);
 
                         $fullTitle = $item['title']['english']
                                   ?? $item['title']['romaji']
@@ -283,8 +287,7 @@
                                 ?? 'No Title';
 
                     // Blur logic for AniList + doujin
-                    $isNsfw     = ($item['type'] === 'DOUJIN') ? true : ($item['isAdult'] ?? false);
-                    $shouldBlur = $isNsfw && ! Auth::check();
+                    $shouldBlur = shouldBlurItem($item);
 
                     // Click target per type
                     $href = $item['type'] === 'DOUJIN'

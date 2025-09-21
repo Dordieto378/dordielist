@@ -21,6 +21,7 @@ use App\Http\Controllers\EpisodeController;
 use App\Http\Controllers\ChapterController;
 use App\Http\Controllers\TwoFactorDisableController;
 use App\Http\Controllers\SearchController;
+use App\Http\Controllers\VnLaunchController;
 
 //Auth::routes();
 
@@ -192,3 +193,5 @@ Route::middleware(['auth'])->group(function () {
 
 });
 
+Route::post('/vn/{media}/detect', [VnLaunchController::class, 'detect'])->name('vn.detect');
+Route::post('/vn/{media}/launch', [VnLaunchController::class, 'launch'])->name('vn.launch');

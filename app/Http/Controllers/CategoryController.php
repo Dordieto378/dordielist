@@ -20,7 +20,7 @@ class CategoryController extends Controller
             return $row;
         }
 
-        // Doujin model
+        // Doujin model (row->type = doujin, stored in media table)
         if ($row->type === 'doujin') {
             $title = $row->title_english ?: ($row->title_romaji ?: 'No Title');
 
@@ -38,48 +38,35 @@ class CategoryController extends Controller
                 'url'   => route('doujins.show', ['media' => $row->id]),
                 'cover' => $cover,
                 'title' => $title,
-                'nsfw'  => true,
+                'nsfw'  => (int)($row->isNsfw ?? 0) === 1,
             ];
         }
 
+        // Media model (anime / manga / manwha / vn / hentai)
         if ($row instanceof \App\Models\Media) {
             $isVN = ($row->type === 'vn');
-
-            $tags = $this->toArray($row->tags);
-
-            $hasNoSex = false;
-            if ($isVN && $tags) {
-                foreach ($tags as $t) {
-                    if (mb_strtolower(trim($t)) === 'no sexual content') {
-                        $hasNoSex = true;
-                        break;
-                    }
-                }
-            }
-
-            $isNonVnNsfw = in_array('Hentai', (array)($row->genres ?? []), true) || (bool)($row->is_adult ?? false);
-
-            $nsfw = $isVN ? !$hasNoSex : $isNonVnNsfw;
 
             return [
                 'id'    => $row->id,
                 'url'   => $isVN
                     ? route('vn.show', ['id' => $row->id])
                     : route('media.show', ['id' => $row->id]),
-                'cover' => $row->cover_url ?: asset('images//no-image.jpg'),
+                'cover' => $row->cover_url ?: asset('images/no-image.jpg'),
                 'title' => $row->title_english ?: ($row->title_romaji ?: 'No Title'),
-                'nsfw'  => $nsfw,
+                'nsfw'  => (int)($row->isNsfw ?? 0) === 1,
             ];
         }
 
+        // Fallback card
         return [
             'id'    => 0,
             'url'   => '#',
-            'cover' => asset('images//no-image.jpg'),
+            'cover' => asset('images/no-image.jpg'),
             'title' => 'No Title',
             'nsfw'  => false,
         ];
     }
+
 
 
     public function show(Request $request, $category, $listFilter = 'all', $mediaStatus = 'all', $titleOrder = 'none', $scoreOrder = 'none', $dateOrder = 'none')

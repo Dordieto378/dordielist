@@ -120,6 +120,10 @@ class VndbController extends Controller
         $vn = $this->fetchVnById($id);
         if (!$vn) abort(404);
 
+        $mediaRow      = \App\Models\Media::find($id);
+        $launchRelExe  = $mediaRow?->launch_rel_exe;
+        $hasLauncher   = !empty($launchRelExe);
+
         $category = 'visual-novel';
 
         $isFavorited = Favorite::where([
@@ -141,6 +145,8 @@ class VndbController extends Controller
             'isFavorited'    => $isFavorited,
             'allCollections' => $allCollections,
             'attachedIds'    => $attachedIds,
+            'hasLauncher'     => $hasLauncher,
+            'launchRelExe'    => $launchRelExe,
         ]);
     }
 
@@ -158,6 +164,7 @@ class VndbController extends Controller
         foreach (($m->tags ?? []) as $t) {
             if (mb_strtolower($t) === 'no sexual content') { $hasNoSex = true; break; }
         }
+        $mediaModel = \App\Models\Media::find($id);
 
         return [
             'id'                 => (int) $m->id,
@@ -172,6 +179,7 @@ class VndbController extends Controller
             'score'              => (int) ($m->user_score ?? 0),
             'hasNoSexualContent' => $hasNoSex,
             'year'               => (int) ($m->year ?? 0),
+            'media'          => $mediaModel,
         ];
     }
 

@@ -40,6 +40,9 @@
                                      ->toArray();
 
         $allCollections = Collection::orderBy('name')->get();
+
+        $blur = ((int)($media->isNsfw ?? 0) === 1) && !Auth::check();
+
     @endphp
 
     <div class="flex flex-col items-center py-[8.5rem]">
@@ -48,41 +51,38 @@
                 {{-- Left Column --}}
                 <div class="flex flex-col items-center">
                     <div class="relative w-[325px] h-[450px] overflow-hidden rounded">
-                        <img src="{{ $coverUrl ?? asset('images/no-image.jpg') }}"
-                             alt="Cover Image"
-                             class="w-full h-full object-cover">
+                        @if($blur)
+                            <img
+                                src="{{ asset('images/18-plus.png') }}"
+                                alt="18+"
+                                class="absolute top-2 right-2 w-9 h-9 z-10 select-none pointer-events-none"
+                            >
+                        @endif
+                        <img
+                            src="{{ $coverUrl ?? asset('images/no-image.jpg') }}"
+                            alt="Cover Image"
+                            class="w-full h-full object-cover {{ $blur ? 'filter blur-2xl' : '' }}"
+                        >
                     </div>
                     @auth
                         <div class="mt-4 flex flex-col space-y-3 w-[325px] font-bold">
                             @if($firstChapter)
                                 <a href="{{ route('chapters.page', [
-                        'media'   => $media->id,
-                        'chapter' => $firstChapter->chapter_number ?? 1,
-                        'page'    => 1
-                  ]) }}"
+                'media'   => $media->id,
+                'chapter' => $firstChapter->chapter_number ?? 1,
+                'page'    => 1
+          ]) }}"
                                    class="flex items-center justify-start w-full flatGreen text-white
-                      py-2 rounded-sm shadow-sm h-[50px] transition-200">
-                                    <svg class="ml-6 mb-[0.1rem]" width="15" height="15" viewBox="0 0 460.114 460.114"
-                                         fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+              py-2 rounded-sm shadow-sm h-[50px] transition-200">
+                                    <svg class="ml-6 mb-[0.1rem]" width="15" height="15"
+                                         viewBox="0 0 460.114 460.114" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
                                         <path d="M393.538 203.629L102.557 5.543c-9.793-6.666-22.468-7.372-32.94-1.832
-                          -10.472 5.538-17.022 16.413-17.022 28.26v396.173c0 11.846 6.55
-                          22.721 17.022 28.26 10.471 5.539 23.147 4.834 32.94-1.832l290.981-198.087
-                          c8.746-5.954 13.98-15.848 13.98-26.428 0-10.58-5.234-20.475-13.981-26.428z"/>
+                      -10.472 5.538-17.022 16.413-17.022 28.26v396.173c0 11.846 6.55
+                      22.721 17.022 28.26 10.471 5.539 23.147 4.834 32.94-1.832l290.981-198.087
+                      c8.746-5.954 13.98-15.848 13.98-26.428 0-10.58-5.234-20.475-13.981-26.428z"/>
                                     </svg>
                                     <span class="ml-3">Start Reading</span>
                                 </a>
-                            @else
-                                <div class="flex items-center justify-start w-full flatGreen text-white
-                        py-2 rounded-sm shadow-sm h-[50px] transition-200 cursor-not-allowed">
-                                    <svg class="ml-6 mb-[0.1rem]" width="15" height="15" viewBox="0 0 460.114 460.114"
-                                         fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-                                        <path d="M393.538 203.629L102.557 5.543c-9.793-6.666-22.468-7.372-32.94-1.832
-                          -10.472 5.538-17.022 16.413-17.022 28.26v396.173c0 11.846 6.55
-                          22.721 17.022 28.26 10.471 5.539 23.147 4.834 32.94-1.832l290.981-198.087
-                          c8.746-5.954 13.98-15.848 13.98-26.428 0-10.58-5.234-20.475-13.981-26.428z"/>
-                                    </svg>
-                                    <span class="ml-3">Start Reading</span>
-                                </div>
                             @endif
 
                             {{-- Favorites toggle --}}

@@ -42,6 +42,9 @@ class ImportAnilist extends Command
                 $sourceId  = $media['id'];
                 $genres    = $media['genres'] ?? [];
                 $tags      = array_values(array_filter(array_map(fn($t) => $t['name'] ?? null, $media['tags'] ?? [])));
+                $genresLower = array_map('mb_strtolower', $genres);
+                $isAdultFlag = (bool)($media['isAdult'] ?? false);
+                $isNsfw      = $isAdultFlag || in_array('hentai', $genresLower, true);
                 $origin    = $media['countryOfOrigin'] ?? null;
                 $avgScore  = $media['averageScore'] ?? null;
                 $mStatus   = $media['status'] ?? null;
@@ -129,7 +132,7 @@ class ImportAnilist extends Command
                 // ----- local type mapping -----
                 if ($type === 'ANIME') {
                     $localType = in_array('Hentai', $genres, true) ? 'hentai' : 'anime';
-                } else { // MANGA
+                } else {
                     $localType = strtoupper((string)$origin) === 'KR' ? 'manwha' : 'manga';
                 }
 
@@ -161,7 +164,8 @@ class ImportAnilist extends Command
                         'episodes_cnt'   => $episodesToSave,
                         'chapters_cnt'   => $chaptersToSave,
                         'volumes_cnt'    => $volumesToSave,
-                        'languages'      => null
+                        'languages'      => null,
+                        'isNsfw'         => $isNsfw ? 1 : 0,
                     ]
                 );
 
@@ -198,6 +202,7 @@ class ImportAnilist extends Command
                 createdAt
                 updatedAt
                 media {
+                  isAdult
                   id
                   title { english romaji }
                   coverImage { extraLarge }

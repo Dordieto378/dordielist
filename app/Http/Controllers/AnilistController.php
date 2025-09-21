@@ -203,6 +203,7 @@ class AnilistController extends Controller
             'userProgress'=> null,
             'listStatus'  => $m->list_status,
             'languages'   => $languages,
+            'isNsfw' => (int)($m->isNsfw ?? 0),
         ];
     }
 

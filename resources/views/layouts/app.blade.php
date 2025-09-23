@@ -235,7 +235,7 @@
 
                 items.slice(0, 10).forEach(item => {
                     const title = item.title.english || item.title.romaji || "No Title";
-                    const shouldBlur = (item.isAdult === true) && isGuest;
+                    const shouldBlur = isGuest && (item.isNsfw === true || item.isNsfw === 1);
 
                     const row = document.createElement("div");
                     row.className = "flex items-center p-3 cursor-pointer rounded-lg group";

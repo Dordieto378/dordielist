@@ -30,14 +30,7 @@ class SearchController extends Controller
             $type = strtolower($m->type ?? '');
             if ($type === 'vn') $type = 'visual-novel';
 
-            $genres = $m->genres;
-            if (is_string($genres)) {
-                $decoded = json_decode($genres, true);
-                $genres = is_array($decoded) ? $decoded : [];
-            }
-            $genres = array_map('strtolower', $genres ?? []);
-
-            $isAdult = (bool)($m->is_adult ?? in_array('hentai', $genres, true) || $type === 'doujin');
+            $isNsfw = (int)($m->isNsfw ?? 0) === 1;
 
             $cover = $m->cover_url;
             if ($cover) {
@@ -49,20 +42,18 @@ class SearchController extends Controller
             }
 
             return [
-                'id'    => (string)$m->id,
+                'id'    => (string) $m->id,
                 'type'  => $type,
                 'title' => [
                     'english' => $m->title_english ?: null,
                     'romaji'  => $m->title_romaji  ?: null,
                 ],
-
                 'cover' => $cover,
+                'coverImage' => ['extraLarge' => $cover],
 
-                'coverImage' => [
-                    'extraLarge' => $cover,
-                ],
+                'isNsfw' => $isNsfw,
 
-                'isAdult' => $isAdult,
+                'isAdult' => $isNsfw,
             ];
         })->values();
 

@@ -1,35 +1,34 @@
 @extends('layouts.app')
 
 @section('content')
-@php
-    $title = $item['title'] ?? 'No Title';
+    @php
+        $title = $item['title'] ?? 'No Title';
 
-    $releaseDate = 'N/A';
-    $raw = $item['released'] ?? ($item['year'] ?? null);
+        $releaseDate = 'N/A';
+        $raw = $item['released'] ?? ($item['year'] ?? null);
 
-    if (!empty($raw)) {
-        // if it's just a year like "2020", show it as-is
-        if (preg_match('/^\d{4}$/', (string)$raw)) {
-            $releaseDate = (string)$raw;
-        } else {
-            // otherwise try to format any parseable date
-            try {
-                $releaseDate = \Illuminate\Support\Carbon::parse($raw)->format('j M Y');
-            } catch (\Throwable $e) {
+        if (!empty($raw)) {
+            if (preg_match('/^\d{4}$/', (string)$raw)) {
                 $releaseDate = (string)$raw;
+            } else {
+                try { $releaseDate = \Illuminate\Support\Carbon::parse($raw)->format('j M Y'); }
+                catch (\Throwable $e) { $releaseDate = (string)$raw; }
             }
         }
-    }
 
-    $averageScore = isset($item['average']) ? $item['average'].'%' : 'N/A';
-    $scoreValue = $item['score'] ?? request()->query('score');
-    $myScore = (is_numeric($scoreValue) && (int)$scoreValue > 0)
-             ? ((int)$scoreValue) . '%'
-             : 'N/A';
+        $averageScore = isset($item['average']) ? $item['average'].'%' : 'N/A';
+        $scoreValue   = $item['score'] ?? request()->query('score');
+        $myScore      = (is_numeric($scoreValue) && (int)$scoreValue > 0) ? ((int)$scoreValue).'%' : 'N/A';
 
-    $blur = ((int)($media->isNsfw ?? 0) === 1) && !Auth::check();
+        // use the actual model we passed via fetchVnById()
+        $mediaModel = $item['media'] ?? null;
 
-@endphp
+        // If you want blur ALWAYS for NSFW, do this:
+        $blur = (int)($mediaModel->isNsfw ?? 0) === 1;
+
+        // If you only want to blur for guests, use:
+        // $blur = ((int)($mediaModel->isNsfw ?? 0) === 1) && !Auth::check();
+    @endphp
 
 <div class="flex flex-col items-center py-[8.5rem]">
     <div class="w-[1280px] h-auto bg-white shadow-sm rounded-md p-6 ml-[0.5rem]">
@@ -138,8 +137,30 @@
                               <span class="ml-1">Add Game Files</span>
                           </button>
                       </form>
-                      @if(!empty($media->launch_rel_exe))
-                          <p class="mt-2 text-xs text-gray-500">Detected: {{ $media->launch_rel_exe }}</p>
+                      @if((int)($media->isNsfw ?? 0) !== 1)
+                          <form method="POST" action="{{ route('vn.markNsfw', ['media' => $item['id']]) }}" class="w-full mt-2">
+                              @csrf
+                              <button type="submit"
+                                      class="flex items-center justify-start w-full text-blue-950 py-2 rounded-sm hover:text-red-600">
+                                  <svg xmlns="http://www.w3.org/2000/svg"
+                                       class="ml-[1.4rem] h-[1.1rem] w-[1.1rem] mr-[0.5rem] mb-[0.1rem]"
+                                       fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                      <path stroke-linecap="round" stroke-linejoin="round"
+                                            d="M12 9v4m0 4h.01M3 12a9 9 0 1118 0 9 9 0 01-18 0z"/>
+                                  </svg>
+                                  <span class="ml-1">Mark NSFW</span>
+                              </button>
+                          </form>
+                      @else
+                          <div class="mt-2 w-full text-green-700 flex items-center justify-start">
+                              <svg xmlns="http://www.w3.org/2000/svg"
+                                   class="ml-[1.4rem] h-[1.1rem] w-[1.1rem] mr-[0.5rem] mb-[0.1rem]"
+                                   fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                  <path stroke-linecap="round" stroke-linejoin="round"
+                                        d="M5 13l4 4L19 7"/>
+                              </svg>
+                              <span class="ml-1">NSFW enabled</span>
+                          </div>
                       @endif
                   </div>
                 @endauth

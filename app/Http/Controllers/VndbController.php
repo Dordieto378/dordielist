@@ -7,6 +7,9 @@ use App\Models\Collection;
 use App\Models\CollectionItem;
 use App\Models\Favorite;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
+use Illuminate\Support\Facades\DB;
 
 class VndbController extends Controller
 {
@@ -120,7 +123,7 @@ class VndbController extends Controller
         $vn = $this->fetchVnById($id);
         if (!$vn) abort(404);
 
-        $mediaRow      = \App\Models\Media::find($id);
+        $mediaRow      = Media::find($id);
         $launchRelExe  = $mediaRow?->launch_rel_exe;
         $hasLauncher   = !empty($launchRelExe);
 
@@ -164,7 +167,7 @@ class VndbController extends Controller
         foreach (($m->tags ?? []) as $t) {
             if (mb_strtolower($t) === 'no sexual content') { $hasNoSex = true; break; }
         }
-        $mediaModel = \App\Models\Media::find($id);
+        $mediaModel = Media::find($id);
 
         return [
             'id'                 => (int) $m->id,
@@ -179,7 +182,7 @@ class VndbController extends Controller
             'score'              => (int) ($m->user_score ?? 0),
             'hasNoSexualContent' => $hasNoSex,
             'year'               => (int) ($m->year ?? 0),
-            'media'          => $mediaModel,
+            'media'              => $mediaModel,
         ];
     }
 
@@ -240,4 +243,200 @@ class VndbController extends Controller
         return nl2br($html, false);
     }
 
+    public function syncFromVndb(Request $request)
+    {
+        $token    = env('VNDB_API_TOKEN');
+        $username = env('VNDB_USERNAME');
+
+        if (!$token || !$username) {
+            return back()->with('error', 'VNDB_API_TOKEN or VNDB_USERNAME missing in .env');
+        }
+
+        $userId = $this->vndbLookupUserId($token, $username);
+        if (!$userId) {
+            return back()->with('error', "Cannot find VNDB user: {$username}");
+        }
+
+        $rows = $this->vndbFetchUlist($token, $userId);
+        if (!count($rows)) {
+            return back()->with('error', 'VNDB returned 0 entries.');
+        }
+
+        $created = 0;
+        $updated = 0;
+        $seen    = [];
+
+        DB::beginTransaction();
+        try {
+            foreach ($rows as $e) {
+                $vn = $e['vn'] ?? [];
+
+                $vidRaw = $vn['id'] ?? ($e['id'] ?? null);
+                if (!$vidRaw) continue;
+                $vid = is_string($vidRaw) ? (int) ltrim($vidRaw, 'vV') : (int) $vidRaw;
+                if ($vid <= 0) continue;
+                $seen[] = $vid;
+
+                $titleRaw = $vn['title'] ?? null;
+                if (is_array($titleRaw)) {
+                    $titleEn = $titleRaw['english'] ?? null;
+                    $titleRo = $titleRaw['romaji']  ?? null;
+                } else {
+                    $titleEn = $titleRaw;
+                    $titleRo = null;
+                }
+                $titleForSlug = $titleEn ?: $titleRo ?: 'vn';
+
+                $cover = $vn['image']['url'] ?? null;
+                $desc  = $vn['description']   ?? null;
+
+                $tags = array_values(array_filter(
+                    array_map(fn($t) => $t['name'] ?? null, $vn['tags'] ?? []),
+                    fn($x) => (string) $x !== ''
+                ));
+
+                $devs = array_values(array_filter(
+                    array_map(fn($d) => $d['name'] ?? null, $vn['developers'] ?? []),
+                    fn($x) => (string) $x !== ''
+                ));
+
+                $langs = $vn['languages'] ?? [];
+
+                $avg  = isset($vn['rating']) ? (float) $vn['rating'] : null;
+                $vote = isset($e['vote'])    ? (int) $e['vote']      : null;
+
+                $rawLabel  = $e['labels'][0]['label'] ?? null;
+                $labelMapN = [1=>'PLAYING', 2=>'FINISHED', 3=>'STALLED', 4=>'DROPPED', 5=>'WISHLIST'];
+                $listStatus = is_numeric($rawLabel)
+                    ? ($labelMapN[(int)$rawLabel] ?? null)
+                    : ($rawLabel ? strtoupper($rawLabel) : null);
+
+                $released = $vn['released'] ?? null;
+                $year = (is_string($released) && strlen($released) >= 4 && ctype_digit(substr($released, 0, 4)))
+                    ? (int) substr($released, 0, 4)
+                    : null;
+
+                $slugBase = Str::slug($titleForSlug . '-v' . $vid);
+
+                $values = ['type' => 'vn'];
+                if (\Schema::hasColumn('media', 'title_english'))  $values['title_english'] = $titleEn;
+                if (\Schema::hasColumn('media', 'title_romaji'))   $values['title_romaji']  = $titleRo;
+                if (\Schema::hasColumn('media', 'slug'))           $values['slug']          = $slugBase;
+                if (\Schema::hasColumn('media', 'cover_url'))      $values['cover_url']     = $cover;
+                if (\Schema::hasColumn('media', 'banner_url'))     $values['banner_url']    = null;
+                if (\Schema::hasColumn('media', 'description'))    $values['description']   = $desc;
+                if (\Schema::hasColumn('media', 'genres'))         $values['genres']        = null;
+                if (\Schema::hasColumn('media', 'tags'))           $values['tags']          = $tags ?: null;
+                if (\Schema::hasColumn('media', 'origin'))         $values['origin']        = null;
+                if (\Schema::hasColumn('media', 'episodes_cnt'))   $values['episodes_cnt']  = null;
+                if (\Schema::hasColumn('media', 'chapters_cnt'))   $values['chapters_cnt']  = null;
+                if (\Schema::hasColumn('media', 'volumes_cnt'))    $values['volumes_cnt']   = null;
+                if (\Schema::hasColumn('media', 'avg_score'))      $values['avg_score']     = $avg;
+                if (\Schema::hasColumn('media', 'user_score'))     $values['user_score']    = $vote;
+                if (\Schema::hasColumn('media', 'list_status'))    $values['list_status']   = $listStatus;
+                if (\Schema::hasColumn('media', 'languages'))      $values['languages']     = $langs ?: null;
+                if (\Schema::hasColumn('media', 'publisher'))      $values['publisher']     = $devs ?: null;
+                if (\Schema::hasColumn('media', 'year'))           $values['year']          = $year;
+                if (\Schema::hasColumn('media', 'release_date'))   $values['release_date']  = $released;
+
+                $model = Media::where('source', 'vndb')->where('source_id', $vid)->first();
+                if (!$model) {
+                    $model = Media::where('type', 'vn')->where('id', $vid)->first() ?: new Media();
+                }
+
+                if (\Schema::hasColumn('media', 'source'))    $model->source    = 'vndb';
+                if (\Schema::hasColumn('media', 'source_id')) $model->source_id = $vid;
+
+                if (array_key_exists('slug', $values)) {
+                    $try = $values['slug'];
+                    $i = 1;
+                    while (
+                    Media::where('slug', $try)
+                        ->when($model->exists, fn($q) => $q->where('id', '<>', $model->id))
+                        ->exists()
+                    ) {
+                        $try = $slugBase . '-' . $i++;
+                    }
+                    $values['slug'] = $try;
+                }
+
+                $model->forceFill($values);
+                $wasNew = !$model->exists;
+                $model->save();
+
+                if ($wasNew || $model->wasRecentlyCreated) $created++; else $updated++;
+            }
+
+            $seen = array_values(array_unique($seen));
+            if (!empty($seen)) {
+                Media::where('source', 'vndb')->whereNotIn('source_id', $seen)->delete();
+                Media::whereNull('source')->where('type', 'vn')->whereNotIn('id', $seen)->delete();
+            }
+
+            DB::commit();
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return back()->with('error', 'VNDB sync failed: '.$e->getMessage());
+        }
+
+        return back()->with('status', "VNDB sync done. created={$created}, updated={$updated}.");
+    }
+
+    private function vndbClient(string $token)
+    {
+        return Http::baseUrl('https://api.vndb.org/kana/')
+            ->withHeaders([
+                'Authorization' => 'Token '.$token,
+                'Accept'        => 'application/json',
+            ]);
+    }
+
+    private function vndbLookupUserId(string $token, string $username): ?string
+    {
+        $resp = $this->vndbClient($token)->get('user', ['q' => $username]);
+        if (!$resp->successful()) return null;
+
+        $data = $resp->json();
+        if (!is_array($data)) return null;
+
+        foreach ($data as $row) {
+            if (!empty($row['id'])) return $row['id'];
+        }
+        return null;
+    }
+
+    private function vndbFetchUlist(string $token, string $userId): array
+    {
+        $fields = implode(',', [
+            'vn.id','vn.title','vn.description','vn.image.url','vn.tags.name',
+            'vn.developers.name','vn.languages','labels.label','vote','vn.rating','vn.released',
+        ]);
+
+        $page = 1; $all = [];
+        do {
+            $payload = ['user'=>$userId,'fields'=>$fields,'results'=>100,'page'=>$page];
+            $resp = $this->vndbClient($token)->post('ulist', $payload);
+            if (!$resp->successful()) break;
+
+            $json  = $resp->json();
+            $batch = $json['results'] ?? [];
+            $all   = array_merge($all, $batch);
+            $more  = !empty($json['more']);
+            $page++;
+        } while ($more);
+
+        return $all;
+    }
+
+    public function markNsfw($mediaId)
+    {
+        $m = Media::where('type', 'vn')->findOrFail((int)$mediaId);
+
+        if (\Schema::hasColumn('media', 'isNsfw')) {
+            $m->isNsfw = 1;
+            $m->save();
+        }
+
+        return back()->with('status', 'Marked as NSFW.');
+    }
 }

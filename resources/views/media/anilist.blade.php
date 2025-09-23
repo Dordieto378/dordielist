@@ -233,7 +233,7 @@
             <div class="flex flex-col justify-start ml-8 mt-4 md:mt-2 text-gray-900 font-medium">
                 <h1 class="text-2xl font-bold text-red-600 mb-2">{{ $title }}</h1>
                 <div class="grid grid-cols-[7rem,1fr] gap-x-3 gap-y-4 text-sm mt-2 mb-2">
-                @if(strtoupper($item['type'] ?? '') === 'MANGA')
+                @if(strtoupper($item['type'] ?? '') === 'MANGA' || 'MANWHA')
                     <div>Chapters</div>
                     <div>{{ $item['chapters'] ?? 'N/A' }}</div>
                     @if(!empty($item['volumes']) && $item['volumes'] > 0)
@@ -447,7 +447,7 @@
 
 @php
     // === CHAPTERS pagination (70 per page, query param: ch_page) ===
-    $chPerPage = 50;
+    $chPerPage = 48;
     $chPage    = max(1, (int) request('ch_page', 1));
 
     /** @var \Illuminate\Pagination\LengthAwarePaginator $chaptersPaginator */

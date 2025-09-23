@@ -1,10 +1,8 @@
 <?php
-// app/Http/Controllers/AdminController.php
 
 namespace App\Http\Controllers;
 
 use App\Mail\UserActivationNotification;
-use App\Mail\AdminNewUserNotification;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;

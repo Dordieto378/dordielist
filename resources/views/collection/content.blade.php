@@ -2,10 +2,20 @@
 
 @section('content')
 <div class="mt-6 py-[4.5rem]">
-    <div class="max-w-screen-xl mx-auto px-4">
+    <div class="max-w-screen-xl mx-auto flex justify-between items-center px-4">
         <h2 class="text-2xl text-red-600 mb-[1.9rem]">
             {{ $collection->name }}
         </h2>
+
+        @if(!$collection->is_system)
+            <button
+                id="openRenameCollection"
+                type="button"
+                class="flatGreen text-white px-7 py-3 rounded-[0.19rem] transition"
+            >
+                Edit Collection
+            </button>
+        @endif
     </div>
 
     <section class="mt-6 flex justify-center">
@@ -91,4 +101,75 @@
         </div>
     </section>
 </div>
+@if(!$collection->is_system)
+    <div
+        id="renameCollectionModal"
+        class="fixed inset-0 flex items-start pt-[130px] justify-center bg-black bg-opacity-50 hidden z-50"
+    >
+        <div
+            class="relative bg-white p-4 text-left shadow-2xl
+               w-[800px] h-[255px] rounded-lg space-y-6 overflow-auto"
+            role="dialog"
+            aria-modal="true"
+        >
+            <div class="flex justify-between items-start pb-4 pt-2 border-b border-gray-200">
+                <h2 class="text-lg font-bold text-gray-800 pl-4">Rename Collection</h2>
+                <button type="button" class="text-gray-400 hover:text-gray-900 pr-4" aria-label="Close">
+                    <span class="sr-only">Close</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none"
+                         viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                              d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="space-y-4">
+                <form method="POST" action="{{ route('collection.rename', $collection) }}" class="space-y-4">
+                    @csrf
+                    @method('PATCH')
+
+                    <label class="block relative" for="rename_name">
+                        <span class="block mb-2 label-text text-red-600 font-medium pl-4">New name</span>
+                        <input
+                            type="text"
+                            id="rename_name"
+                            name="name"
+                            value="{{ old('name', $collection->name) }}"
+                            class="w-[735px] ml-4 rounded-md border border-gray-200 px-3 py-2 text-base
+                               bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600
+                               text-gray-800 font-medium"
+                            required
+                        />
+                        @error('name')
+                        <span class="text-red-600 text-sm mt-1 ml-4">{{ $message }}</span>
+                        @enderror
+                    </label>
+
+                    <div class="block">
+                        <button type="submit" class="flatGreen transition-200 text-white px-5 py-3 rounded ml-4">
+                            Save
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+@endif
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const modal    = document.getElementById('renameCollectionModal');
+        const openBtn  = document.getElementById('openRenameCollection');
+        const closeBtn = modal?.querySelector('button[aria-label="Close"]');
+
+        function toggleModal() { modal.classList.toggle('hidden'); }
+
+        openBtn?.addEventListener('click', toggleModal);
+        closeBtn?.addEventListener('click', (e) => { e.stopPropagation(); toggleModal(); });
+        modal?.addEventListener('click', (e) => { if (e.target === modal) toggleModal(); });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && modal && !modal.classList.contains('hidden')) toggleModal();
+        });
+    });
+</script>
 @endsection

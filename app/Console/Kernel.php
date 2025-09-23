@@ -14,7 +14,7 @@ class Kernel extends ConsoleKernel
     protected $commands = [
         \App\Console\Commands\ImportVndb::class,
         \App\Console\Commands\ImportAnilist::class,
-        \App\Console\Commands\DoujinReimport::class,
+        \App\Console\Commands\ImportDoujin::class,
     ];
 
     /**

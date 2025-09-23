@@ -4,16 +4,13 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Route;
 use App\Models\Chapter;
 use App\Models\ChapterPage;
-use Illuminate\Support\Str;
 
 class ChapterController extends Controller
 {
     public function syncFromDisk(Request $request, int $mediaId)
     {
-        // Figure out where to read from based on media row
         $mediaRow = \DB::table('media')
             ->where('id', $mediaId)
             ->select('type', 'origin')
@@ -22,10 +19,9 @@ class ChapterController extends Controller
         $mediaType = strtoupper($mediaRow->type ?? 'MANGA');
         $origin    = strtoupper($mediaRow->origin ?? '');
 
-        // Convention: Korean MANGA -> manwha folder; else manga folder
         $isManwha  = ($mediaType === 'MANGA' && $origin === 'KR') || $mediaType === 'MANWHA';
-        $baseDir   = $isManwha ? 'manwha' : 'manga';   // <- your folder names
-        $itemType  = $isManwha ? 'MANWHA' : 'MANGA';   // <- what we store in DB
+        $baseDir   = $isManwha ? 'manwha' : 'manga';
+        $itemType  = $isManwha ? 'MANWHA' : 'MANGA';
 
         $disk = \Storage::disk('public');
         $root = "{$baseDir}/{$mediaId}";
@@ -36,22 +32,20 @@ class ChapterController extends Controller
 
         $chapterDirs = collect($disk->directories($root));
         if ($chapterDirs->isEmpty()) {
-            $chapterDirs = collect([$root]); // single-chapter folder
+            $chapterDirs = collect([$root]);
         }
 
         $imported = 0;
 
         foreach ($chapterDirs as $chapterPath) {
-            $folderName = basename($chapterPath);  // chapter_title shown in UI
+            $folderName = basename($chapterPath);
 
-            // Parse number; if none, assign next sequential number (max + 1)
             $number = $this->parseChapterNumber($folderName);
             if ($number === null) {
                 $max = Chapter::where('item_id', $mediaId)->max('chapter_number') ?? 0;
                 $number = (float)((int)$max + 1);
             }
 
-            // Create or get by (item_id, chapter_title). Then ensure media_fk & number exist.
             $chapter = Chapter::firstOrCreate(
                 [
                     'item_id'       => $mediaId,
@@ -82,7 +76,6 @@ class ChapterController extends Controller
             }
             if ($dirty) $chapter->save();
 
-            // Collect image files
             $files = collect($disk->files($chapterPath))
                 ->filter(fn($p) => in_array(strtolower(pathinfo($p, PATHINFO_EXTENSION)), ['jpg','jpeg','png','webp']))
                 ->sortBy(fn($p) => strtolower(basename($p)))
@@ -119,25 +112,19 @@ class ChapterController extends Controller
     {
         $n = mb_strtolower($name);
 
-        // chapter / ch / c + number (allow decimals)
         if (preg_match('/\b(?:chapter|ch|c)[\s\-_]*([0-9]+(?:\.[0-9]+)?)/i', $n, $m)) {
             return (float) $m[1];
         }
-        // bare number (allow decimals)
         if (preg_match('/\b([0-9]+(?:\.[0-9]+)?)\b/', $n, $m)) {
             return (float) $m[1];
         }
-        return null; // no numeric hint
+        return null;
     }
-
-// Show by chapter_number OR chapter_title (slug)
-// ChapterController.php
 
     public function readPage(Request $request, int $mediaId, $chapterParam, ?int $pageNumber = null)
     {
         $view = $request->query('view', 'one');
 
-        // 1) Canonicalize: if chapterParam is a title, resolve it to a number and redirect
         if (!is_numeric($chapterParam)) {
             $byTitle = Chapter::where('item_id', $mediaId)
                 ->where('chapter_title', $chapterParam)
@@ -145,13 +132,12 @@ class ChapterController extends Controller
 
             return redirect()->route('chapters.page', [
                 'media'   => $mediaId,
-                'chapter' => $byTitle->chapter_number,   // canonical: use number
+                'chapter' => $byTitle->chapter_number,
                 'page'    => $pageNumber ?? 1,
                 'view'    => $view,
             ]);
         }
 
-        // From here on, chapterParam is numeric (chapter_number)
         $chapterNumber = (float) $chapterParam;
 
         $chapter = Chapter::with(['pages' => fn($q) => $q->orderBy('page_number')])
@@ -159,7 +145,6 @@ class ChapterController extends Controller
             ->where('chapter_number', $chapterNumber)
             ->firstOrFail();
 
-        // Default page = first page
         if ($pageNumber === null) {
             $pageNumber = optional($chapter->pages->first())->page_number ?? 1;
         }
@@ -174,11 +159,10 @@ class ChapterController extends Controller
         $isManwha = strtoupper($mediaRow->type ?? '') === 'MANWHA'
             || strtoupper($mediaRow->origin ?? '') === 'KR';
 
-// IMPORTANT: build the URL by media id for doujins
         if (strtolower($mediaRow->type ?? '') === 'doujin') {
-            $itemUrl = route('doujins.show', ['media' => $chapter->media_fk]);  // /doujin/{media}
+            $itemUrl = route('doujins.show', ['media' => $chapter->media_fk]);
         } else {
-            $itemUrl = route('media.show', ['id' => $chapter->media_fk]);       // /media/{id}
+            $itemUrl = route('media.show', ['id' => $chapter->media_fk]);
         }
 
         $pages   = $chapter->pages->values();
@@ -186,13 +170,11 @@ class ChapterController extends Controller
         abort_if(!$page, 404);
         $pageUrl = asset('storage/'.$page->file_path);
 
-        // In-chapter prev/next
         $nums = $pages->pluck('page_number')->values()->all();
         $idx  = array_search($pageNumber, $nums, true);
         $prevPageNum = ($idx !== false && $idx > 0) ? $nums[$idx-1] : null;
         $nextPageNum = ($idx !== false && $idx < count($nums)-1) ? $nums[$idx+1] : null;
 
-        // Neighbor chapters by NUMBER (strictly)
         $nextChapter = Chapter::where('item_id', $mediaId)
             ->where('chapter_number', '>', $chapterNumber)
             ->orderBy('chapter_number', 'asc')
@@ -208,19 +190,18 @@ class ChapterController extends Controller
             $prevChapterLastPage = ChapterPage::where('chapter_id', $prevChapter->id)->max('page_number') ?? 1;
         }
 
-        // Build numeric prev/next links
         $prevLink = null;
         if ($prevPageNum !== null) {
             $prevLink = route('chapters.page', [
                 'media'   => $mediaId,
-                'chapter' => $chapter->chapter_number,   // number
+                'chapter' => $chapter->chapter_number,
                 'page'    => $prevPageNum,
                 'view'    => $view,
             ]);
         } elseif ($prevChapter && $prevChapterLastPage) {
             $prevLink = route('chapters.page', [
                 'media'   => $mediaId,
-                'chapter' => $prevChapter->chapter_number, // number
+                'chapter' => $prevChapter->chapter_number,
                 'page'    => $prevChapterLastPage,
                 'view'    => $view,
             ]);
@@ -230,20 +211,19 @@ class ChapterController extends Controller
         if ($nextPageNum !== null) {
             $nextLink = route('chapters.page', [
                 'media'   => $mediaId,
-                'chapter' => $chapter->chapter_number,   // number
+                'chapter' => $chapter->chapter_number,
                 'page'    => $nextPageNum,
                 'view'    => $view,
             ]);
         } elseif ($nextChapter) {
             $nextLink = route('chapters.page', [
                 'media'   => $mediaId,
-                'chapter' => $nextChapter->chapter_number, // number
+                'chapter' => $nextChapter->chapter_number,
                 'page'    => 1,
                 'view'    => $view,
             ]);
         }
 
-        // Explicit chapter jumps for Scroll view (numeric)
         $prevChapterLink = $prevChapter
             ? route('chapters.page', [
                 'media'   => $mediaId,
@@ -263,22 +243,19 @@ class ChapterController extends Controller
             : null;
 
         return view('chapters.read', [
-            'chapter'          => $chapter,   // use chapter_title ONLY for display in Blade
-            'pages'            => $pages,
-            'pageNumber'       => $pageNumber,
-            'pageUrl'          => $pageUrl,
-
-            'prevLink'         => $prevLink,
-            'nextLink'         => $nextLink,
-            'prevChapterLink'  => $prevChapterLink,
-            'nextChapterLink'  => $nextChapterLink,
-
-            // For your double-view math
-            'nextPairLink'     => null, // Blade computes pair pages; these can be left null or set similarly if you prefer server-side
-            'prevPairLink'     => null,
-            'itemTitle'        => $itemTitle,
-            'itemUrl'   => $itemUrl,
-            'isManwha'         => $isManwha,
+            'chapter'           => $chapter,
+            'pages'             => $pages,
+            'pageNumber'        => $pageNumber,
+            'pageUrl'           => $pageUrl,
+            'prevLink'          => $prevLink,
+            'nextLink'          => $nextLink,
+            'prevChapterLink'   => $prevChapterLink,
+            'nextChapterLink'   => $nextChapterLink,
+            'nextPairLink'      => null,
+            'prevPairLink'      => null,
+            'itemTitle'         => $itemTitle,
+            'itemUrl'           => $itemUrl,
+            'isManwha'          => $isManwha,
         ]);
     }
 

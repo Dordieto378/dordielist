@@ -7,15 +7,13 @@ use App\Models\Episode;
 use App\Models\Media;
 use Illuminate\Support\Facades\Storage;
 
-
 class EpisodeController extends Controller
 {
     public function syncFromDisk(Request $request, int $mediaId)
     {
-        $media = \App\Models\Media::findOrFail($mediaId);
+        $media = Media::findOrFail($mediaId);
 
         $type   = strtoupper($media->type ?? 'ANIME');
-        // If your DB stores genres as JSON/text:
         $genres = is_array($media->genres) ? $media->genres : (json_decode($media->genres ?? '[]', true) ?: []);
         $hasH   = in_array('Hentai', $genres, true);
 
@@ -65,7 +63,7 @@ class EpisodeController extends Controller
             Episode::updateOrCreate(
                 ['media_fk' => $mediaId, 'episode_number' => $epNumber],
                 [
-                    'media_type' => $mediaType,   // <-- ANIME or HENTAI correctly
+                    'media_type' => $mediaType,
                     'file_path'  => $relPath,
                 ]
             );

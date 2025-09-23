@@ -1,5 +1,5 @@
 <?php
-// app/Models/Chapter.php
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
@@ -19,7 +19,6 @@ class Chapter extends Model
         return $this->hasMany(ChapterPage::class);
     }
 
-    // Optional convenience:
     public function media()
     {
         return $this->belongsTo(\App\Models\Media::class, 'media_fk');

@@ -17,11 +17,11 @@
         </a>
       </li>
       <li>
-        <a href="{{ route('settings.addDoujin') }}"
-           class="block pl-4 pr-4 py-3 rounded-md
-                  {{ request()->routeIs('settings.addDoujin') ? 'bg-red-600 text-white' : 'text-gray-700' }}">
-          Add Doujin
-        </a>
+          <a href="{{ route('settings.list') }}"
+             class="block pl-4 pr-4 py-3 rounded-md
+              {{ request()->routeIs('settings.list') ? 'bg-red-600 text-white' : 'text-gray-700' }}">
+              Update List
+          </a>
       </li>
     @endif
   </ul>

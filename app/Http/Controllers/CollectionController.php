@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
@@ -326,6 +327,20 @@ class CollectionController extends Controller
 
         return back();
     }
+    public function rename(Request $request, Collection $collection)
+    {
+        if ($collection->is_system) {
+            abort(403, 'Cannot rename system collection.');
+        }
 
+        $data = $request->validate([
+            // unique except the current collection
+            'name' => 'required|string|max:50|unique:collections,name,' . $collection->id,
+        ]);
+
+        $collection->update(['name' => $data['name']]);
+
+        return back()->with('status', 'Collection renamed.');
+    }
 
 }

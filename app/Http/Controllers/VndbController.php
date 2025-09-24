@@ -277,14 +277,31 @@ class VndbController extends Controller
                 if ($vid <= 0) continue;
                 $seen[] = $vid;
 
-                $titleRaw = $vn['title'] ?? null;
-                if (is_array($titleRaw)) {
-                    $titleEn = $titleRaw['english'] ?? null;
-                    $titleRo = $titleRaw['romaji']  ?? null;
-                } else {
-                    $titleEn = $titleRaw;
-                    $titleRo = null;
+                $titleEn = null;
+                $titleRo = null;
+
+                $mainTitle = $vn['title'] ?? null;
+
+                if (!empty($vn['titles']) && is_array($vn['titles'])) {
+                    foreach ($vn['titles'] as $t) {
+                        if (!isset($t['lang'], $t['title'])) continue;
+                        if ($t['lang'] === 'en') {
+                            $titleEn = $t['title'];
+                        }
+                        if ($t['lang'] === 'ja-latn') {
+                            $titleRo = $t['title'];
+                        }
+                    }
                 }
+
+                if (!$titleEn && $mainTitle && preg_match('/[A-Za-z]/', $mainTitle)) {
+                    $titleEn = $mainTitle;
+                }
+
+                if (!$titleRo && $mainTitle) {
+                    $titleRo = $mainTitle;
+                }
+
                 $titleForSlug = $titleEn ?: $titleRo ?: 'vn';
 
                 $cover = $vn['image']['url'] ?? null;
@@ -408,8 +425,19 @@ class VndbController extends Controller
     private function vndbFetchUlist(string $token, string $userId): array
     {
         $fields = implode(',', [
-            'vn.id','vn.title','vn.description','vn.image.url','vn.tags.name',
-            'vn.developers.name','vn.languages','labels.label','vote','vn.rating','vn.released',
+            'vn.id',
+            'vn.title',
+            'vn.titles.lang',
+            'vn.titles.title',
+            'vn.description',
+            'vn.image.url',
+            'vn.tags.name',
+            'vn.developers.name',
+            'vn.languages',
+            'labels.label',
+            'vote',
+            'vn.rating',
+            'vn.released',
         ]);
 
         $page = 1; $all = [];

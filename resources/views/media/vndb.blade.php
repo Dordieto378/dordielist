@@ -23,11 +23,8 @@
         // use the actual model we passed via fetchVnById()
         $mediaModel = $item['media'] ?? null;
 
-        // If you want blur ALWAYS for NSFW, do this:
-        $blur = (int)($mediaModel->isNsfw ?? 0) === 1;
 
-        // If you only want to blur for guests, use:
-        // $blur = ((int)($mediaModel->isNsfw ?? 0) === 1) && !Auth::check();
+        $blur = ((int)($mediaModel->isNsfw ?? 0) === 1) && !Auth::check();
     @endphp
 
 <div class="flex flex-col items-center py-[8.5rem]">
@@ -137,7 +134,7 @@
                               <span class="ml-1">Add Game Files</span>
                           </button>
                       </form>
-                      @if((int)($media->isNsfw ?? 0) !== 1)
+                      @if((int)($mediaModel->isNsfw ?? 0) !== 1)
                           <form method="POST" action="{{ route('vn.markNsfw', ['media' => $item['id']]) }}" class="w-full mt-2">
                               @csrf
                               <button type="submit"
@@ -152,7 +149,7 @@
                               </button>
                           </form>
                       @else
-                          <div class="mt-2 w-full text-green-700 flex items-center justify-start">
+                          <div class="flex items-center justify-start w-full py-2 rounded-sm text-red-600">
                               <svg xmlns="http://www.w3.org/2000/svg"
                                    class="ml-[1.4rem] h-[1.1rem] w-[1.1rem] mr-[0.5rem] mb-[0.1rem]"
                                    fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">

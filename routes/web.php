@@ -133,6 +133,10 @@ Route::middleware('auth')->group(function () {
         // Attach/Remove media
         Route::post('/attach-media',                [CollectionController::class, 'attachMedia'])->name('collection.attachMedia');
         Route::post('/{collection}/item/remove',    [CollectionController::class, 'removeItem'])->name('collection.item.remove');
+
+        //  Random item picker
+        Route::get('/collections/{collection}/random', [CollectionController::class, 'random'])
+            ->name('collection.random');
     });
 
     // Episode & Chapter management

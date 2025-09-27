@@ -8,13 +8,23 @@
         </h2>
 
         @if(!$collection->is_system)
-            <button
-                id="openRenameCollection"
-                type="button"
-                class="flatGreen text-white px-7 py-3 rounded-[0.19rem] transition"
-            >
-                Edit Collection
-            </button>
+            <div class="flex items-center gap-2">
+                <a
+                    href="{{ route('collection.random', $collection) }}"
+                    target="_blank" rel="noopener"
+                    class="bg-flatRed hover:bg-red-600 text-white px-7 py-3 rounded-[0.19rem] transition"
+                >
+                    Random
+                </a>
+
+                <button
+                    id="openRenameCollection"
+                    type="button"
+                    class="flatGreen text-white px-7 py-3 rounded-[0.19rem] transition"
+                >
+                    Edit Collection
+                </button>
+            </div>
         @endif
     </div>
 

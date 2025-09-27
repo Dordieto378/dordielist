@@ -343,4 +343,32 @@ class CollectionController extends Controller
         return back()->with('status', 'Collection renamed.');
     }
 
+    public function random(Collection $collection)
+    {
+        if ($collection->is_system) {
+            abort(404);
+        }
+
+        $ci = $collection->items()->inRandomOrder()->first();
+
+        if (! $ci) {
+            return back()->with('status', 'This collection is empty.');
+        }
+
+        $id = (int) ltrim((string)$ci->item_id, 'v');
+
+        switch ($ci->item_type) {
+            case 'visual-novel':
+                $link = route('vn.show', 'v'.$id);
+                break;
+            case 'doujins':
+                $link = route('media.doujin', $id);
+                break;
+            default:
+                $link = route('media.show', $id);
+                break;
+        }
+
+        return redirect()->to($link);
+    }
 }

@@ -132,7 +132,7 @@ class CollectionController extends Controller
     public function show(Collection $collection)
     {
         if ($collection->is_system) {
-            $items = Favorite::all()->map(fn($f) => (object)[
+            $items = Favorite::orderBy('id', 'asc')->get()->map(fn($f) => (object)[
                 'item_type'     => $f->favoritable_type,
                 'item_id'       => $f->favoritable_id,
                 'thumbnail_url' => $f->thumbnail_url,
@@ -148,13 +148,15 @@ class CollectionController extends Controller
                 },
             ]);
         } else {
-            $items = $collection->items()->get();
+            $items = $collection->items()->orderBy('id', 'asc')->get();
         }
+
         return view('collection.content', [
             'collection' => $collection,
             'items'      => $items,
         ]);
     }
+
 
     public function destroy(Collection $collection)
     {

@@ -1,18 +1,16 @@
 <?php
+
 namespace App\Http\Controllers;
 
 use App\Models\Favorite;
 use Illuminate\Http\Request;
-use App\Http\Controllers\CollectionController; 
-use Illuminate\Support\Facades\Storage;
 
 class FavoriteController extends Controller
 {
-    // app/Http/Controllers/FavoriteController.php
     public function toggle(Request $request)
     {
-        $rawId   = $request->input('favoritable_id'); // "v11" or "123"
-        $cleanId = (int) ltrim($rawId, 'v');          // 11
+        $rawId   = $request->input('favoritable_id');
+        $cleanId = (int) ltrim($rawId, 'v');
 
         $data = $request->validate([
             'favoritable_type' => 'required|in:animes,mangas,manwhas,hentais,doujins,visual-novel',
@@ -29,7 +27,6 @@ class FavoriteController extends Controller
         if ($existing) {
             $existing->delete();
         } else {
-            // fetch cover + title exactly once:
             $media = app(CollectionController::class)
                     ->fetchMedia($type, $id);
 
@@ -56,6 +53,4 @@ class FavoriteController extends Controller
 
         return back();
     }
-
-
 }

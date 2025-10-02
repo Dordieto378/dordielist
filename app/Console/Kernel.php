@@ -12,9 +12,9 @@ class Kernel extends ConsoleKernel
      * @var array
      */
     protected $commands = [
-        // Register the BuildDoujinsIndex command here:
-        \App\Console\Commands\BuildDoujinsIndex::class,
-        \App\Console\Commands\ImportDoujinPages::class,
+        \App\Console\Commands\ImportVndb::class,
+        \App\Console\Commands\ImportAnilist::class,
+        \App\Console\Commands\ImportDoujin::class,
     ];
 
     /**

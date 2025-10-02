@@ -4,7 +4,7 @@
 @section('content')
   <div class="bg-gray-100 mb-[50px] pt-[100px]">
     <div class="max-w-[1320px] mx-auto px-4 sm:px-6 lg:px-8 flex space-x-6 text-sm">
-      
+
       {{-- LEFT: Shared sidebar (we’ll extract this in step 5) --}}
       @include('settings.partials.sidebar')
 

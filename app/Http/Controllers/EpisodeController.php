@@ -1,170 +1,145 @@
 <?php
+
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use App\Models\Episode;
-use App\Models\Favorite;
-use App\Models\Collection;
-use App\Models\CollectionItem;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Cache;
+use App\Models\Media;
+use Illuminate\Support\Facades\Storage;
 
 class EpisodeController extends Controller
 {
-    public function store(Request $request, $mediaId)
-    {   
-        set_time_limit(0);   
-        // Validate first...
-        $request->validate([
-            'videos'   => ['required','array','min:1'],
-            'videos.*' => ['file','mimetypes:video/mp4,video/webm'],
-        ]);
+    public function syncFromDisk(Request $request, int $mediaId)
+    {
+        $media = Media::findOrFail($mediaId);
 
-        // B2 authorize
-        $accountId      = env('B2_KEY_ID');
-        $applicationKey = env('B2_APP_KEY');
-        $bucketName     = env('B2_BUCKET');
+        $type   = strtoupper($media->type ?? 'ANIME');
+        $genres = is_array($media->genres) ? $media->genres : (json_decode($media->genres ?? '[]', true) ?: []);
+        $hasH   = in_array('Hentai', $genres, true);
 
-        $authResp = Http::withBasicAuth($accountId, $applicationKey)
-            ->get('https://api.backblazeb2.com/b2api/v2/b2_authorize_account');
-        $authData  = $authResp->json();
-        $apiUrl    = $authData['apiUrl'];
-        $authToken = $authData['authorizationToken'];
+        $isHentai   = ($type === 'HENTAI') || ($type === 'ANIME' && $hasH);
+        $baseDir    = $isHentai ? 'hentai' : 'anime';
+        $mediaType  = $isHentai ? 'HENTAI' : 'ANIME';
 
-        // Get bucketId
-        $listBuckets   = Http::withHeaders(['Authorization' => $authToken])
-                            ->post("{$apiUrl}/b2api/v2/b2_list_buckets", [
-                                'accountId'  => $accountId,
-                                'bucketName' => $bucketName,
-                                'bucketId'   => null,
-                            ])->json();
-        $bucketId = $listBuckets['buckets'][0]['bucketId'];
+        $disk = Storage::disk('public');
+        $dir  = "{$baseDir}/{$mediaId}";
 
-        $uploadData = Http::withHeaders(['Authorization' => $authToken])
-            ->post("{$apiUrl}/b2api/v2/b2_get_upload_url", [
-                'bucketId' => $bucketId,
-            ])->json();
-
-        $uploadUrl       = $uploadData['uploadUrl'];
-        $uploadAuthToken = $uploadData['authorizationToken'];
-
-        // Determine next episode number
-        $nextEp = (Episode::where('media_id',$mediaId)->max('episode_number') ?? 0) + 1;
-
-        foreach ($request->file('videos') as $file) {
-
-            $mediaType  = $request->input('media_type', 'ANIME');
-            $remotePath = "{$mediaType}/{$mediaId}/".$file->getClientOriginalName();
-
-            // Encode path *segments* but keep slashes
-            $encoded    = str_replace('%2F', '/', rawurlencode($remotePath));
-
-            $sha1 = hash_file('sha1', $file->getRealPath());
-
-            Http::timeout(0)
-                ->withHeaders([
-                    'Authorization'     => $uploadAuthToken,
-                    'X-Bz-File-Name'    => $encoded,
-                    'Content-Type'      => $file->getClientMimeType(),
-                    'X-Bz-Content-Sha1' => $sha1,
-                ])
-                ->withBody(
-                    fopen($file->getRealPath(), 'rb'),
-                    $file->getClientMimeType()
-                )
-                ->post($uploadUrl)
-                ->throw();
-
-            Episode::create([
-                'media_id'       => $mediaId,
-                'media_type'     => $mediaType,
-                'episode_number' => $nextEp++,
-                'file_path'      => $remotePath,
-            ]);
+        if (!$disk->exists($dir)) {
+            return back()->with('status', "Folder not found: {$dir}");
         }
 
+        $files = collect($disk->files($dir))
+            ->filter(fn($path) => in_array(strtolower(pathinfo($path, PATHINFO_EXTENSION)), ['mp4','webm']))
+            ->sortBy(fn($path) => strtolower(basename($path)))
+            ->values();
 
-        return response()->json(['message' => 'Episodes uploaded successfully!']);
+        if ($files->isEmpty()) {
+            return back()->with('status', "No .mp4/.webm files found in {$dir}");
+        }
+
+        $existing = Episode::where('media_fk', $mediaId)
+            ->pluck('file_path')
+            ->map(fn($p) => ltrim($p, '/'))
+            ->toArray();
+
+        $nextEp  = (Episode::where('media_fk', $mediaId)->max('episode_number') ?? 0) + 1;
+        $created = 0;
+
+        foreach ($files as $relPath) {
+            if (in_array($relPath, $existing, true)) {
+                continue;
+            }
+
+            $basename  = basename($relPath);
+            $parsedNum = $this->parseEpisodeNumber($basename);
+
+            $epNumber = $parsedNum ?? $nextEp;
+            if ($parsedNum === null) {
+                $nextEp++;
+            } else {
+                $nextEp = max($nextEp, $epNumber + 1);
+            }
+
+            Episode::updateOrCreate(
+                ['media_fk' => $mediaId, 'episode_number' => $epNumber],
+                [
+                    'media_type' => $mediaType,
+                    'file_path'  => $relPath,
+                ]
+            );
+
+            $created++;
+        }
+
+        return back()->with('status', "Synced {$created} new episode(s) from {$dir}");
+    }
+
+
+    private function parseEpisodeNumber(string $filename): ?int
+    {
+        $name = strtolower($filename);
+
+        if (preg_match('/(?:episode|ep|e)[\s\-_]*([0-9]{1,3})/i', $name, $m)) {
+            return (int) $m[1];
+        }
+
+        if (preg_match('/\b([0-9]{1,3})\b/', $name, $m)) {
+            return (int) $m[1];
+        }
+
+        return null;
     }
 
     public function show($mediaId, $episodeNumber)
     {
-        $accessToken = env('ANILIST_ACCESS_TOKEN');
-        $item = $this->fetchSingleItem($mediaId, $accessToken);
-        if (! $item) {
-            abort(404, 'Media not found on AniList.');
-        }
+        $media   = Media::findOrFail($mediaId);
+        $episode = Episode::where('media_fk', $mediaId)
+            ->where('episode_number', $episodeNumber)
+            ->firstOrFail();
 
-        $type     = strtoupper($item['type'] ?? '');
-        $genres   = $item['genres'] ?? [];
-        $origin   = strtoupper($item['countryOfOrigin'] ?? '');
+        $item = [
+            'id'          => $media->id,
+            'type'        => strtoupper($media->type),
+            'title'       => [
+                'english' => $media->title_english,
+                'romaji'  => $media->title_romaji,
+            ],
+            'coverImage'  => ['extraLarge' => $media->cover_url ?: asset('images/no-image.jpg')],
+            'description' => $media->description,
+            'genres'      => is_array($media->genres) ? $media->genres : (json_decode($media->genres ?? '[]', true) ?: []),
+            'tags'        => is_array($media->tags)   ? $media->tags   : (json_decode($media->tags   ?? '[]', true) ?: []),
+            'averageScore'=> $media->avg_score,
+            'episodes'    => null,
+            'chapters'    => null,
+            'volumes'     => null,
+            'status'      => $media->media_status,
+            'isAdult'     => (bool) $media->is_adult,
+            'startDate'   => ['year' => $media->year, 'month' => null, 'day' => null],
+            'countryOfOrigin' => $media->origin,
+            'mediaListEntry' => [
+                'score'    => $media->user_score,
+                'progress' => $media->progress,
+                'status'   => $media->list_status,
+            ],
+        ];
+
+        $genres  = $item['genres'] ?? [];
+        $type    = $item['type'] ?? '';
+        $origin  = strtoupper($item['countryOfOrigin'] ?? '');
         if ($type === 'ANIME' && in_array('Hentai', $genres, true)) {
-            $category = 'hentai';
+            $category = 'hentais';
         } elseif ($type === 'ANIME') {
-            $category = 'anime';
+            $category = 'animes';
         } elseif ($type === 'MANGA') {
-            // first check for Korea
-            if ($origin === 'KR') {
-                $category = 'manwha';
-            } else {
-                $category = 'manga';
-            }
-        } 
+            $category = ($origin === 'KR') ? 'manwhas' : 'mangas';
+        } else {
+            $category = 'animes';
+        }
 
-        $episode = Episode::where('media_id', $mediaId)
-                        ->where('episode_number', $episodeNumber)
-                        ->firstOrFail();
-
-            return view('episodes.show', [
-            'item'           => $item,
-            'episode'        => $episode,
-            'category'       => $category,
+        return view('episodes.show', [
+            'item'     => $item,
+            'episode'  => $episode,
+            'category' => $category,
         ]);
-    }
-
-    protected function fetchSingleItem(int $mediaId, string $accessToken)
-    {
-        $url = 'https://graphql.anilist.co';
-        $query = <<<'GQL'
-        query ($id: Int) {
-            Media(id: $id) {
-                id
-                type
-                title {
-                    english
-                    romaji
-                }
-                coverImage { extraLarge }
-                description
-                genres
-                tags { name }
-                averageScore
-                episodes
-                isAdult
-                startDate { year month day }
-                countryOfOrigin
-            }
-        }
-        GQL;
-
-        $response = Http::withHeaders([
-            'Authorization' => "Bearer $accessToken",
-            'Content-Type'  => 'application/json',
-        ])->post($url, [
-            'query'     => $query,
-            'variables' => ['id' => $mediaId],
-        ]);
-
-        if (! $response->successful()) {
-            return null;
-        }
-
-        $data = $response->json('data.Media');
-        // Strip HTML from description if needed
-        if (isset($data['description'])) {
-            $data['description'] = strip_tags($data['description']);
-        }
-        return $data;
     }
 }

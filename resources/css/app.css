@@ -140,3 +140,22 @@
   --plyr-range-thumb-shadow:       0 0 2px rgba(0,0,0,0.3);
   --plyr-range-thumb-border-radius: 50%;
 }
+
+.vn-desc a{ color:#2563eb; text-decoration:none; cursor:pointer }
+.vn-desc a:hover{ text-decoration:underline }
+
+.vn-desc .spoiler{
+    display:inline-block; background:#000; color:transparent;
+    border-radius:3px; padding:0 .25rem;
+    transition: color .15s, background-color .15s;
+}
+.vn-desc .spoiler.revealed{
+    background:transparent; color:inherit;
+}
+/* Disable clicks on links until revealed */
+.vn-desc .spoiler a{ pointer-events:none }
+.vn-desc .spoiler.revealed a{ pointer-events:auto }
+
+.episode-bottom{
+    margin-bottom: -113px;
+}

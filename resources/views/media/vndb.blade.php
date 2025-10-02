@@ -1,53 +1,73 @@
 @extends('layouts.app')
 
 @section('content')
-@php
-    $title = $item['title'] ?? 'No Title';
+    @php
+        $title = $item['title'] ?? 'No Title';
 
-    $releaseDate = 'N/A';
-    if (!empty($item['released'])) {
-        $dt = DateTime::createFromFormat('Y-m-d', $item['released']);
-        if ($dt) {
-            $releaseDate = $dt->format('j M Y');
-        } else {
-            $releaseDate = $item['released'];
+        $releaseDate = 'N/A';
+        $raw = $item['released'] ?? ($item['year'] ?? null);
+
+        if (!empty($raw)) {
+            if (preg_match('/^\d{4}$/', (string)$raw)) {
+                $releaseDate = (string)$raw;
+            } else {
+                try { $releaseDate = \Illuminate\Support\Carbon::parse($raw)->format('j M Y'); }
+                catch (\Throwable $e) { $releaseDate = (string)$raw; }
+            }
         }
-    }
 
-    $averageScore = isset($item['average']) ? $item['average'].'%' : 'N/A';
-    $scoreValue = request()->query('score');
-    $myScore = (is_numeric($scoreValue) && (int)$scoreValue > 0)
-             ? ((int)$scoreValue) . '%'
-             : 'N/A';
-    $isAdult = ! ($item['hasNoSexualContent'] ?? false);
-    $shouldBlur = $isAdult && ! Auth::check();
+        $averageScore = isset($item['average']) ? $item['average'].'%' : 'N/A';
+        $scoreValue   = $item['score'] ?? request()->query('score');
+        $myScore      = (is_numeric($scoreValue) && (int)$scoreValue > 0) ? ((int)$scoreValue).'%' : 'N/A';
 
-@endphp
+        // use the actual model we passed via fetchVnById()
+        $mediaModel = $item['media'] ?? null;
+
+
+        $blur = ((int)($mediaModel->isNsfw ?? 0) === 1) && !Auth::check();
+    @endphp
 
 <div class="flex flex-col items-center py-[8.5rem]">
     <div class="w-[1280px] h-auto bg-white shadow-sm rounded-md p-6 ml-[0.5rem]">
         <div class="flex flex-col md:flex-row">
             {{-- Left Column: Image & Buttons --}}
             <div class="flex flex-col items-center">
-                <div class="w-[325px] h-[450px] overflow-hidden rounded">
-                    @if($shouldBlur)
+                <div class="relative w-[325px] h-[450px] overflow-hidden rounded">
+                    @if($blur)
                         <img
                             src="{{ asset('images/18-plus.png') }}"
                             alt="18+"
-                            class="absolute top-2 right-2 w-8 h-8 z-10"
+                            class="absolute top-2 right-2 w-9 h-9 z-10 select-none pointer-events-none"
                         >
                     @endif
                     <img
                         src="{{ $item['image']['url'] ?? asset('images/no-image.jpg') }}"
                         alt="Cover Image"
-                        class="w-full h-full object-cover {{ $shouldBlur ? 'filter blur-2xl' : '' }}"
+                        class="w-full h-full object-cover {{ $blur ? 'filter blur-2xl' : '' }}"
                     >
                 </div>
                 @auth
                   <div class="mt-4 flex flex-col space-y-3 w-[325px] font-bold">
+                      {{-- Launch (requires launch_rel_exe saved) --}}
+                      @if($hasLauncher)
+                          <form method="POST" action="{{ route('vn.launch', ['media' => $item['id']]) }}" class="w-full">
+                              @csrf
+                              <button type="submit" class="flex items-center justify-start w-full flatGreen text-white py-2 rounded-sm shadow-sm h-[50px] transition-200">
+                                  <svg class="ml-6 mb-[0.1rem]" width="15" height="15"
+                                       viewBox="0 0 460.114 460.114" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                                      <path d="M393.538 203.629L102.557 5.543c-9.793-6.666-22.468-7.372-32.94-1.832
+                        -10.472 5.538-17.022 16.413-17.022 28.26v396.173c0 11.846 6.55
+                        22.721 17.022 28.26 10.471 5.539 23.147 4.834 32.94-1.832l290.981-198.087
+                        c8.746-5.954 13.98-15.848 13.98-26.428 0-10.58-5.234-20.475-13.981-26.428z"/>
+                                  </svg>
+                                  <span class="ml-3">Start Playing</span>
+                              </button>
+                          </form>
+                      @endif
+
                       @php
                       $id       = $item['id'];
-                      $category = $category; 
+                      $category = $category;
                       @endphp
 
                       <form action="{{ route('favorites.toggle') }}" method="POST" class="mt-2 w-full">
@@ -99,6 +119,46 @@
                           </svg>
                           <span class="ml-[0.2rem]">Add to Collection</span>
                       </button>
+                      <form method="POST" action="{{ route('vn.detect', $item['id']) }}" class="mt-2 w-full">
+                          @csrf
+                          <button type="submit"
+                                  class="flex items-center justify-start w-full text-blue-950 py-2 rounded-sm hover:text-[#08875b]">
+                              <svg xmlns="http://www.w3.org/2000/svg"
+                                   class="ml-[1.4rem] h-[1.1rem] w-[1.1rem] mr-[0.5rem] mb-[0.1rem]"
+                                   fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                  <path stroke-linecap="round" stroke-linejoin="round"
+                                        d="M15.232 5.232l3.536 3.536M4 21h4.586a1 1
+                      0 00.707-.293l10-10a1 1 0 000-1.414L14.414 4.293a1 1
+                      0 00-1.414 0l-10 10A1 1 0 004 14.586V19a2 2 0 002 2z"/>
+                              </svg>
+                              <span class="ml-1">Add Game Files</span>
+                          </button>
+                      </form>
+                      @if((int)($mediaModel->isNsfw ?? 0) !== 1)
+                          <form method="POST" action="{{ route('vn.markNsfw', ['media' => $item['id']]) }}" class="w-full mt-2">
+                              @csrf
+                              <button type="submit"
+                                      class="flex items-center justify-start w-full text-blue-950 py-2 rounded-sm hover:text-red-600">
+                                  <svg xmlns="http://www.w3.org/2000/svg"
+                                       class="ml-[1.4rem] h-[1.1rem] w-[1.1rem] mr-[0.5rem] mb-[0.1rem]"
+                                       fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                      <path stroke-linecap="round" stroke-linejoin="round"
+                                            d="M12 9v4m0 4h.01M3 12a9 9 0 1118 0 9 9 0 01-18 0z"/>
+                                  </svg>
+                                  <span class="ml-1">Mark NSFW</span>
+                              </button>
+                          </form>
+                      @else
+                          <div class="flex items-center justify-start w-full py-2 rounded-sm text-red-600">
+                              <svg xmlns="http://www.w3.org/2000/svg"
+                                   class="ml-[1.4rem] h-[1.1rem] w-[1.1rem] mr-[0.5rem] mb-[0.1rem]"
+                                   fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                  <path stroke-linecap="round" stroke-linejoin="round"
+                                        d="M5 13l4 4L19 7"/>
+                              </svg>
+                              <span class="ml-1">NSFW enabled</span>
+                          </div>
+                      @endif
                   </div>
                 @endauth
             </div>
@@ -107,7 +167,7 @@
             <div class="flex flex-col justify-start ml-8 mt-4 md:mt-2 text-gray-900 font-medium">
                 <h1 class="text-2xl font-bold text-red-600 mb-2">{{ $title }}</h1>
                 <div class="grid grid-cols-[7rem,1fr] gap-x-3 gap-y-4 text-sm mt-2 mb-2">
-                    <div>Release Date</div>
+                    <div>Release Year</div>
                     <div>{{ $releaseDate }}</div>
 
                     <div>Average Score</div>
@@ -128,8 +188,8 @@
                       @endforelse
                     </div>
                 </div>
-                <p class="text-sm mb-2 mt-2">
-                    {{ $item['description'] ?? 'No synopsis available.' }}
+                <p class="vn-desc text-sm mb-2 mt-2">
+                    {!! $item['description_html'] !!}
                 </p>
                 <div class="mb-2 mt-2">
                     <div class="flex flex-wrap gap-2 text-xs text-gray-700">
@@ -285,8 +345,8 @@
                 class="w-[735px] ml-4
                     rounded-md
                     border border-gray-200
-                    px-3    
-                    py-2     
+                    px-3
+                    py-2
                     text-base
                     bg-gray-100
                     focus:outline-none focus:ring-[0.2rem] focus:ring-red-600
@@ -389,6 +449,29 @@ document.addEventListener('DOMContentLoaded', () => {
     // close the Create modal
     hideCreate();
   });
+    const spoilers = document.querySelectorAll('.vn-desc .spoiler');
+
+    const setExpanded = (el, on) => {
+        el.classList.toggle('revealed', on);
+        el.setAttribute('aria-expanded', on ? 'true' : 'false');
+    };
+
+    spoilers.forEach(el => {
+        // hover
+        el.addEventListener('mouseenter', () => setExpanded(el, true));
+        el.addEventListener('mouseleave', () => setExpanded(el, false));
+        // keyboard focus
+        el.addEventListener('focus',      () => setExpanded(el, true));
+        el.addEventListener('blur',       () => setExpanded(el, false));
+        // tap/click toggle (mobile support)
+        el.addEventListener('click', e => {
+            // if already revealed and user clicks a link inside, let it pass
+            if (e.target.closest('a') && el.classList.contains('revealed')) return;
+            e.preventDefault();
+            setExpanded(el, !el.classList.contains('revealed'));
+        });
+    });
+
 });
 </script>
 

@@ -4,21 +4,30 @@
 @php
     use App\Models\Chapter;
     use App\Models\Episode;
+    use App\Models\Collection;
+    use App\Models\CollectionItem;
+    use App\Models\Favorite;
     $title = $item['title']['english']
           ?? $item['title']['romaji']
           ?? 'No Title';
 
+    $type = strtoupper($item['type'] ?? '');
+
+    $isEpisodeBased = in_array($type, ['ANIME', 'HENTAI']);
+    $isChapterBased = in_array($type, ['MANGA', 'MANWHA']);
+
     $firstEpisode = null;
-    if (strtoupper($item['type'] ?? '') === 'ANIME') {
-        $firstEpisode = Episode::where('media_id', $item['id'])
-                              ->orderBy('episode_number')
-                              ->first();  
+    if ($isEpisodeBased) {
+        $firstEpisode = Episode::where('media_fk', $item['id'])
+                               ->orderBy('episode_number')
+                               ->first();
     }
+
     $firstChapter = null;
-    if (strtoupper($item['type'] ?? '') === 'MANGA') {
+    if ($isChapterBased) {
         $firstChapter = Chapter::where('item_id', $item['id'])
                                ->orderBy('chapter_number')
-                               ->first();   
+                               ->first();
     }
 
     $releaseDate = 'N/A';
@@ -36,7 +45,7 @@
     if (isset($item['mediaListEntry']) && !empty($item['mediaListEntry']['score']) && $item['mediaListEntry']['score'] > 0) {
         $myScore = $item['mediaListEntry']['score'] . '%';
     }
-    
+
     $statusMapping = [
         'FINISHED' => 'Finished',
         'RELEASING' => 'Releasing',
@@ -45,8 +54,33 @@
     ];
     $status = $item['status'] ?? 'N/A';
     $status = $statusMapping[$status] ?? ucfirst(strtolower($status));
-    $isNsfw     = $item['isAdult'] ?? false;
-    $shouldBlur = $isNsfw && ! Auth::check();
+
+    $normalizedTypeFromItem = match (strtoupper($item['type'] ?? '')) {
+        'ANIME'  => 'animes',
+        'HENTAI' => 'hentais',
+        'MANGA'  => 'mangas',
+        'MANWHA' => 'manwhas',
+        default  => 'animes',
+    };
+
+    $filterSlug = $normalizedTypeFromItem;
+
+    $numericId = (int) ltrim((string) $id, 'v');
+
+    // Recompute current state for this page render
+    $isFavorited = Favorite::where('favoritable_type', $normalizedTypeFromItem)
+                           ->where('favoritable_id',   $numericId)
+                           ->exists();
+
+    $attachedIds = CollectionItem::where('item_type', $normalizedTypeFromItem)
+                                 ->where('item_id',   $numericId)
+                                 ->pluck('collection_id')
+                                 ->toArray();
+
+    // Collections list for the modal
+    $allCollections = Collection::orderBy('name')->get();
+
+    $blur = ((int)($item['isNsfw'] ?? 0) === 1) && !Auth::check();
 @endphp
 
 <div class="flex flex-col items-center py-[8.5rem]">
@@ -55,68 +89,62 @@
             {{-- Left Column: Image & Buttons --}}
             <div class="flex flex-col items-center">
                 <div class="relative w-[325px] h-[450px] overflow-hidden rounded">
-                    @if($shouldBlur)
+                    @if($blur)
                         <img
                             src="{{ asset('images/18-plus.png') }}"
                             alt="18+"
-                            class="absolute top-2 right-2 w-8 h-8 z-10"
+                            class="absolute top-2 right-2 w-9 h-9 z-10 select-none pointer-events-none"
                         >
                     @endif
                     <img
                         src="{{ $item['coverImage']['extraLarge'] ?? asset('images/no-image.jpg') }}"
                         alt="Cover Image"
-                        class="w-full h-full object-cover {{ $shouldBlur ? 'filter blur-2xl' : '' }}"
+                        class="w-full h-full object-cover {{ $blur ? 'filter blur-2xl' : '' }}"
                     >
                 </div>
                 @auth
                 <div class="mt-4 flex flex-col space-y-3 w-[325px] font-bold">
-                    @php 
-                        $isAnime   = strtoupper($item['type'] ?? '') === 'ANIME';
-                        $enabled   = $isAnime ? $firstEpisode   : $firstChapter;
-                        $url       = $isAnime
-                                    ? route('episodes.show', ['media' => $item['id'],
-                                                              'episode' => $firstEpisode?->episode_number ?? 1])
-                                    : route('chapters.page',  ['media' => $item['id'],
-                                                              'chapter' => $firstChapter?->chapter_number ?? 1,
-                                                              'page' => 1, 'view' => 'one']);
-                        $label     = $isAnime ? 'Start Watching' : 'Start Reading';
+                    @php
+                        $enabled = $isEpisodeBased ? $firstEpisode : $firstChapter;
+
+                        if ($isEpisodeBased) {
+                            $url   = route('episodes.show', [
+                                'media'   => $item['id'],
+                                'episode' => $firstEpisode?->episode_number ?? 1
+                            ]);
+                            $label = 'Start Watching';
+                        } else { // chapter-based
+                            $url   = route('chapters.page', [
+                                'media'   => $item['id'],
+                                'chapter' => $firstChapter?->chapter_number ?? 1,
+                                'page'    => 1,
+                                'view'    => 'one'
+                            ]);
+                            $label = 'Start Reading';
+                        }
                     @endphp
 
                     @if ($enabled)
-                      <a href="{{ $url }}"
-                          class="flex items-center justify-start w-full flatGreen text-white
-                                  py-2 rounded-sm shadow-sm h-[50px] transition-200">
-                            {{-- play icon --}}
-                            <svg class="ml-6 mb-[0.1rem]" width="15" height="15" viewBox="0 0 460.114 460.114"
-                                fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-                              <path d="M393.538 203.629L102.557 5.543c-9.793-6.666-22.468-7.372-32.94-1.832
-                                        -10.472 5.538-17.022 16.413-17.022 28.26v396.173c0 11.846 6.55
-                                        22.721 17.022 28.26 10.471 5.539 23.147 4.834 32.94-1.832l290.981-198.087
-                                        c8.746-5.954 13.98-15.848 13.98-26.428 0-10.58-5.234-20.475-13.981-26.428z"/>
+                        <a href="{{ $url }}"
+                           class="flex items-center justify-start w-full flatGreen text-white
+              py-2 rounded-sm shadow-sm h-[50px] transition-200">
+                            <svg class="ml-6 mb-[0.1rem]" width="15" height="15"
+                                 viewBox="0 0 460.114 460.114" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M393.538 203.629L102.557 5.543c-9.793-6.666-22.468-7.372-32.94-1.832
+                      -10.472 5.538-17.022 16.413-17.022 28.26v396.173c0 11.846 6.55
+                      22.721 17.022 28.26 10.471 5.539 23.147 4.834 32.94-1.832l290.981-198.087
+                      c8.746-5.954 13.98-15.848 13.98-26.428 0-10.58-5.234-20.475-13.981-26.428z"/>
                             </svg>
                             <span class="ml-3">{{ $label }}</span>
-                      </a>
-                    @else
-                      <div class="flex items-center justify-start w-full flatGreen text-white
-                                    py-2 rounded-sm shadow-sm h-[50px] transition-200 cursor-not-allowed">
-                            <svg class="ml-6 mb-[0.1rem]" width="15" height="15" viewBox="0 0 460.114 460.114"
-                                fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-                              <path d="M393.538 203.629L102.557 5.543c-9.793-6.666-22.468-7.372-32.94-1.832
-                                        -10.472 5.538-17.022 16.413-17.022 28.26v396.173c0 11.846 6.55
-                                        22.721 17.022 28.26 10.471 5.539 23.147 4.834 32.94-1.832l290.981-198.087
-                                        c8.746-5.954 13.98-15.848 13.98-26.428 0-10.58-5.234-20.475-13.981-26.428z"/>
-                            </svg>
-                            <span class="ml-3">{{ $label }}</span>
-                      </div>
+                        </a>
                     @endif
                     @php
                     $id       = $item['id'];
-                    $category = $category; 
                     @endphp
 
                     <form action="{{ route('favorites.toggle') }}" method="POST" class="mt-2 w-full">
                         @csrf
-                        <input type="hidden" name="favoritable_type" value="{{ $category }}">
+                        <input type="hidden" name="favoritable_type" value="{{ $normalizedTypeFromItem }}">
                         <input type="hidden" name="favoritable_id"   value="{{ $id }}">
                         <button type="submit"
                                 class="flex items-center w-full text-blue-950 py-2 rounded-sm
@@ -164,257 +192,39 @@
                         <span class="ml-[0.2rem]">Add to Collection</span>
                     </button>
                     @if(optional(auth()->user()->role)->role === 'Admin')
-                      @if(strtoupper($item['type'] ?? '') === 'ANIME')
-                          <div x-data="{
-                              showUpload: false,
-                              uploading: false,
-                              xhr: null,
-                              startUpload(e) {
-                                  e.preventDefault();
-                                  this.uploading = true;
-                                  const form = this.$refs.uploadForm;
-                                  const data = new FormData(form);
-                                  this.xhr = new XMLHttpRequest();
-                                  this.xhr.open('POST', form.action, true);
-
-                                  this.xhr.upload.onprogress = ev => {
-                                  if (ev.lengthComputable) {
-                                      const pct = Math.round(ev.loaded/ev.total*100);
-                                      this.$refs.progressBar.style.width = pct+'%';
-                                      this.$refs.progressText.textContent = pct+'%';
-                                  }
-                                  };
-
-                                  this.xhr.onload = () => {
-                                  if (this.xhr.status === 200) {
-                                      location.reload();
-                                  } else {
-                                      this.uploading = false;
-                                      this.$refs.progressText.textContent = 'Error';
-                                  }
-                                  };
-                                  this.xhr.onerror = () => {
-                                  this.uploading = false;
-                                  this.$refs.progressText.textContent = 'Error';
-                                  };
-
-                                  this.xhr.send(data);
-                              },
-                              cancelUpload() {
-                                  if (this.xhr) this.xhr.abort();
-                                  this.uploading = false;
-                                  this.$refs.progressBar.style.width = '0%';
-                                  this.$refs.progressText.textContent = '0%';
-                              }
-                              }"   x-cloak
-                              x-effect="document.body.classList.toggle('overflow-hidden', showUpload)">
-
-                              <!-- Trigger Button -->
-                              <button @click="showUpload = true"
-                                      class="flex items-center justify-start w-full text-blue-950 py-2 rounded-sm hover:text-yellow-400">
-                                  <svg xmlns="http://www.w3.org/2000/svg"
-                                      class="ml-[1.4rem] h-[1.1rem] w-[1.1rem] mr-[0.5rem] mb-[0.1rem]"
-                                      fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                  <path stroke-linecap="round" stroke-linejoin="round"
-                                          d="M15.232 5.232l3.536 3.536M4 21h4.586a1 1 
-                                          0 00.707-.293l10-10a1 1 0 000-1.414L14.414 
-                                          4.293a1 1 0 00-1.414 0l-10 10A1 1 
-                                          0 004 14.586V19a2 2 0 002 2z" />
-                                  </svg>
-                                  <span class="ml-1">Add Episode</span>
-                              </button>
-
-                              <!-- Modal Overlay -->
-                              <div x-show="showUpload"
-                                  class="fixed inset-0 flex items-start pt-[130px] justify-center 
-                                          bg-black bg-opacity-50 z-50">
-                                  <div @click.away="showUpload = false"
-                                      class="relative bg-white p-4 text-left shadow-2xl 
-                                              w-[800px] rounded-lg">
-
-                                  <!-- Header -->
-
-                                  <div class="flex justify-between items-start pb-4 pt-2 border-b ml-4 mr-4 border-gray-200">
-                                  <h3 class="text-lg font-bold text-gray-800">Upload Episode</h3>
-                                  <button @click="showUpload = false" type="button" class="text-gray-400 hover:text-gray-900" aria-label="Close Add Modal">
-                                      <span class="sr-only">Close</span>
-                                      <!-- you can swap this SVG for your .icon-times -->
-                                      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none"
-                                          viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
-                                      <path stroke-linecap="round" stroke-linejoin="round"
-                                              d="M6 18L18 6M6 6l12 12"/>
-                                      </svg>
-                                      </button>
-                                  </div>
-
-                                  <!-- Body -->
-                                  <div class="space-y-4 mr-4 ml-4">
-                                      <form x-ref="uploadForm"
-                                          action="{{ route('episodes.store', ['media' => $item['id']]) }}"
-                                          method="POST"
-                                          enctype="multipart/form-data"
-                                          @submit.prevent="startUpload($event)"
-                                          class="space-y-4">
-                                      @csrf
-                                      <input type="hidden" name="media_type" value="{{ $category }}">
-
-                                      <!-- Drop Zone -->
-                                      <div id="drop-zone"
-                                          class="flex flex-col items-center justify-center 
-                                                  border-2 border-dashed border-gray-300 
-                                                  rounded-lg h-56 cursor-pointer relative">
-                                          <input id="video-input" type="file" name="videos[]"
-                                              accept="video/mp4,video/webm"
-                                              class="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                                              required />
-                                          <p class="mt-2 text-lg font-medium text-gray-600 z-10">
-                                          Drag & drop an episode here 
-                                          <span class="text-blue-600 hover:underline" 
-                                                  onclick="document.getElementById('video-input').click()">
-                                              or browse
-                                          </span>
-                                          </p>
-                                          <p x-ref="videoInfo" id="video-info"
-                                          class="mt-1 text-sm text-gray-400 font-medium">
-                                          MP4, WEBM
-                                          </p>
-                                      </div>
-                                      @error('videos') 
-                                          <p class="text-red-600 text-sm">{{ $message }}</p> 
-                                      @enderror
-
-                                      <!-- Progress bar -->
-                                      <div x-show="uploading" class="w-full bg-gray-200 rounded h-2 overflow-hidden">
-                                          <div x-ref="progressBar" class="h-full bg-[#08875b] w-0"></div>
-                                      </div>
-                                      <p
-                                          x-show="uploading"
-                                          x-ref="progressText"
-                                          class="w-full text-center text-sm text-gray-600 mt-1"
-                                      >0%</p>
-
-
-                                      <!-- Actions -->
-                                      <div class="flex justify-center space-x-2">
-                                          <button x-show="!uploading"
-                                                  type="submit"
-                                                  class="h-12 w-40 rounded-md bg-[#08875b] text-white text-lg
-                                                      hover:bg-emerald-700 focus:outline-none">
-                                          Upload
-                                          </button>
-                                          <button x-show="uploading"
-                                                  type="button"
-                                                  @click="cancelUpload"
-                                                  class="h-12 w-40 rounded-md bg-red-600 text-white text-lg
-                                                      hover:bg-flatRed focus:outline-none">
-                                          Cancel
-                                          </button>
-                                      </div>
-                                      </form>
-                                  </div>
-
-                                  </div>
-                              </div>
-                          </div>
-                      @elseif(strtoupper($item['type'] ?? '') === 'MANGA')
-                      <div x-data="chapterUpload()" x-cloak
-                          x-effect="document.body.classList.toggle('overflow-hidden',showUpload)">
-
-                        <!-- trigger -->
-                        <button @click="showUpload = true"
-                                class="flex items-center justify-start w-full text-blue-950 py-2 rounded-sm hover:text-yellow-400">
-                            <svg xmlns="http://www.w3.org/2000/svg"
-                                class="ml-[1.4rem] h-[1.1rem] w-[1.1rem] mr-[0.5rem] mb-[0.1rem]"
-                                fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round"
-                                      d="M15.232 5.232l3.536 3.536M4 21h4.586a1 1
-                                      0 00.707-.293l10-10a1 1 0 000-1.414L14.414 4.293a1 1
-                                      0 00-1.414 0l-10 10A1 1 0 004 14.586V19a2 2 0 002 2z"/>
-                            </svg>
-                            <span class="ml-1">Add Chapter</span>
-                        </button>
-
-                        <!-- overlay -->
-                        <div x-show="showUpload"
-                            class="fixed inset-0 flex items-start pt-[130px] justify-center bg-black/60 z-50">
-                          <div @click.away="showUpload = false"
-                              class="relative bg-white p-4 text-left shadow-2xl w-[800px] rounded-lg">
-
-                            <!-- header -->
-                            <div class="flex justify-between items-start pb-4 pt-2 border-b border-gray-200 mx-4">
-                              <h3 class="text-lg font-bold text-gray-800">Upload Chapter</h3>
-                              <button @click="showUpload = false" class="text-gray-400 hover:text-gray-900">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none"
-                                    viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
-                                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-                                </svg>
-                              </button>
-                            </div>
-
-                            <!-- body -->
-                            <div class="space-y-4 mx-4">
-                              <form x-ref="form" id="uploadForm"
-                                    action="{{ route('chapters.store',['media'=>$item['id']]) }}"
-                                    method="POST" enctype="multipart/form-data"
-                                    @submit.prevent="startUpload" class="space-y-4">
+                        @if($isEpisodeBased)
+                            <form method="POST" action="{{ route('episodes.sync', ['media' => $item['id']]) }}">
                                 @csrf
-                                <input type="hidden" name="media_type" value="{{ $category }}">
-
-                                <!-- chapter # -->
-                                <label class="block">
-                                  <span class="block mb-2 label-text text-red-600 font-medium">Chapter</span>
-                                  <input type="number" name="title" min="1" required
-                                        class="w-[735px]
-                                        rounded-md
-                                        border border-gray-200
-                                        px-3    
-                                        py-2     
-                                        text-base
-                                        bg-gray-100
-                                        focus:outline-none focus:ring-[0.2rem] focus:ring-red-600
-                                        text-gray-800 font-medium">
-                                </label>
-
-                                <!-- drop-zone -->
-                                <div id="drop-zone"
-                                    class="flex flex-col items-center justify-center border-2 border-dashed
-                                            border-gray-300 rounded-lg h-56 cursor-pointer relative">
-                                  <input id="video-input"
-                                        type="file" name="files[]" multiple required
-                                        accept="image/png,image/jpeg,image/webp"
-                                        class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
-                                  <p class="mt-2 text-lg font-medium text-gray-600 z-10">
-                                    Drag & drop pages here <span class="text-blue-600 hover:underline">or browse</span>
-                                  </p>
-                                  <p id="video-info" class="mt-1 text-sm text-gray-400 font-medium">PNG / JPG / WEBP</p>
-                                </div>
-
-                                <!-- progress -->
-                                <div x-show="uploading" class="w-full bg-gray-200 rounded h-2 overflow-hidden">
-                                  <div x-ref="bar" class="h-full bg-[#08875b] w-0"></div>
-                                </div>
-                                <p x-show="uploading" x-ref="txt"
-                                  class="w-full text-center text-sm text-gray-600 mt-1">0%</p>
-
-                                <!-- actions -->
-                                <div class="flex justify-center space-x-2">
-                                  <button x-show="!uploading" type="submit"
-                                          class="h-12 w-40 rounded-md bg-[#08875b] text-white text-lg hover:bg-emerald-700">
-                                    Upload
-                                  </button>
-
-                                  <button x-show="uploading" type="button" @click="cancelUpload"
-                                          class="h-12 w-40 rounded-md bg-red-600 text-white text-lg hover:bg-flatRed">
-                                    Cancel
-                                  </button>
-                                </div>
-                              </form>
-                            </div>
-
-                          </div>
-                        </div>
-                      </div>
-                    @endif
+                                <button type="submit"
+                                        class="flex items-center justify-start w-full text-blue-950 py-2 rounded-sm hover:text-[#08875b]">
+                                    <svg xmlns="http://www.w3.org/2000/svg"
+                                         class="ml-[1.4rem] h-[1.1rem] w-[1.1rem] mr-[0.5rem] mb-[0.1rem]"
+                                         fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                              d="M15.232 5.232l3.536 3.536M4 21h4.586a1 1
+                      0 00.707-.293l10-10a1 1 0 000-1.414L14.414 4.293a1 1
+                      0 00-1.414 0l-10 10A1 1 0 004 14.586V19a2 2 0 002 2z"/>
+                                    </svg>
+                                    <span class="ml-1">Add Episode(s)</span>
+                                </button>
+                            </form>
+                        @elseif($isChapterBased)
+                            <form method="POST" action="{{ route('chapters.sync', ['media' => $item['id']]) }}">
+                                @csrf
+                                <button type="submit"
+                                        class="flex items-center justify-start w-full text-blue-950 py-2 rounded-sm hover:text-[#08875b]">
+                                    <svg xmlns="http://www.w3.org/2000/svg"
+                                         class="ml-[1.4rem] h-[1.1rem] w-[1.1rem] mr-[0.5rem] mb-[0.1rem]"
+                                         fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                              d="M15.232 5.232l3.536 3.536M4 21h4.586a1 1
+                      0 00.707-.293l10-10a1 1 0 000-1.414L14.414 4.293a1 1
+                      0 00-1.414 0l-10 10A1 1 0 004 14.586V19a2 2 0 002 2z"/>
+                                    </svg>
+                                    <span class="ml-1">Add Chapter(s)</span>
+                                </button>
+                            </form>
+                        @endif
                     @endif
                 </div>
                 @endauth
@@ -423,71 +233,95 @@
             <div class="flex flex-col justify-start ml-8 mt-4 md:mt-2 text-gray-900 font-medium">
                 <h1 class="text-2xl font-bold text-red-600 mb-2">{{ $title }}</h1>
                 <div class="grid grid-cols-[7rem,1fr] gap-x-3 gap-y-4 text-sm mt-2 mb-2">
-                @if(strtoupper($item['type'] ?? '') === 'MANGA')
+                @if($isChapterBased)
                     <div>Chapters</div>
                     <div>{{ $item['chapters'] ?? 'N/A' }}</div>
                     @if(!empty($item['volumes']) && $item['volumes'] > 0)
                         <div>Volumes</div>
                         <div>{{ $item['volumes'] }}</div>
                     @endif
-                @else
+                @elseif($isEpisodeBased)
                     <div>Episodes</div>
                     <div>{{ $item['episodes'] ?? 'N/A' }}</div>
                 @endif
-                    
+
                     <div>Status</div>
                     <div>{{ $status }}</div>
-                    
+
                     <div>Release Date</div>
                     <div>{{ $releaseDate }}</div>
-                    
+
                     <div>Average Score</div>
                     <div>{{ $averageScore }}</div>
-                    
+
                     <div>My Score</div>
                     <div>{{ $myScore }}</div>
                     @if(strtoupper($item['type'] ?? '') === 'MANGA')
                         <div>Author</div>
                         @php
-                            // Filter staff to get a collection of author names
-                            $authors = collect($item['staff']['edges'] ?? [])
-                                ->filter(function($edge) {
-                                    return isset($edge['node']['name']['full']) &&
-                                        in_array(strtolower($edge['role']), ['story', 'art', 'story & art']);
-                                })
-                                ->pluck('node.name.full')
-                                ->unique();
+                            $authors = collect($item['authors'] ?? [])->filter()->unique()->values();
                         @endphp
                         <div>
                             @if($authors->isEmpty())
                                 N/A
                             @else
-                              @foreach($authors as $name)
-                                  <a  href="{{ category_filter_url('mangas', 'author', $name) }}"
-                                      class="text-blue-600 hover:underline cursor-pointer">
-                                      {{ $name }}
-                                  </a>@if(!$loop->last), @endif
-                              @endforeach
+                                @foreach($authors as $name)
+                                    <a href="{{ category_filter_url('mangas', 'author', $name) }}"
+                                       class="text-blue-600 hover:underline cursor-pointer">
+                                        {{ $name }}
+                                    </a>@if(!$loop->last), @endif
+                                @endforeach
                             @endif
                         </div>
-                    @else
+                    @elseif(strtoupper($item['type'] ?? '') === 'MANWHA')
+                        <div>Author</div>
+                        @php
+                            $authors = collect($item['authors'] ?? [])->filter()->unique()->values();
+                        @endphp
+                        <div>
+                            @if($authors->isEmpty())
+                                N/A
+                            @else
+                                @foreach($authors as $name)
+                                    <a href="{{ category_filter_url('manwhas', 'author', $name) }}"
+                                       class="text-blue-600 hover:underline cursor-pointer">
+                                        {{ $name }}
+                                    </a>@if(!$loop->last), @endif
+                                @endforeach
+                            @endif
+                        </div>
+                    @elseif(strtoupper($item['type'] ?? '') === 'HENTAI')
                         <div>Studios</div>
                         @php
-                        $studios = collect($item['studios']['edges'] ?? [])
-                            ->filter(fn ($e) => !empty($e['isMain']) && $e['isMain'])
-                            ->pluck('node.name')
-                            ->unique();
+                            $studios = collect($item['studios'] ?? [])->filter()->unique()->values();
                         @endphp
                         <div>
                             @if($studios->isEmpty())
                                 N/A
                             @else
-                              @foreach($studios as $studio)
-                                  <a  href="{{ category_filter_url('animes', 'studio', $studio) }}"
-                                      class="text-blue-600 hover:underline cursor-pointer">
-                                      {{ $studio }}
-                                  </a>@if(!$loop->last), @endif
-                              @endforeach
+                                @foreach($studios as $studio)
+                                    <a href="{{ category_filter_url('hentais', 'studio', $studio) }}"
+                                       class="text-blue-600 hover:underline cursor-pointer">
+                                        {{ $studio }}
+                                    </a>@if(!$loop->last), @endif
+                                @endforeach
+                            @endif
+                        </div>
+                    @else
+                        <div>Studios</div>
+                        @php
+                            $studios = collect($item['studios'] ?? [])->filter()->unique()->values();
+                        @endphp
+                        <div>
+                            @if($studios->isEmpty())
+                                N/A
+                            @else
+                                @foreach($studios as $studio)
+                                    <a href="{{ category_filter_url('animes', 'studio', $studio) }}"
+                                       class="text-blue-600 hover:underline cursor-pointer">
+                                        {{ $studio }}
+                                    </a>@if(!$loop->last), @endif
+                                @endforeach
                             @endif
                         </div>
                     @endif
@@ -501,7 +335,7 @@
                             N/A
                         @else
                           @foreach($genres as $genre)
-                              <a  href="{{ category_filter_url($category, 'genre', $genre) }}"
+                              <a  href="{{ category_filter_url($normalizedTypeFromItem, 'genre', $genre) }}"
                                   class="text-blue-600 hover:underline cursor-pointer">
                                   {{ $genre }}
                               </a>@if(!$loop->last), @endif
@@ -510,13 +344,13 @@
                     </div>
                 </div>
                 <p class="text-sm mb-2 mt-2">
-                    {{ $item['description'] ?? 'No synopsis available.' }}
+                    {!! nl2br(e($item['description'])) !!}
                 </p>
                 <div class="mb-2 mt-2">
                     <div class="flex flex-wrap gap-2 text-xs text-gray-700">
                       @foreach($item['tags'] ?? [] as $tag)
                           <?php ($name = $tag['name'] ?? $tag) ?>
-                          <a  href="{{ category_filter_url($category, 'tags', $name) }}"
+                          <a  href="{{ category_filter_url($normalizedTypeFromItem, 'tags', $name) }}"
                               class="inline-block bg-gray-100 px-4 py-3 rounded-sm
                                     hover:bg-gray-200  transition">
                               {{ $name }}
@@ -527,196 +361,193 @@
             </div>
         </div>
     </div>
- 
-@php
-  use Illuminate\Support\Facades\Storage;
 
-  $episodes = Episode::where('media_id', $item['id'])
-                     ->orderBy('episode_number')
-                     ->get();
+    @php
+        use Illuminate\Support\Facades\Storage;
 
-  // break into rows of 4
-  $rows = $episodes->chunk(4);
-@endphp
-@auth  
-@if($episodes->isNotEmpty())
-  <div class="space-y-6 mt-8 mb-[-120px] w-[1278px] mx-auto">
-    @foreach($rows as $rowIndex => $chunk)
-      <div class="grid grid-cols-4 gap-6">
-        @if($rowIndex % 2 === 1)
-          {{-- odd row: reverse & right-pad --}}
-          @php
-            $count    = $chunk->count();
-            $blanks   = 4 - $count;
-            $reversed = $chunk->reverse()->values();
-          @endphp
+        // === EPISODES pagination (12 per page, query param: ep_page) ===
+        $epPerPage = 12;
+        $epPage    = max(1, (int) request('ep_page', 1));
 
-          {{-- empty slots --}}
-          @for($i = 0; $i < $blanks; $i++)
-            <div></div>
-          @endfor
+        /** @var \Illuminate\Pagination\LengthAwarePaginator $episodesPaginator */
+        $episodesPaginator = \App\Models\Episode::where('media_fk', $item['id'])
+            ->orderBy('episode_number')
+            ->paginate($epPerPage, ['*'], 'ep_page', $epPage);
 
-          @foreach($reversed as $ep)
-            @php
-              $url = Storage::disk('b2')->url($ep->file_path);
-            @endphp
-            <div class="flex flex-col items-stretch">
-              <a
-                href="{{ route('episodes.show', ['media' => $item['id'], 'episode' => $ep->episode_number]) }}"
-                class="relative group rounded-lg overflow-hidden shadow-lg w-full aspect-[16/9] bg-gray-100"
-              >
-                <video
-                  class="absolute inset-0 w-full h-full object-cover"
-                  muted playsinline preload="metadata"
-                >
-                  <source src="{{ $url }}#t=0.1" type="video/mp4" />
-                </video>
+        // collection for the current page
+        $episodes = $episodesPaginator->getCollection();
+        $rows     = $episodes->chunk(4);
+    @endphp
 
-                <div
-                  class="absolute inset-0 bg-black bg-opacity-20
-                         duration-500 ease-in-out
-                         group-hover:bg-opacity-40 z-0 flex items-center justify-center"
-                ></div>
-
-                <svg
-                  class="absolute inset-0 m-auto h-12 w-12 text-white opacity-75 z-10 pointer-events-none"
-                  fill="currentColor"
-                  viewBox="0 0 84 84"
-                >
-                  <circle cx="42" cy="42" r="42" opacity="0.5"/>
-                  <polygon points="33,27 59,42 33,57" fill="#fff"/>
-                </svg>
-              </a>
-              <p class="text-center text-sm text-gray-600 mt-2">
-                Episode {{ $ep->episode_number }}
-              </p>
+    @auth
+        @if($episodesPaginator->total() > 0)
+            <div class="space-y-6 mt-8 w-[1278px] mx-auto font-medium relative z-0">
+                @foreach($rows as $chunk)
+                    <div class="grid grid-cols-4 gap-6">
+                        @foreach($chunk as $ep)
+                            @php $url = Storage::url($ep->file_path); @endphp
+                            <div class="flex flex-col items-stretch">
+                                <a href="{{ route('episodes.show', ['media' => $item['id'], 'episode' => $ep->episode_number]) }}"
+                                   class="relative group rounded-lg overflow-hidden shadow-lg w-full aspect-[16/9] bg-gray-100">
+                                    <video class="absolute inset-0 w-full h-full object-cover" muted playsinline preload="metadata">
+                                        <source src="{{ $url }}#t=0.1" type="video/mp4" />
+                                    </video>
+                                    <div class="absolute inset-0 bg-black bg-opacity-20 duration-500 ease-in-out group-hover:bg-opacity-40 z-0 flex items-center justify-center"></div>
+                                    <svg class="absolute inset-0 m-auto h-12 w-12 text-white opacity-75 z-10 pointer-events-none" fill="currentColor" viewBox="0 0 84 84">
+                                        <circle cx="42" cy="42" r="42" opacity="0.5"/>
+                                        <polygon points="33,27 59,42 33,57" fill="#fff"/>
+                                    </svg>
+                                </a>
+                                <p class="text-center text-sm text-gray-600 mt-2">Episode {{ $ep->episode_number }}</p>
+                            </div>
+                        @endforeach
+                    </div>
+                @endforeach
             </div>
-          @endforeach
 
-        @else
-          {{-- even row: normal order --}}
-          @foreach($chunk as $ep)
+            {{-- EPISODES pagination bar --}}
             @php
-              $url = Storage::disk('b2')->url($ep->file_path);
+                $epCurrent = $episodesPaginator->currentPage();
+                $epLast    = $episodesPaginator->lastPage();
+                $epUrl     = fn($p) => request()->fullUrlWithQuery(['ep_page' => $p]);
             @endphp
-            <div class="flex flex-col items-stretch">
-              <a
-                href="{{ route('episodes.show', ['media' => $item['id'], 'episode' => $ep->episode_number]) }}"
-                class="relative group rounded-lg overflow-hidden shadow-lg w-full aspect-[16/9] bg-gray-100"
-              >
-                <video
-                  class="absolute inset-0 w-full h-full object-cover"
-                  muted playsinline preload="metadata"
-                >
-                  <source src="{{ $url }}#t=0.1" type="video/mp4" />
-                </video>
+            <div class="relative z-10 flex items-center justify-center space-x-2 mt-12 episode-bottom {{ $epLast > 1 ? '' : 'hidden' }}">
+            <span class="text-gray-600 text-lg font-medium">Episodes</span>
 
-                <div
-                  class="absolute inset-0 bg-black bg-opacity-20
-                          duration-500 ease-in-out
-                         group-hover:bg-opacity-40 z-0 flex items-center justify-center"
-                ></div>
+                @if($epCurrent > 1)
+                    <a href="{{ $epUrl(1) }}"        class="pagination-arrow mb-1">&laquo;</a>
+                    <a href="{{ $epUrl($epCurrent-1) }}" class="pagination-arrow mb-1">&lsaquo;</a>
+                @endif
 
-                <svg
-                  class="absolute inset-0 m-auto h-12 w-12 text-white opacity-75 z-10 pointer-events-none"
-                  fill="currentColor"
-                  viewBox="0 0 84 84"
-                >
-                  <circle cx="42" cy="42" r="42" opacity="0.5"/>
-                  <polygon points="33,27 59,42 33,57" fill="#fff"/>
-                </svg>
-              </a>
-              <p class="text-center text-sm text-gray-600 mt-2">
-                Episode {{ $ep->episode_number }}
-              </p>
+                <div class="flex space-x-2 text-lg">
+                    @php
+                        $maxVisible = 7;
+                        $start = max(1, $epCurrent - intdiv($maxVisible,2));
+                        $end   = min($epLast, $start + $maxVisible - 1);
+                        if($end - $start + 1 < $maxVisible) $start = max(1, $end - $maxVisible + 1);
+                    @endphp
+                    @for ($i = $start; $i <= $end; $i++)
+                        @if ($i == $epCurrent)
+                            <span class="pagination-btn pagination-active">{{ $i }}</span>
+                        @else
+                            <a href="{{ $epUrl($i) }}" class="pagination-btn non-selected-page-number">{{ $i }}</a>
+                        @endif
+                    @endfor
+                </div>
+
+                @if($epCurrent < $epLast)
+                    <a href="{{ $epUrl($epCurrent+1) }}" class="pagination-arrow mb-1">&rsaquo;</a>
+                    <a href="{{ $epUrl($epLast) }}"      class="pagination-arrow mb-1">&raquo;</a>
+                @endif
             </div>
-          @endforeach
         @endif
-      </div>
-    @endforeach
-  </div>
-@endif
-@endauth
+    @endauth
+
 </div>
 
 @php
-    // one query – eager-load first pages
-    $chapters = Chapter::with(['pages' => function ($q) {
-                    $q->orderBy('chapter_number');   
-                }])
-                ->where('item_id', $item['id'])
-                ->orderBy('chapter_number')    
-                ->get();
+    // === CHAPTERS pagination (70 per page, query param: ch_page) ===
+    $chPerPage = 48;
+    $chPage    = max(1, (int) request('ch_page', 1));
 
-    $chapterRows = $chapters->chunk(4);
+    /** @var \Illuminate\Pagination\LengthAwarePaginator $chaptersPaginator */
+    $chaptersPaginator = \App\Models\Chapter::with(['pages' => function ($q) {
+                            $q->orderBy('page_number');
+                        }])
+                        ->where('item_id', $item['id'])
+                        ->orderBy('chapter_number')
+                        ->paginate($chPerPage, ['*'], 'ch_page', $chPage);
+
+    $chapters    = $chaptersPaginator->getCollection(); // current page items
 @endphp
+
 @auth
-@if($chapters->isNotEmpty())
-  <div class="flex justify-center mb-12 mt-[-100px]">
-    <div
-      id="chaptersGrid"
-      class="w-[1278px] ml-[13px] grid grid-cols-4 gap-4 transition-opacity duration-500 ease-in-out"
-    >
-      @php
-        $chapterRows  = $chapters->chunk(4);     // already done earlier
-        $allowedExts  = ['jpg','jpeg','png','gif','webp'];
-        $isGuest      = !Auth::check();
-      @endphp
+    @if($chaptersPaginator->total() > 0)
+        <div class="flex justify-center mb-12 mt-[-100px] font-medium">
+            <div id="chaptersGrid" class="w-[1278px] ml-[13px] grid grid-cols-4 gap-4 transition-opacity duration-500 ease-in-out">
+                @php
+                    $allowedExts = ['jpg','jpeg','png','gif','webp'];
+                    $isMangaType = strtoupper($item['type'] ?? '') === 'MANGA';
+                @endphp
 
-      @foreach($chapterRows as $rowIndex => $row)
-        @php
-          // zig-zag order (same as doujin)
-          $cells  = $rowIndex % 2 ? $row->values() : $row->reverse()->values();
-          $blanks = 4 - $cells->count();
-        @endphp
+                @foreach($chapters->chunk(4) as $rowIndex => $row)
+                    @php
+                        // Manga: reverse each row so it reads R→L; Manwha stays L→R
+                        $cells  = $isMangaType ? $row->reverse()->values() : $row->values();
+                        $count  = $cells->count();
+                        $blanks = max(0, 4 - $count);
+                    @endphp
 
-        {{-- pad empty cells on even rows (to keep snake alignment) --}}
-        @if($rowIndex % 2 === 0 && $blanks)
-          @for($i = 0; $i < $blanks; $i++) <div></div> @endfor
-        @endif
+                    {{-- For MANGA only: add blank cells first so short rows align to the RIGHT --}}
+                    @if($isMangaType && $blanks > 0)
+                        @for($i = 0; $i < $blanks; $i++)
+                            <div></div>
+                        @endfor
+                    @endif
 
-        @foreach($cells as $chapter)
-          @php
-            $firstPage = $chapter->pages->first();
-            $ext       = strtolower(pathinfo($firstPage->file_path ?? '', PATHINFO_EXTENSION));
-            $isImage   = $firstPage && in_array($ext, $allowedExts, true);
-            $thumb     = $isImage
-                         ? Storage::disk('b2')->url($firstPage->file_path)
-                         : asset('images/no-thumb.jpg');
-          @endphp
+                    @foreach($cells as $chapter)
+                        @php
+                            $firstPage = $chapter->pages->first();
+                            $ext       = strtolower(pathinfo($firstPage->file_path ?? '', PATHINFO_EXTENSION));
+                            $isImage   = $firstPage && in_array($ext, $allowedExts, true);
+                            $thumb     = $isImage ? Storage::url($firstPage->file_path) : asset('images/no-thumb.jpg');
 
-          <div
-            onclick="window.location.href='{{ route('chapters.show',[
-               'media'   => $item['id'],
-               'chapter' => $chapter->chapter_number
-            ]) }}'"
-            class="cursor-pointer"
-          >
-            <div class="relative w-full rounded-lg overflow-hidden shadow-lg">
-              {{-- 18+ badge if needed --}}
-              @if($isGuest && ($item['isAdult'] ?? false))
-                <img
-                  src="{{ asset('images/18-plus.png') }}"
-                  alt="18+"
-                  class="absolute top-2 right-2 w-6 h-6 z-10"
-                >
-              @endif
+                            $chapterParam = $chapter->chapter_number !== null && $chapter->chapter_number !== ''
+                                ? (string) $chapter->chapter_number
+                                : rawurlencode((string) $chapter->chapter_title);
+                        @endphp
 
-              <img
-                src="{{ $thumb }}"
-                alt="Chapter {{ $chapter->chapter_number }}"
-                class="w-full h-auto object-contain {{ ($isGuest && ($item['isAdult'] ?? false)) ? 'filter blur-2xl' : '' }}"
-              >
+                        <div onclick="window.location.href='{{ route('chapters.page', ['media' => $chapter->item_id, 'chapter' => $chapterParam, 'page' => 1]) }}'"
+                             class="cursor-pointer">
+                            <div class="relative w-full rounded-lg overflow-hidden shadow-lg">
+                                <img src="{{ $thumb }}" alt="{{ $chapter->chapter_title }}" class="w-full h-auto object-contain">
+                            </div>
+                            <p class="text-center text-sm text-gray-600 mt-2">
+                                {{ $chapter->chapter_title }}
+                            </p>
+                        </div>
+                    @endforeach
+                @endforeach
             </div>
-              <p class="text-center text-sm text-gray-600 mt-2">
-                Chapter {{ $chapter->chapter_number }}
-              </p>
-          </div>
-        @endforeach
-      @endforeach
-    </div>
-  </div>
-@endif
+        </div>
+
+        {{-- CHAPTERS pagination bar --}}
+        @php
+            $chCurrent = $chaptersPaginator->currentPage();
+            $chLast    = $chaptersPaginator->lastPage();
+            $chUrl     = fn($p) => request()->fullUrlWithQuery(['ch_page' => $p]);
+        @endphp
+        <div class="flex items-center justify-center space-x-2 mt-6 mb-6 {{ $chLast > 1 ? '' : 'hidden' }}">
+            <span class="text-gray-600 text-lg font-medium">Chapters</span>
+
+            @if($chCurrent > 1)
+                <a href="{{ $chUrl(1) }}"            class="pagination-arrow mb-1">&laquo;</a>
+                <a href="{{ $chUrl($chCurrent-1) }}" class="pagination-arrow mb-1">&lsaquo;</a>
+            @endif
+
+            <div class="flex space-x-2 text-lg">
+                @php
+                    $maxVisible = 7;
+                    $start = max(1, $chCurrent - intdiv($maxVisible,2));
+                    $end   = min($chLast, $start + $maxVisible - 1);
+                    if($end - $start + 1 < $maxVisible) $start = max(1, $end - $maxVisible + 1);
+                @endphp
+                @for ($i = $start; $i <= $end; $i++)
+                    @if ($i == $chCurrent)
+                        <span class="pagination-btn pagination-active">{{ $i }}</span>
+                    @else
+                        <a href="{{ $chUrl($i) }}" class="pagination-btn non-selected-page-number">{{ $i }}</a>
+                    @endif
+                @endfor
+            </div>
+
+            @if($chCurrent < $chLast)
+                <a href="{{ $chUrl($chCurrent+1) }}" class="pagination-arrow mb-1">&rsaquo;</a>
+                <a href="{{ $chUrl($chLast) }}"      class="pagination-arrow mb-1">&raquo;</a>
+            @endif
+        </div>
+    @endif
+
 
 <div
   id="addToCollectionModal"
@@ -740,7 +571,7 @@
     <div id="overlay-content" class="border-b border-gray-200 mr-4 ml-4">
         <form method="POST" action="{{ route('collection.attachMedia') }}" class="space-y-4" id="attachCollectionsForm">
         @csrf
-        <input type="hidden" name="item_type"  value="{{ $category }}">
+        <input type="hidden" name="item_type"  value="{{ $normalizedTypeFromItem }}">
         <input type="hidden" name="item_id"    value="{{ $item['id']  }}">
 
         <div id="collectionCheckboxList" class="text-gray-800">
@@ -856,8 +687,8 @@
                 class="w-[735px] ml-4
                     rounded-md
                     border border-gray-200
-                    px-3    
-                    py-2     
+                    px-3
+                    py-2
                     text-base
                     bg-gray-100
                     focus:outline-none focus:ring-[0.2rem] focus:ring-red-600
@@ -931,7 +762,7 @@ const closeCreateBtn = document.getElementById('closeCreateModal');
 const createForm     = document.getElementById('collectionCreateForm');
 const listContainer  = document.getElementById('collectionCheckboxList');
 const dropZone = document.getElementById('drop-zone');
-const fileInput = document.getElementById('video-input');   
+const fileInput = document.getElementById('video-input');
 const fileInfo  = document.getElementById('video-info');
 const form        = document.getElementById('uploadForm');
 const progressBar = document.getElementById('progressBar');

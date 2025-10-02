@@ -11,10 +11,8 @@ class TwoFactorDisableController extends Controller
     {
         $user = $request->user();
 
-        // call Fortify’s native logic to clear secret & codes
         app(FortifyController::class)->destroy($request);
 
-        // now reset your custom flag
         $user->forceFill(['two_factor_confirmed' => false])->save();
 
         return back()->with('status', 'two-factor-authentication-disabled');

@@ -397,6 +397,8 @@ class AnilistController extends Controller
             createdAt
             updatedAt
             media {
+              type
+              format
               isAdult
               id
               title { english romaji }
@@ -438,9 +440,24 @@ class AnilistController extends Controller
         return $out;
     }
 
-    private function guessRemoteType(array $media, array $genres): string
+    private function guessRemoteType(array $media, ?string $fallback = null): string
     {
-        return isset($media['episodes']) ? 'ANIME' : 'MANGA';
+        $t = strtoupper($media['type'] ?? '');
+        if ($t === 'ANIME' || $t === 'MANGA') {
+            return $t;
+        }
+
+        $fmt = strtoupper($media['format'] ?? '');
+        $animeFormats = ['TV','TV_SHORT','OVA','ONA','MOVIE','SPECIAL','MUSIC'];
+        if ($fmt && in_array($fmt, $animeFormats, true)) {
+            return 'ANIME';
+        }
+
+        if (array_key_exists('episodes', $media)) return 'ANIME';
+        if (array_key_exists('chapters', $media) || array_key_exists('volumes', $media)) return 'MANGA';
+
+        return $fallback ?? 'MANGA';
     }
+
 
 }

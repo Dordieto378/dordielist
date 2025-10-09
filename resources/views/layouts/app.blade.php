@@ -96,12 +96,12 @@
                     @endphp
 
                     <li>
-                    <a
-                        href="{{ route('collection.show', $favorites) }}"
-                        class="block w-full text-left pl-3 pr-3 py-3.5 hover:bg-gray-100 rounded-[0.2rem] text-gray-800"
-                    >
-                        Favorites
-                    </a>
+{{--                    <a--}}
+{{--                        href="{{ route('collection.show', $favorites) }}"--}}
+{{--                        class="block w-full text-left pl-3 pr-3 py-3.5 hover:bg-gray-100 rounded-[0.2rem] text-gray-800"--}}
+{{--                    >--}}
+{{--                        Favorites--}}
+{{--                    </a>--}}
                     </li>
                     <li>
                     <a href="{{ route('settings.profile.edit') }}"

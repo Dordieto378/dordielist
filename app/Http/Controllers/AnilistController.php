@@ -445,5 +445,4 @@ class AnilistController extends Controller
         return isset($media['episodes']) ? 'ANIME' : 'MANGA';
     }
 
-
 }

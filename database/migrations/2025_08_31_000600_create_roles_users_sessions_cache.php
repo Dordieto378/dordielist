@@ -21,7 +21,7 @@ return new class extends Migration {
             $t->unsignedBigInteger('role_id');
             $t->text('two_factor_secret')->nullable();
             $t->text('two_factor_recovery_codes')->nullable();
-            $t->timestamp('two_factor_confirmed_at')->useCurrent();
+            $t->timestamp('two_factor_confirmed_at')->nullable();
             $t->boolean('two_factor_confirmed')->default(false);
 
             $t->foreign('role_id')

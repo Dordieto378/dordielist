@@ -51,8 +51,12 @@
                 return ((int)($item['isNsfw'] ?? 0) === 1) && !Auth::check();
             }
         }
-    @endphp
 
+        $hasDropped     = !empty($dropped) && count($dropped) > 0;
+        $hasHighest     = !empty($highestRated4) && count($highestRated4) > 0;
+        $hasPaginated   = isset($paginatedMedia) && $paginatedMedia->count() > 0;
+    @endphp
+@if(($hasDropped || $hasHighest) && $isOnFirstPage)
     <div id="preContent" class="py-[4.5rem] {{ !$isOnFirstPage ? 'hidden' : '' }}">
         <!-- Scrollable Section -->
         <section class="bg-black text-white py-6">
@@ -562,7 +566,7 @@
                id="lastPage"
                class="pagination-arrow mb-1">&raquo;</a>
         @endif
-    </div>
+@endif
 @endsection
 
 <script>

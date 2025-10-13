@@ -6,19 +6,13 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::table('media', function (Blueprint $table) {
-            $table->integer('isNsfw')->default(0)->after('id'); // you can change "after" if you want
+            $table->integer('isNsfw')->default(0)->after('id');
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::table('media', function (Blueprint $table) {

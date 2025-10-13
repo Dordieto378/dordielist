@@ -27,7 +27,6 @@ return new class extends Migration {
               ->references('id')->on('collections')
               ->cascadeOnDelete()->cascadeOnUpdate();
 
-            // Add guard rail to stop duplicates (missing in your dump)
             $t->unique(['collection_id', 'item_type', 'item_id']);
         });
     }

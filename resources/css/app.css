@@ -3,38 +3,35 @@
 @tailwind utilities;
 @layer utilities {
   .custom-scrollbar::-webkit-scrollbar {
-      height: 10px; /* Fatter scrollbar height */
+      height: 10px;
   }
 
   .custom-scrollbar::-webkit-scrollbar-track {
-      background: transparent; /* Transparent track */
+      background: transparent;
   }
 
   .custom-scrollbar::-webkit-scrollbar-thumb {
-      background: rgba(128, 128, 128, 0.8); /* Semi-transparent thumb */
-      border-radius: 0; /* Sharp corners */
+      background: rgba(128, 128, 128, 0.8);
+      border-radius: 0;
   }
 
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-      background: rgba(128, 128, 128, 1); /* Darker thumb on hover */
+      background: rgba(128, 128, 128, 1);
   }
 
-  /* Optional: For Firefox (if needed) */
   .custom-scrollbar {
-      scrollbar-width: thin; /* Thin scrollbar */
-      scrollbar-color: rgba(128, 128, 128, 0.8) transparent; /* Custom thumb and track color */
+      scrollbar-width: thin;
+      scrollbar-color: rgba(128, 128, 128, 0.8) transparent;
   }
 
-  /* Shorten the left part of the scrollbar */
   .custom-scrollbar-wrapper {
       position: relative;
   }
 
-    /* keep the wrapper bg-red-600 when open */
   .open-dropdown {
     @apply bg-red-600;
   }
-  /* and force the button’s text & icon to white */
+
   .open-dropdown .menu-link-text,
   .open-dropdown .menu-link-text svg {
     @apply text-white;
@@ -45,36 +42,33 @@
   }
 }
 
-
 .pagination-btn {
     width: 40px;
     height: 40px;
-    background-color: white; /* White box */
-    color: #333; /* Dark text */
-    border-radius: 6px; /* Rounded corners */
-    font-weight: 600; /* Remove or comment out this line */
+    background-color: white;
+    color: #333;
+    border-radius: 6px;
+    font-weight: 600;
     display: flex;
     align-items: center;
     justify-content: center;
     transition: transform 0.2s, box-shadow 0.2s;
-    box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+    box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1);
     cursor: pointer;
 }
-
 
 .pagination-btn:hover {
     transform: translateY(-2px);
     box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.15);
 }
 
-/* Selected page (read-only, no box, no effects, bold text) */
 .pagination-active {
     background-color: transparent !important;
     font-weight: bold !important;
     box-shadow: none !important;
-    cursor: default; /* Makes it non-clickable */
+    cursor: default;
     transform: none !important;
-    pointer-events: none; /* Disables clicking */
+    pointer-events: none;
 }
 
 .non-selected-page-number{
@@ -82,12 +76,12 @@
 }
 
 .pagination-arrow {
-    font-size: 1.5rem;      /* Bigger font size */
+    font-size: 1.5rem;
     font-weight: 10;
-    background: transparent; /* No background */
-    border: none;           /* No border */
-    padding: 0.5rem 1rem;    /* Extra padding for a larger clickable area */
-    color: #333;            /* Dark text color */
+    background: transparent;
+    border: none;
+    padding: 0.5rem 1rem;
+    color: #333;
     cursor: pointer;
     transition: transform 0.2s;
     transform: scaleX(1.5);
@@ -117,25 +111,18 @@
 }
 
 .plyr {
-  /* Main brand colour (used for the big play button, range fill, toggles, etc.) */
   --plyr-color-main:        #08875b;
 
-  /* Icon colour (used for all control icons) */
   --plyr-control-icon-color: #ffffff;
 
-  /* Background of the controls bar (behind the buttons) */
   --plyr-control-background: rgba(0, 0, 0, 0.5);
 
-  /* Hover/focus background on controls */
   --plyr-control-hover-background: rgba(255,255,255,0.1);
 
-  /* Buffer track colour (the lighter bit behind the played progress) */
   --plyr-range-buffer-background: rgba(255,255,255,0.2);
 
-  /* Fill track colour (the played progress bar) */
   --plyr-range-fill-background:    #08875b;
 
-  /* Thumb (handle) on range inputs */
   --plyr-range-thumb-background:   #ffffff;
   --plyr-range-thumb-shadow:       0 0 2px rgba(0,0,0,0.3);
   --plyr-range-thumb-border-radius: 50%;
@@ -152,7 +139,6 @@
 .vn-desc .spoiler.revealed{
     background:transparent; color:inherit;
 }
-/* Disable clicks on links until revealed */
 .vn-desc .spoiler a{ pointer-events:none }
 .vn-desc .spoiler.revealed a{ pointer-events:auto }
 

@@ -18,7 +18,6 @@ return new class extends Migration {
 
     public function down(): void
     {
-        // revert to the old set (adjust if yours was different)
         DB::statement("
             ALTER TABLE media
             MODIFY COLUMN type

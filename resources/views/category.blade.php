@@ -24,9 +24,7 @@ if (!function_exists('shortTitle')) {
             <h2 class="text-2xl text-red-600 mb-[1.5rem]">{{ $category }}</h2>
         @endif
     </div>
-    <!-- Category Layout -->
     <div class="flex w-[1400px] ml-[48px]">
-        <!-- Sidebar for Filters -->
         <aside class="w-[265px] bg-gray-100 p-4 mt-[5px]">
             @if(strtoupper($category) === 'DOUJINS')
                 <form method="GET"
@@ -48,11 +46,9 @@ if (!function_exists('shortTitle')) {
                         </svg>
                     </div>
 
-                    {{-- *** NEW *** Author drop-down – identical markup used elsewhere --}}
                     <div class="relative mb-4">
                         <label class="block text-sm font-medium text-gray-900 mb-2">AUTHOR</label>
 
-                        <!-- Button -->
                         <button id="dropdownButtonAuthor" type="button"
                                 class="w-full min-h-[2.5rem] px-3 py-2 border rounded-sm bg-white text-left flex flex-wrap items-center gap-2">
                             <div id="selectedAuthor" class="flex flex-wrap gap-2 flex-1">
@@ -76,7 +72,6 @@ if (!function_exists('shortTitle')) {
                             </svg>
                         </button>
 
-                        <!-- Menu -->
                         <div id="dropdownMenuAuthor"
                             class="absolute left-0 w-full bg-white border rounded-sm shadow-lg hidden z-10 max-h-[400px] overflow-y-auto">
                             <ul>
@@ -103,7 +98,6 @@ if (!function_exists('shortTitle')) {
                         <select name="list_filter" onchange="redirectWithFilters()"
                                 class="appearance-none w-full px-3 py-2 border rounded-sm focus:border-red-600 focus:outline-none focus:ring-2 focus:ring-red-600 h-[2.5rem] text-gray-900 font-medium">
                                 @php
-                                // include “all” as the very first option
                                 $options = ['all','playing','finished','stalled','dropped','wishlist'];
                                 @endphp
 
@@ -427,7 +421,6 @@ if (!function_exists('shortTitle')) {
                     @if(in_array(strtoupper($category), ['ANIMES', 'HENTAIS']))
                         <div class="relative mt-4">
                             <label class="block text-sm font-medium text-gray-900 mb-2">STUDIO</label>
-                            <!-- Expanding Studio Container -->
                             <button id="dropdownButtonStudio" type="button"
                                 class="w-full min-h-[2.5rem] px-3 py-2 border rounded-sm bg-white text-left flex flex-wrap items-center gap-2">
                                 <div id="selectedStudio" class="flex flex-wrap gap-2 flex-1">
@@ -438,7 +431,6 @@ if (!function_exists('shortTitle')) {
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                                 </svg>
                             </button>
-                            <!-- Dropdown Menu -->
                             <div id="dropdownMenuStudio" class="absolute left-0 w-full bg-white border rounded-sm shadow-lg hidden z-10 max-h-[400px] overflow-y-auto">
                                 <ul>
                                     @foreach($allStudios as $studio)
@@ -457,7 +449,6 @@ if (!function_exists('shortTitle')) {
                     @if(!in_array(strtoupper($category), ['ANIMES', 'HENTAIS']))
                         <div class="relative mt-4">
                             <label class="block text-sm font-medium text-gray-900 mb-2">AUTHOR</label>
-                            <!-- Expanding Author Container -->
                             <button id="dropdownButtonAuthor" type="button"
                                 class="w-full min-h-[2.5rem] px-3 py-2 border rounded-sm bg-white text-left flex flex-wrap items-center gap-2">
                                 <div id="selectedAuthor" class="flex flex-wrap gap-2 flex-1">
@@ -468,7 +459,6 @@ if (!function_exists('shortTitle')) {
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                                 </svg>
                             </button>
-                            <!-- Dropdown Menu -->
                             <div id="dropdownMenuAuthor" class="absolute left-0 w-full bg-white border rounded-sm shadow-lg hidden z-10 max-h-[400px] overflow-y-auto">
                                 <ul>
                                     @foreach($allAuthors as $author)
@@ -487,7 +477,6 @@ if (!function_exists('shortTitle')) {
             @endif
         </aside>
 
-        <!-- Main Content -->
         <section class="mt-6 ml-2 flex flex-col items-center">
             <div id="mediaContainer">
                 @include('partials.media', ['media' => $media])
@@ -536,7 +525,6 @@ if (!function_exists('shortTitle')) {
 </div>
 
 <script>
-// Debounce helper to avoid too many requests:
 function debounce(func, wait) {
     let timeout;
     return function(...args) {
@@ -545,7 +533,6 @@ function debounce(func, wait) {
     };
 }
 
-// Global filters object (for Tags and Studio)
 const dropdowns = {
     Tags: {
         button: document.getElementById("dropdownButtonTags"),
@@ -573,7 +560,6 @@ const dropdowns = {
     }
 };
 
-// Attach a click event listener to each dropdown button (for both Tags and Studio)
 Object.keys(dropdowns).forEach(type => {
     if(dropdowns[type].button) {
         dropdowns[type].button.addEventListener("click", (event) => {
@@ -583,7 +569,6 @@ Object.keys(dropdowns).forEach(type => {
     }
 });
 
-// Update selected display (generic)
 function updateSelectedDropdown(type) {
     const dropdown = dropdowns[type];
     if(!dropdown) return;
@@ -600,7 +585,6 @@ function updateSelectedDropdown(type) {
         dropdown.selectedContainer.appendChild(tagElement);
     });
 }
-// Update dropdown menu styling (generic)
 function updateDropdownMenu(type) {
     const dropdown = dropdowns[type];
     if(!dropdown) return;
@@ -617,7 +601,6 @@ function updateDropdownMenu(type) {
     });
 }
 
-// Toggle tag selection for Tags or Studio, update display, then trigger debounced AJAX update
 function toggleTag(name, type) {
     const dropdown = dropdowns[type];
     if (!dropdown) return;
@@ -631,7 +614,7 @@ function toggleTag(name, type) {
     updateDropdownMenu(type);
     debouncedRedirectWithFilters();
 }
-// Remove an item from a dropdown and update filters
+
 function removeTag(name, type) {
     const dropdown = dropdowns[type];
     if(!dropdown) return;
@@ -641,7 +624,6 @@ function removeTag(name, type) {
     debouncedRedirectWithFilters();
 }
 
-// Close dropdowns when clicking outside
 document.addEventListener("click", (event) => {
     Object.keys(dropdowns).forEach((key) => {
         if (dropdowns[key].button && dropdowns[key].menu) {
@@ -664,7 +646,6 @@ function redirectWithFilters () {
     const scoreOrder  = document.querySelector('select[name="score_order"]')?.value ?? 'none';
     const yearOrder   = document.querySelector('select[name="year_order"]')?.value ?? 'none';
 
-    // ← NEW: capture the name_order select for doujins
     const nameOrder   = document.querySelector('select[name="name_order"]')?.value ?? 'none';
 
     const tags       = dropdowns.Tags.selectedItems.join(',');
@@ -693,10 +674,9 @@ function redirectWithFilters () {
     if (titleOrder !== 'none') qp.append('title_order', titleOrder);
     if (scoreOrder !== 'none') qp.append('score_order', scoreOrder);
 
-    // ── INSERTED DOUJINS BRANCH HERE ──
     let url;
     if (categorySlug === 'visual-novel') {
-        qp.set('list_filter', listFilter);       // MUST be in the query string for VN
+        qp.set('list_filter', listFilter);
         url = `/category/${categorySlug}?${qp.toString()}`;
     } else if (categorySlug === 'doujins') {
         if (nameOrder !== 'none') {
@@ -775,7 +755,6 @@ window.addEventListener('load', function(){
     }
 });
 
-// Also add event listeners on genre checkboxes:
 document.querySelectorAll('input[name="genre[]"]').forEach(cb => {
     cb.addEventListener('change', debouncedRedirectWithFilters);
 });

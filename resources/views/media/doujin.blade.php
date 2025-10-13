@@ -85,7 +85,6 @@
                                 </a>
                             @endif
 
-                            {{-- Favorites toggle --}}
                             <form action="{{ route('favorites.toggle') }}" method="POST" class="mt-2 w-full">
                                 @csrf
                                 <input type="hidden" name="favoritable_type" value="{{ $normalizedTypeFromItem }}">
@@ -95,7 +94,6 @@
                                           hover:text-red-600 transition">
 
                                     @if($isFavorited)
-                                        {{-- Filled heart --}}
                                         <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" stroke="none"
                                              class="ml-[1.4rem] h-[1.1rem] w-[1.1rem] mr-[0.5rem] mb-[0.1rem]"
                                              viewBox="0 0 24 24">
@@ -105,7 +103,6 @@
                                           c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
                                         </svg>
                                     @else
-                                        {{-- Outline heart --}}
                                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor"
                                              class="ml-[1.4rem] h-[1.1rem] w-[1.1rem] mr-[0.5rem] mb-[0.1rem]"
                                              stroke-width="2.5" viewBox="0 0 24 24">
@@ -121,9 +118,7 @@
                                 </button>
                             </form>
 
-                            {{-- Add to collection --}}
                                 <button id="openAddToCollection" class="flex items-center justify-start w-full text-blue-950 py-2 rounded-sm hover:text-yellow-400">
-                                    <!-- folder icon (Heroicons outline) -->
                                     <svg xmlns="http://www.w3.org/2000/svg"
                                          class="ml-[1.4rem] h-[1.1rem] w-[1.1rem] mr-[0.5rem] mb-[0.1rem]"
                                          fill="none"
@@ -140,7 +135,6 @@
                     @endauth
                 </div>
 
-                {{-- Right Column --}}
                 <div class="flex flex-col justify-start ml-8 mt-4 md:mt-2 text-gray-900 font-medium">
                     <h1 class="text-2xl font-bold text-red-600 mb-2">{{ $title }}</h1>
                     <div class="grid grid-cols-[7rem,1fr] gap-x-3 gap-y-4 text-sm mt-2 mb-2">
@@ -163,7 +157,6 @@
             </div>
         </div>
 
-        {{-- === CHAPTERS PAGINATION === --}}
         @php
 
             $chPerPage = 50;
@@ -176,7 +169,7 @@
                 ->orderBy('chapter_number')
                 ->paginate($chPerPage, ['*'], 'ch_page', $chPage);
 
-            $chapters = $chaptersPaginator->getCollection(); // current page items
+            $chapters = $chaptersPaginator->getCollection();
         @endphp
 
         @auth
@@ -189,13 +182,11 @@
 
                         @foreach($chapters->chunk(4) as $rowIndex => $row)
                             @php
-                                // RTL: reverse each row so it reads right→left
                                 $cells  = $row->reverse()->values();
                                 $count  = $cells->count();
                                 $blanks = max(0, 4 - $count);
                             @endphp
 
-                            {{-- Add blank cells first so short rows align to the RIGHT --}}
                             @if($blanks > 0)
                                 @for($i = 0; $i < $blanks; $i++)
                                     <div></div>
@@ -209,7 +200,6 @@
                                     $isImage   = $firstPage && in_array($ext, $allowedExts, true);
                                     $thumb     = $isImage ? Storage::url($firstPage->file_path) : asset('images/no-thumb.jpg');
 
-                                    // Prefer numeric chapter param; fall back to title if needed
                                     $chapterParam = $chapter->chapter_number !== null && $chapter->chapter_number !== ''
                                         ? (string) $chapter->chapter_number
                                         : rawurlencode((string) $chapter->chapter_title);
@@ -235,7 +225,6 @@
                     </div>
                 </div>
 
-                {{-- CHAPTERS pagination bar --}}
                 @php
                     $chCurrent = $chaptersPaginator->currentPage();
                     $chLast    = $chaptersPaginator->lastPage();

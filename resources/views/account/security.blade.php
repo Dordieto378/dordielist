@@ -28,7 +28,7 @@
     </h2>
     <hr class="my-4" />
 @endif
-    {{-- 2) Confirm (secret exists but not yet confirmed) --}}
+
 @if (session('status') === 'two-factor-authentication-enabled' || $errors->has('code'))
       <p class="text-red-600 mb-4 font-medium">
         Scan de QR code bellow.
@@ -70,7 +70,6 @@
       </form>
     @endif
 
-    {{-- 3) Recovery Codes & Disable (only after confirmed) --}}
     @if ($user->two_factor_secret && $user->two_factor_confirmed)
       <h3 class="text-lg font-medium text-red-600 mb-4">
         Recovery Codes

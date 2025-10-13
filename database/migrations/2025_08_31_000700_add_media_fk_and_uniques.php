@@ -6,14 +6,12 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration {
     public function up(): void {
-        // Link chapters to media (optional now; backfill later)
         Schema::table('chapters', function (Blueprint $t) {
             $t->unsignedBigInteger('media_fk')->nullable()->after('id');
             $t->foreign('media_fk')->references('id')->on('media')->cascadeOnDelete();
             $t->unique(['media_fk', 'chapter_number']);
         });
 
-        // Link episodes to media (optional now; backfill later)
         Schema::table('episodes', function (Blueprint $t) {
             $t->unsignedBigInteger('media_fk')->nullable()->after('id');
             $t->foreign('media_fk')->references('id')->on('media')->cascadeOnDelete();

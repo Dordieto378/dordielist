@@ -3,12 +3,10 @@
 @section('content')
 <div class="min-h-[1032px] flex items-center justify-center bg-gray-100 py-[200px]">
   <div class="max-w-md w-full bg-white shadow-md rounded-lg p-8">
-    {{-- Title --}}
     <h2 class="text-2xl font-semibold text-gray-800 mb-4">
       Two-Factor Authentication
     </h2>
 
-    {{-- (No subtitle here; errors will show in red) --}}
     <form method="POST" action="{{ url('/two-factor-challenge') }}" class="space-y-4">
       @csrf
         @error('code')
@@ -27,7 +25,7 @@
           required
           autofocus
           autocomplete="one-time-code"
-          class="w-full text-sm 
+          class="w-full text-sm
                     bg-gray-100 focus:outline-none focus:ring-1 focus:ring-flatRed
                     border-gray-200 text-gray-800 font-medium p-2 text-gray-800 rounded-md border"
         />

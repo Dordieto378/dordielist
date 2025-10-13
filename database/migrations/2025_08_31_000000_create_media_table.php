@@ -17,13 +17,12 @@ return new class extends Migration {
             $t->mediumText('description')->nullable();
             $t->json('genres')->nullable();
             $t->json('tags')->nullable();
-            $t->char('origin', 2)->nullable(); // JP/KR/...
-            $t->string('status', 32)->nullable(); // FINISHED/RELEASING...
+            $t->char('origin', 2)->nullable();
+            $t->string('status', 32)->nullable();
             $t->unsignedSmallInteger('episodes_cnt')->nullable();
             $t->unsignedSmallInteger('chapters_cnt')->nullable();
             $t->unsignedSmallInteger('volumes_cnt')->nullable();
-            // Optional: remember where this came from the first time
-            $t->string('source')->nullable();   // e.g. 'anilist'
+            $t->string('source')->nullable();
             $t->unsignedBigInteger('source_id')->nullable();
             $t->timestamps();
 

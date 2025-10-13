@@ -91,7 +91,6 @@
                         </button>
                     </li>
                     @php
-                    // Grab the system “Favorites” collection
                     $favorites = \App\Models\Collection::where('is_system', true)->first();
                     @endphp
 
@@ -139,16 +138,13 @@
 
     @yield('content')
 
-    <!-- Footer Section -->
     <footer class="bg-gray-100 text-gray-600 text-sm font-medium">
         <div class="flex justify-center">
-            <div class="border-t border-gray-300 w-[1350px]"></div> <!-- Centered Thin Line -->
+            <div class="border-t border-gray-300 w-[1350px]"></div>
         </div>
         <div class="container mx-auto flex justify-between items-end py-6 px-24">
-            <!-- Left Side: Copyright -->
             <p class=" text-gray-500">&copy; DORDIELIST, LLC 2025 All rights reserved.</p>
 
-            <!-- Right Side: Navigation Links -->
             <div class="flex space-x-4">
                 <a href="#" class="text-gray-500 hover:text-gray-700">Contact</a>
                 <a href="#" class="text-gray-500 hover:text-gray-700">Support</a>
@@ -161,14 +157,11 @@
     </footer>
 
     <div id="popupOverlay" class="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-[1.8px] flex justify-center items-start pt-[2.9rem] font-boldness hidden z-50">
-        <!-- Search Container -->
         <div class="relative w-[70%] md:w-[580px]">
-            <!-- Search Input -->
             <input type="text" id="searchInput"
                 placeholder="Search..."
                 class="w-full py-4 pl-12 pr-4 text-gray-700 border border-gray-300 rounded-lg outline-none bg-white shadow-md">
 
-            <!-- Search Icon -->
             <svg xmlns="http://www.w3.org/2000/svg"
                 class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-black"
                 fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -176,9 +169,8 @@
                     d="M21 21l-4.35-4.35m1.65-6.15a7.5 7.5 0 11-15 0 7.5 7.5 0 0115 0z" />
             </svg>
 
-            <!-- Search Results Dropdown -->
             <div id="searchResults" class="absolute top-full left-0 w-full bg-white shadow-lg rounded-lg mt-4 hidden">
-                <!-- Results will be injected here -->
+
             </div>
         </div>
     </div>
@@ -198,14 +190,12 @@
             let aborter = null;
             let debTimer = null;
 
-            // show popup
             searchButton.addEventListener("click", () => {
                 popupOverlay.classList.remove("hidden");
                 body.classList.add("overflow-hidden");
                 searchInput.focus();
             });
 
-            // hide popup (click backdrop / ESC)
             popupOverlay.addEventListener("click", (e) => {
                 if (e.target === popupOverlay) {
                     popupOverlay.classList.add("hidden");
@@ -241,20 +231,20 @@
                     row.className = "flex items-center p-3 cursor-pointer rounded-lg group";
 
                     row.innerHTML = `
-        <span class="relative inline-block w-12 h-12 flex-shrink-0 mr-3">
-          ${shouldBlur ? `
-            <img src="/images/18-plus.png" alt="18+"
-                 class="absolute top-0 right-0 w-4 h-4 z-10">` : ``}
-          <img src="${item.coverImage?.extraLarge ?? '/images/no-image.jpg'}"
-               alt="Cover" class="w-full h-full rounded object-cover ${shouldBlur ? 'filter blur-2xl' : ''}">
-        </span>
-        <div>
-          <p class="font-semibold text-black group-hover:text-red-600">
-            ${highlightMatch(title, query)}
-          </p>
-          <p class="text-gray-600 text-sm">${(item.type || '').replace('-', ' ')}</p>
-        </div>
-      `;
+                    <span class="relative inline-block w-12 h-12 flex-shrink-0 mr-3">
+                      ${shouldBlur ? `
+                        <img src="/images/18-plus.png" alt="18+"
+                             class="absolute top-0 right-0 w-4 h-4 z-10">` : ``}
+                      <img src="${item.coverImage?.extraLarge ?? '/images/no-image.jpg'}"
+                           alt="Cover" class="w-full h-full rounded object-cover ${shouldBlur ? 'filter blur-2xl' : ''}">
+                    </span>
+                    <div>
+                      <p class="font-semibold text-black group-hover:text-red-600">
+                        ${highlightMatch(title, query)}
+                      </p>
+                      <p class="text-gray-600 text-sm">${(item.type || '').replace('-', ' ')}</p>
+                    </div>
+                  `;
 
                     row.addEventListener("click", () => {
                         const t = (item.type || '').toLowerCase();
@@ -263,7 +253,6 @@
                         } else if (t === 'doujin') {
                             window.location.href = `/doujin/${item.id}`;
                         } else {
-                            // anime/manga/hentai/manwha/others
                             window.location.href = `/media/${item.id}`;
                         }
                     });
@@ -305,14 +294,12 @@
                 debTimer = setTimeout(() => doSearch(q), 250);
             });
 
-            // click outside the dropdown hides it
             document.addEventListener("click", (e) => {
                 if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
                     searchResults.classList.add("hidden");
                 }
             });
 
-            // If user is a guest, those elements won't exist—just bail.
             if (!toggleBtn || !menu) return;
 
             function openMenu() {
@@ -330,14 +317,12 @@
                 isOpen() ? closeMenu() : openMenu();
             });
 
-            // Clicks outside close it
             document.addEventListener('click', (e) => {
                 if (!menu.contains(e.target) && !toggleBtn.contains(e.target)) {
                     closeMenu();
                 }
             });
 
-            // ESC closes it
             document.addEventListener('keydown', (e) => {
                 if (e.key === 'Escape') closeMenu();
             });

@@ -7,19 +7,15 @@ use Illuminate\Support\Facades\Hash;
 return new class extends Migration {
     public function up(): void
     {
-        // Ensure the roles table exists before inserting
         if (!Schema::hasTable('roles')) {
             return;
         }
 
-        // Insert roles if they don't already exist
         DB::table('roles')->updateOrInsert(['role' => 'Admin']);
         DB::table('roles')->updateOrInsert(['role' => 'Viewer']);
 
-        // Get the Admin role ID
         $adminRoleId = DB::table('roles')->where('role', 'Admin')->value('role_id');
 
-        // Create default admin user if it doesn't exist
         $email = 'admin@dordielist.com';
         if (!DB::table('users')->where('email', $email)->exists()) {
             DB::table('users')->insert([

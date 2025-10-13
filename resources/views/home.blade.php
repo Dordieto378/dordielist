@@ -3,22 +3,18 @@
 @section('content')
     @php
         function displayMediaType($item) {
-            // Normalize type and genres to uppercase/lowercase for consistency
             $type = strtoupper($item['type'] ?? '');
             $genres = array_map('strtolower', $item['genres'] ?? []);
 
             if ($type === 'ANIME') {
-                // If it's an anime and has the hentai genre, show as "Hentai"
                 if (in_array('hentai', $genres)) {
                     return 'Hentai';
                 }
                 return 'Anime';
             } elseif ($type === 'MANGA') {
-                // If it's a manga and has the hentai genre, show as "H-manga"
                 if (in_array('hentai', $genres)) {
                     return 'H-manga';
                 }
-                // Check countryOfOrigin if provided (AniList usually returns a two-letter code)
                 if (isset($item['countryOfOrigin'])) {
                     $origin = strtoupper($item['countryOfOrigin']);
                     if ($origin === 'KR') {
@@ -58,7 +54,6 @@
     @endphp
 @if(($hasDropped || $hasHighest) && $isOnFirstPage)
     <div id="preContent" class="py-[4.5rem] {{ !$isOnFirstPage ? 'hidden' : '' }}">
-        <!-- Scrollable Section -->
         <section class="bg-black text-white py-6">
             <div class="container mx-auto px-6">
                 <div class="flex justify-between items-center">
@@ -75,15 +70,12 @@
                         <div class="flex space-x-0 h-[433px] text-sm">
                             @foreach($dropped as $item)
                                 @php
-                                    // Blur logic: doujins are always NSFW for guests, others use isAdult
                                     $shouldBlur = shouldBlurItem($item);
 
-                                    // Title logic:
                                     $fullTitle = $item['title']['english']
                                                 ?? $item['title']['romaji']
                                                 ?? 'No Title';
 
-                                    // Click target per type
                                     $href = $item['type'] === 'DOUJIN'
                                         ? "/doujin/{$item['id']}"
                                         : ($item['type'] === 'VN'
@@ -100,7 +92,6 @@
                                 )
                                     <div onclick="window.location.href='{{ $href }}'"
                                          class="cursor-pointer w-[270px] flex-shrink-0 mt-7">
-                                        {{-- 1) Image container: relative so we can overlay the “18+” badge --}}
                                         <div class="relative w-[256px] h-[360px] mx-auto rounded shadow-lg overflow-hidden">
                                             @if($shouldBlur)
                                                 <img
@@ -155,13 +146,10 @@
         </section>
 
         <section class="mt-5 ml-4 flex flex-col items-center">
-            <!-- Title aligned to the left -->
             <div class="w-[1300px]">
                 <h2 class="text-2xl text-black mb-6">Top Rated Wishlisted</h2>
             </div>
-            <!-- Centered Card Container -->
             <div class="w-[1300px] grid grid-cols-4 gap-2">
-                <!-- Show top 4 series you rated the highest -->
                 @foreach($highestRated4 as $item)
                     @php
                         $shouldBlur = shouldBlurItem($item);
@@ -186,7 +174,6 @@
                     )
                         <div onclick="window.location.href='{{ $href }}'"
                              class="cursor-pointer flex-shrink-0 overflow-hidden">
-                            {{-- 1) Image container with blur logic --}}
                             <div class="relative w-[302px] h-[424px] rounded-lg shadow-lg overflow-hidden">
                                 @if($shouldBlur)
                                     <img
@@ -239,19 +226,15 @@
     </div>
 
     <section class="ml-4 flex flex-col items-center {{ !$isOnFirstPage ? 'py-[6rem]' : '' }}">
-        <!-- Title and Toggle Buttons -->
         <div class="w-[1300px] flex justify-between items-center">
             <h2 class="text-2xl text-black mb-[1.5rem]">Most recent</h2>
 
-            {{-- Toggle Buttons --}}
             @php
-                // Decide which button is "active" based on $selectedView
                 $isGrid = ($selectedView === 'grid');
                 $isList = ($selectedView === 'list');
             @endphp
             <div class="flex flex-row border-2 border-gray-200 bg-gray-100
                     h-fit rounded-lg overflow-hidden mr-[1rem] mb-[1.5rem]">
-                <!-- List View Button -->
                 <a href="{{ $paginatedMedia->url($paginatedMedia->currentPage()) }}&view=list"
                    id="listViewBtn"
                    class="rounded-l-md inline-flex items-center px-3 py-[.4rem]
@@ -264,7 +247,6 @@
                     {{ $isList ? 'opacity-100' : 'opacity-50 hover:opacity-100' }}">
                 </a>
 
-                <!-- Grid View Button -->
                 <a href="{{ $paginatedMedia->url($paginatedMedia->currentPage()) }}&view=grid"
                    id="gridViewBtn"
                    class="rounded-r-md inline-flex items-center px-3 py-[.4rem]
@@ -279,8 +261,6 @@
             </div>
         </div>
 
-
-        <!-- Content Section -->
         <div id="contentContainer"
              class="w-[1300px]
                 {{ $isGrid ? 'grid grid-cols-4 gap-2' : 'flex flex-col gap-6' }}">
@@ -290,10 +270,8 @@
                                 ?? $item['title']['romaji']
                                 ?? 'No Title';
 
-                    // Blur logic for AniList + doujin
                     $shouldBlur = shouldBlurItem($item);
 
-                    // Click target per type
                     $href = $item['type'] === 'DOUJIN'
                         ? "/doujin/{$item['id']}"
                         : ($item['type'] === 'VN'
@@ -301,7 +279,6 @@
                             : "/media/{$item['id']}");
                 @endphp
 
-                    <!-- Grid version -->
                 @if(
                     $item['type'] === 'ANIME' ||
                     $item['type'] === 'MANGA' ||
@@ -313,7 +290,6 @@
                          class="cursor-pointer card grid-view
                             w-[305px] flex-shrink-0 overflow-hidden
                             {{ $isGrid ? '' : 'hidden' }}">
-                        {{-- Image container --}}
                         <div class="relative w-[302px] h-[424px] rounded-lg shadow-lg overflow-hidden">
                             @if($shouldBlur)
                                 <img
@@ -342,7 +318,6 @@
                          class="cursor-pointer card grid-view
                         w-[305px] flex-shrink-0 overflow-hidden
                         {{ $isGrid ? '' : 'hidden' }}">
-                        {{-- Image container --}}
                         <div class="relative w-[302px] h-[424px] rounded-lg shadow-lg overflow-hidden">
                             @if($shouldBlur)
                                 <img
@@ -368,7 +343,6 @@
                     </div>
                 @endif
 
-                <!-- List version -->
                 <div class="card list-view
                         flex w-[1284px] bg-white rounded-lg
                         shadow-lg overflow-hidden
@@ -526,7 +500,6 @@
             {{ $lastPage > 1 ? '' : 'hidden' }}">
         <span class="text-gray-600 text-lg font-medium">Pages</span>
 
-        <!-- “<<” first page -->
         @if($currentPage > 1)
             <a href="{{ $paginatedMedia->url(1) }}&view={{ $selectedView }}"
                id="firstPage"
@@ -571,7 +544,6 @@
 
 <script>
     document.addEventListener("DOMContentLoaded", function () {
-        // -- A) Horizontal scroll for “Dropped”
         const scrollContainer = document.querySelector(".custom-scrollbar");
         const scrollLeft = document.getElementById("scrollLeft");
         const scrollRight = document.getElementById("scrollRight");
@@ -603,7 +575,6 @@
             updateScrollButtons();
         }
 
-        // -- B) Hover brightness for toggle buttons (List, Grid)
         const gridViewBtn = document.getElementById("gridViewBtn");
         const listViewBtn = document.getElementById("listViewBtn");
 

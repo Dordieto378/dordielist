@@ -1,66 +1,57 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+# Dordielist
 
-## About Laravel
+Dordielist is a self-hosted media catalog and management application built with Laravel. It aggregates and displays information for multiple media types (anime, manga, manhwa, doujins, visual novels, etc.), supports user accounts with two-factor authentication, collections, favorites, and syncs media and chapters/episodes from disk or external APIs (Anilist, VNDB).
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Key features
+- Media catalog and detail pages (Anilist / VNDB integration)
+- User registration, login and optional 2FA via Laravel Fortify
+- Collections and favorites (attach/remove media, random pick)
+- Episode / Chapter reading with sync-from-disk support
+- Background jobs and queueable sync tasks
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Tech stack
+- Backend: PHP 8.2, Laravel 11
+- Auth: Laravel Fortify (2FA + rate limiting)
+- Frontend: Vite, TailwindCSS, Axios
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## Quickstart (development)
+Follow these steps in the project root. These are the minimal commands to get the app running locally.
 
-## Learning Laravel
+```sh
+# 1) Install PHP dependencies
+composer install
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+# 2) Copy env and prepare a local sqlite DB
+cp .env.example .env
+# ensure DB_CONNECTION=sqlite in .env or set DB_DATABASE=database/database.sqlite
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+# 3) Generate app key & run migrations
+php artisan key:generate
+php artisan migrate
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+# 4) Install frontend deps and run Vite (dev mode)
+npm install
+npm run dev
 
-## Laravel Sponsors
+# 5) Start the application (or use the convenience script below)
+php artisan serve
+```
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
 
-### Premium Partners
+## Environment / configuration notes
+- Database: default local dev uses SQLite at `database/database.sqlite`. For production, configure `DB_CONNECTION`, `DB_HOST`, `DB_DATABASE` etc.
+- External APIs: provide credentials/keys for Anilist or VNDB if you intend to run syncs.
+- Mail: configure `MAIL_*` env vars (PHPMailer is available via notifications).
 
-- **[Vehikl](https://vehikl.com/)**
-- **[Tighten Co.](https://tighten.co)**
-- **[WebReinvent](https://webreinvent.com/)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel/)**
-- **[Cyber-Duck](https://cyber-duck.co.uk)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Jump24](https://jump24.co.uk)**
-- **[Redberry](https://redberry.international/laravel/)**
-- **[Active Logic](https://activelogic.com)**
-- **[byte5](https://byte5.de)**
-- **[OP.GG](https://op.gg)**
+## Important implementation notes
+- User model uses a custom primary key `user_id` and disables timestamps. Some packages may assume `id` or timestamp columns — adapt accordingly.
+- Fortify is configured in `app/Providers/FortifyServiceProvider.php` (login, registration, two-factor views and rate limiting).
+- `app/Models/Media.php` casts several fields to arrays (genres, tags, languages). Ensure migrations store those columns as JSON/text that can hold JSON.
 
-## Contributing
-
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
-
-## Code of Conduct
-
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
-
-## Security Vulnerabilities
-
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
-
-## License
-
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+## Where to look in the code
+- Routes: `routes/web.php` — main app flow and API endpoints
+- Controllers: `app/Http/Controllers/` (AnilistController, VndbController, CollectionController, EpisodeController, etc.)
+- Models: `app/Models/` (Media, User, Collection, Episode, Chapter)
+- Views: `resources/views/` (Blade templates and partials)
+- Config: `config/` (Fortify, vndb, filesystem, etc.)

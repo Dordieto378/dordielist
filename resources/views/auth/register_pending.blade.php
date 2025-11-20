@@ -1,3 +1,4 @@
+{{-- resources/views/auth/register_pending.blade.php --}}
 @extends('layouts.app')
 
 @section('content')
@@ -6,7 +7,7 @@
     <h2 class="text-2xl font-semibold text-gray-900 mb-4">Registration Received</h2>
     <p class="text-gray-700 mb-6 font-medium">
       Thank you for registering, <strong>{{ old('username') ?? 'New User' }}</strong>.<br>
-      Please wait for an administrator to confirm your account.
+      Please wait for an administrator to confirm your account. 
       You will receive an email once your account is activated.
     </p>
     <div class="p-4 bg-yellow-100 border border-yellow-200 text-yellow-800 rounded mb-4 font-medium">

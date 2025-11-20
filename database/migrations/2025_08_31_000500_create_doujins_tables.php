@@ -10,7 +10,7 @@ return new class extends Migration {
             $t->increments('id');
             $t->string('author_name');
             $t->string('doujin_name');
-            $t->string('folder')->unique();
+            $t->string('folder')->unique(); // your dump had unique on folder
             $t->string('cover_url');
             $t->timestamps();
         });

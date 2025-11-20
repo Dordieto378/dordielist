@@ -8,11 +8,14 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // media table changes
         Schema::table('media', function (Blueprint $table) {
+            // rename studios -> publisher
             if (Schema::hasColumn('media', 'studios')) {
                 $table->renameColumn('studios', 'publisher');
             }
 
+            // drop columns if they exist
             if (Schema::hasColumn('media', 'status')) {
                 $table->dropColumn('status');
             }
@@ -27,6 +30,7 @@ return new class extends Migration
             }
         });
 
+        // episodes table changes
         Schema::table('episodes', function (Blueprint $table) {
             if (Schema::hasColumn('episodes', 'media_id')) {
                 $table->dropColumn('media_id');
@@ -36,11 +40,14 @@ return new class extends Migration
 
     public function down(): void
     {
+        // revert media table changes
         Schema::table('media', function (Blueprint $table) {
+            // rename publisher back to studios
             if (Schema::hasColumn('media', 'publisher')) {
                 $table->renameColumn('publisher', 'studios');
             }
 
+            // re-add the dropped columns
             if (!Schema::hasColumn('media', 'status')) {
                 $table->string('status')->nullable();
             }
@@ -55,6 +62,7 @@ return new class extends Migration
             }
         });
 
+        // revert episodes table changes
         Schema::table('episodes', function (Blueprint $table) {
             if (!Schema::hasColumn('episodes', 'media_id')) {
                 $table->unsignedBigInteger('media_id')->nullable();

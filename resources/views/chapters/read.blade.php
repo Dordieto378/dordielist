@@ -14,12 +14,14 @@
         $shouldBlur  = ! Auth::check();
         $allowedExts = ['jpg','jpeg','png','gif','webp'];
 
+        // --- FORCE VIEW FOR MANWHA ---
         $view = request('view', 'one');
-        $isManwha = $isManwha ?? false;
+        $isManwha = $isManwha ?? false; // passed from controller
         if ($isManwha) {
             $view = 'scroll';
         }
 
+        // Header link points back to page 1 of the same chapter + current view
         $headerLink = route('chapters.page', [
             'media'   => $chapter->item_id,
             'chapter' => $chapter->chapter_number,
@@ -27,8 +29,10 @@
             'view'    => $view,
         ]);
 
+        // View switcher base params
         $baseParams = ['media' => $chapter->item_id, 'chapter' => $chapter->chapter_number];
 
+        // For Double view we still compute the pair (used only when !$isManwha)
         $pageNums      = $chapter->pages->pluck('page_number')->sort()->values();
         $nums          = $pageNums->all();
         $currentIndex  = array_search($pageNumber, $nums, true);
@@ -37,6 +41,7 @@
         $a = $nums[$pairStart]     ?? null;
         $b = $nums[$pairStart + 1] ?? null;
 
+        // Right-to-left style swap (larger page left, smaller right)
         if ($a !== null && $b !== null && $a < $b) {
             $leftNum  = $b;
             $rightNum = $a;
@@ -45,6 +50,7 @@
             $rightNum = $b;
         }
 
+        // Pair nav targets (for double view)
         $prevPairPage = null;
         $nextPairPage = null;
 
@@ -58,6 +64,7 @@
             $nextPairPage = $nums[$nextPairStart] ?? null;
         }
 
+        // Pair links (fallback to controller links if needed)
         $prevPairLink = $prevPairPage
             ? route('chapters.page', ['media' => $chapter->item_id, 'chapter' => $chapter->chapter_number, 'page' => $prevPairPage, 'view' => 'double'])
             : ($prevLink ?? null);
@@ -79,11 +86,13 @@
                     </h1>
                 </div>
 
+                {{-- zoom buttons --}}
                 <div class="absolute inset-x-0 flex justify-center pointer-events-none">
                     <button onclick="zoomOut()" class="pointer-events-auto px-3 py-1 bg-gray-200 text-gray-700 rounded transition" title="Zoom Out">-</button>
                     <button onclick="zoomIn()"  class="pointer-events-auto ml-2 px-3 py-1 bg-gray-200 text-gray-700 rounded transition" title="Zoom In">+</button>
                 </div>
 
+                {{-- View switcher (hidden for MANWHA) --}}
                 <div class="flex-1 flex justify-end space-x-4">
                     @if(!$isManwha)
                         <a href="{{ route('chapters.page', array_merge($baseParams, ['page' => $pageNumber, 'view' => 'scroll'])) }}"
@@ -99,6 +108,7 @@
                 </div>
             </div>
 
+            {{-- ============== SCROLL MODE ============== --}}
             @if($view === 'scroll')
                 @php
                     $hasNextCh = !empty($nextChapterLink);
@@ -156,6 +166,7 @@
                 </div>
 
                 @php
+                    // Same flip logic for the bottom buttons
                     $leftBottom  = $nextChapterLink;
                     $rightBottom = $prevChapterLink;
                     if ($isManwha) {
@@ -166,6 +177,7 @@
                                             : ($leftBottom ? 'justify-start'
                                             : 'justify-end');
                 @endphp
+                {{-- Bottom chapter jump buttons --}}
                 <div class="flex {{ $scrollBottomJustify }} mt-4">
                     @if($leftBottom)
                         <a href="{{ $leftBottom }}" class="px-4 py-2 flatGreen text-white rounded-[0.19rem] transition">
@@ -178,12 +190,14 @@
                         </a>
                     @endif
                 </div>
+
+                {{-- ============== ONE PAGE MODE ============== --}}
             @elseif($view === 'one' && !$isManwha)
                 @php
                     $current   = $chapter->pages->firstWhere('page_number', $pageNumber);
                     $extOne    = strtolower(pathinfo(optional($current)->file_path ?? '', PATHINFO_EXTENSION));
                     $isImage   = in_array($extOne, $allowedExts, true);
-                    $singleUrl = $isImage ? $pageUrl : null;
+                    $singleUrl = $isImage ? $pageUrl : null; // from controller
                 @endphp
 
                 @if($isImage)
@@ -198,6 +212,7 @@
                             class="zoomable w-full h-auto object-contain mx-auto {{ $shouldBlur ? 'filter blur-2xl' : '' }} z-10"
                         >
 
+                        {{-- Half-screen click zones: LEFT = NEXT, RIGHT = PREVIOUS --}}
                         @if($nextLink)
                             <a href="{{ $nextLink }}">
                                 <div class="absolute inset-y-0 left-0 w-1/2 z-20" style="cursor:pointer;"></div>
@@ -216,6 +231,7 @@
                     $hasPrev = !empty($prevLink);
                     $oneJustify = $hasNext && $hasPrev ? 'justify-between' : ($hasNext ? 'justify-start' : 'justify-end');
                 @endphp
+                {{-- footer buttons (LEFT = NEXT, RIGHT = PREVIOUS) --}}
                 <div class="flex {{ $oneJustify }}">
                     @if($nextLink)
                         <a href="{{ $nextLink }}" class="px-4 py-2 flatGreen text-white rounded-[0.19rem] transition">Next</a>
@@ -224,6 +240,8 @@
                         <a href="{{ $prevLink }}" class="px-4 py-2 flatGreen text-white rounded-[0.19rem] transition">Prev</a>
                     @endif
                 </div>
+
+                {{-- ============== DOUBLE PAGE MODE ============== --}}
             @elseif($view === 'double' && !$isManwha)
                 @php
                     $leftObj   = $leftNum  !== null ? $chapter->pages->firstWhere('page_number', $leftNum)  : null;
@@ -276,6 +294,7 @@
                         @endif
                     </div>
 
+                    {{-- LEFT = NEXT (pair), RIGHT = PREVIOUS (pair) --}}
                     @if($doubleNext)
                         <a href="{{ $doubleNext }}">
                             <div class="absolute inset-y-0 left-0 w-1/2 z-20" style="cursor:pointer;"></div>
@@ -288,6 +307,7 @@
                     @endif
                 </div>
 
+                {{-- footer buttons (LEFT = NEXT, RIGHT = PREVIOUS) --}}
                 <div class="flex {{ $doubleJustify }}">
                     @if($doubleNext)
                         <a href="{{ $doubleNext }}" class="px-4 py-2 flatGreen text-white rounded-[0.19rem] transition">Next</a>
@@ -302,6 +322,7 @@
     </div>
 
     <script>
+        // Persisted zoom
         let zoomLevel = parseFloat(localStorage.getItem('chapterZoom')) || 1.0;
 
         function applyZoom(img) {
@@ -340,6 +361,7 @@
             updateZoomAll();
         });
 
+        // Arrow keys: flip for Manwha
         document.addEventListener('keydown', (e) => {
             const tag = (document.activeElement && document.activeElement.tagName) || '';
             if (tag === 'INPUT' || tag === 'TEXTAREA') return;
@@ -351,9 +373,11 @@
             const prevPage = @json($prevLink ?? null);
             const isManwha = @json($isManwha);
 
+            // Defaults (Manga): LEFT = NEXT, RIGHT = PREV
             let leftTarget  = isDouble ? (nextPair || nextPage) : nextPage;
             let rightTarget = isDouble ? (prevPair || prevPage) : prevPage;
 
+            // Flip for Manwha: LEFT = PREV, RIGHT = NEXT
             if (isManwha) {
                 const tmp = leftTarget;
                 leftTarget  = rightTarget;

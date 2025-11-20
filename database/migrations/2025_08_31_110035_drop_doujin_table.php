@@ -10,6 +10,7 @@ return new class extends Migration {
     }
 
     public function down(): void {
+        // optional: recreate if needed
         Schema::create('doujins', function ($t) {
             $t->increments('id');
             $t->string('author_name');

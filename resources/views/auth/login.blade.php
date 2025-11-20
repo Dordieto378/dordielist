@@ -29,8 +29,10 @@
     </div>
 
     <div class="relative -mt-1">
+      {{-- ► FLASH MESSAGE (only errors, in red) --}}
       @if(session('status'))
         @php
+          // Only “red” is relevant here—no green success in login.
           $bg = session('status_color') === 'red'
                 ? 'bg-red-100 border-red-200 text-red-800'
                 : 'bg-gray-100 border-gray-200 text-gray-800';
@@ -61,7 +63,7 @@
               name="email"
               type="email"
               autocomplete="email"
-              class="h-9 w-full rounded-md border px-3 py-1 text-sm
+              class="h-9 w-full rounded-md border px-3 py-1 text-sm 
                     bg-gray-100 focus:outline-none focus:ring-1 focus:ring-flatRed
                     border-gray-200 text-gray-800 font-medium"
             >
@@ -73,7 +75,7 @@
               name="password"
               type="password"
               autocomplete="current-password"
-              class="h-9 w-full rounded-md border px-3 py-1 text-sm
+              class="h-9 w-full rounded-md border px-3 py-1 text-sm 
                     bg-gray-100 focus:outline-none focus:ring-1 focus:ring-flatRed
                     border-gray-200 text-gray-800 font-medium"
             >

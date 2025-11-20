@@ -29,6 +29,7 @@
     </div>
 
     <div class="relative -mt-1">
+      {{-- ► FLASH MESSAGE (only errors, in red) --}}
       @if(session('status'))
         @php
           $bg = session('status_color') === 'red'
@@ -69,6 +70,7 @@
             >
           </div>
 
+          {{-- Username --}}
           <div class="flex flex-col gap-2 w-[420px] mx-auto">
             <label for="username" class="text-base text-gray-800 font-medium">Username</label>
             <input
@@ -82,6 +84,7 @@
             >
           </div>
 
+          {{-- Password --}}
           <div class="flex flex-col gap-2 w-[420px] mx-auto">
             <label for="password" class="text-base text-gray-800 font-medium">Password</label>
             <input
@@ -94,6 +97,7 @@
             >
           </div>
 
+          {{-- Confirm Password --}}
           <div class="flex flex-col gap-2 w-[420px] mx-auto">
             <label for="password_confirmation" class="text-base text-gray-800 font-medium">Confirm Password</label>
             <input
@@ -106,6 +110,7 @@
             >
           </div>
 
+          {{-- Age confirmation checkbox --}}
           <div class="flex flex-col gap-2 w-[420px] mx-auto">
             <label for="terms" class="flex items-start gap-2 cursor-pointer">
               <input type="checkbox" id="terms" name="terms" required class="sr-only peer">
@@ -132,6 +137,7 @@
             </label>
           </div>
 
+          {{-- Submit --}}
           <div class="flex flex-col gap-4 w-[420px] mx-auto">
             <button
               type="submit"

@@ -35,6 +35,7 @@
         $day   = $item['startDate']['day'] ?? 1;
         $month = $item['startDate']['month'] ?? 1;
         $year  = $item['startDate']['year'];
+        // Create a DateTime from the month number to format the abbreviated month name
         $dt    = DateTime::createFromFormat('!m', $month);
         $releaseDate = $day . ' ' . $dt->format('M') . ' ' . $year;
     }
@@ -66,6 +67,7 @@
 
     $numericId = (int) ltrim((string) $id, 'v');
 
+    // Recompute current state for this page render
     $isFavorited = Favorite::where('favoritable_type', $normalizedTypeFromItem)
                            ->where('favoritable_id',   $numericId)
                            ->exists();
@@ -75,6 +77,7 @@
                                  ->pluck('collection_id')
                                  ->toArray();
 
+    // Collections list for the modal
     $allCollections = Collection::orderBy('name')->get();
 
     $blur = ((int)($item['isNsfw'] ?? 0) === 1) && !Auth::check();
@@ -83,6 +86,7 @@
 <div class="flex flex-col items-center py-[8.5rem]">
     <div class="w-[1280px] h-auto bg-white shadow-sm rounded-md p-6 ml-[0.5rem]">
         <div class="flex flex-col md:flex-row">
+            {{-- Left Column: Image & Buttons --}}
             <div class="flex flex-col items-center">
                 <div class="relative w-[325px] h-[450px] overflow-hidden rounded">
                     @if($blur)
@@ -147,6 +151,7 @@
                                         hover:text-red-600 transition">
 
                             @if($isFavorited)
+                            {{-- Filled heart --}}
                             <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" stroke="none"
                                 class="ml-[1.4rem] h-[1.1rem] w-[1.1rem] mr-[0.5rem] mb-[0.1rem]"
                                 viewBox="0 0 24 24">
@@ -156,6 +161,7 @@
                                         c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
                             </svg>
                             @else
+                            {{-- Outline heart --}}
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor"
                                 class="ml-[1.4rem] h-[1.1rem] w-[1.1rem] mr-[0.5rem] mb-[0.1rem]"
                                 stroke-width="2.5" viewBox="0 0 24 24">
@@ -172,6 +178,7 @@
                     </form>
 
                     <button id="openAddToCollection" class="flex items-center justify-start w-full text-blue-950 py-2 rounded-sm hover:text-yellow-400">
+                        <!-- folder icon (Heroicons outline) -->
                         <svg xmlns="http://www.w3.org/2000/svg"
                             class="ml-[1.4rem] h-[1.1rem] w-[1.1rem] mr-[0.5rem] mb-[0.1rem]"
                             fill="none"
@@ -222,6 +229,7 @@
                 </div>
                 @endauth
             </div>
+            {{-- Right Column: Basic Info --}}
             <div class="flex flex-col justify-start ml-8 mt-4 md:mt-2 text-gray-900 font-medium">
                 <h1 class="text-2xl font-bold text-red-600 mb-2">{{ $title }}</h1>
                 <div class="grid grid-cols-[7rem,1fr] gap-x-3 gap-y-4 text-sm mt-2 mb-2">
@@ -356,6 +364,8 @@
 
     @php
         use Illuminate\Support\Facades\Storage;
+
+        // === EPISODES pagination (12 per page, query param: ep_page) ===
         $epPerPage = 12;
         $epPage    = max(1, (int) request('ep_page', 1));
 
@@ -364,6 +374,7 @@
             ->orderBy('episode_number')
             ->paginate($epPerPage, ['*'], 'ep_page', $epPage);
 
+        // collection for the current page
         $episodes = $episodesPaginator->getCollection();
         $rows     = $episodes->chunk(4);
     @endphp
@@ -394,6 +405,7 @@
                 @endforeach
             </div>
 
+            {{-- EPISODES pagination bar --}}
             @php
                 $epCurrent = $episodesPaginator->currentPage();
                 $epLast    = $episodesPaginator->lastPage();
@@ -434,6 +446,7 @@
 </div>
 
 @php
+    // === CHAPTERS pagination (70 per page, query param: ch_page) ===
     $chPerPage = 48;
     $chPage    = max(1, (int) request('ch_page', 1));
 
@@ -445,7 +458,7 @@
                         ->orderBy('chapter_number')
                         ->paginate($chPerPage, ['*'], 'ch_page', $chPage);
 
-    $chapters    = $chaptersPaginator->getCollection();
+    $chapters    = $chaptersPaginator->getCollection(); // current page items
 @endphp
 
 @auth
@@ -459,11 +472,13 @@
 
                 @foreach($chapters->chunk(4) as $rowIndex => $row)
                     @php
+                        // Manga: reverse each row so it reads R→L; Manwha stays L→R
                         $cells  = $isMangaType ? $row->reverse()->values() : $row->values();
                         $count  = $cells->count();
                         $blanks = max(0, 4 - $count);
                     @endphp
 
+                    {{-- For MANGA only: add blank cells first so short rows align to the RIGHT --}}
                     @if($isMangaType && $blanks > 0)
                         @for($i = 0; $i < $blanks; $i++)
                             <div></div>
@@ -496,6 +511,7 @@
             </div>
         </div>
 
+        {{-- CHAPTERS pagination bar --}}
         @php
             $chCurrent = $chaptersPaginator->currentPage();
             $chLast    = $chaptersPaginator->lastPage();
@@ -564,6 +580,7 @@
                 <div class="flex items-center space-x-2">
 
                 @if($col->is_system)
+                    {{-- Favorites checkbox --}}
                     <input
                     type="checkbox"
                     name="add_to_favorites"
@@ -573,6 +590,7 @@
                     onchange="document.getElementById('attachCollectionsForm').submit()"
                     />
                 @else
+                    {{-- Regular collections --}}
                     <input
                     type="checkbox"
                     name="collection_ids[]"
@@ -628,6 +646,7 @@
         role="dialog"
         aria-modal="true"
     >
+    <!-- Header -->
     <div class="flex justify-between items-start pb-4 pt-2 border-b border-gray-200">
       <h2 id="overlay-title" class="text-lg font-bold text-gray-800 pl-4">
         Create New Collection
@@ -639,6 +658,7 @@
         aria-label="Close Create Modal"
       >
         <span class="sr-only">Close</span>
+        <!-- you can swap this SVG for your .icon-times -->
         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none"
              viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
           <path stroke-linecap="round" stroke-linejoin="round"
@@ -647,6 +667,7 @@
       </button>
     </div>
 
+    <!-- Body -->
     <div id="overlay-content" class="space-y-4">
       <form
         id="collectionCreateForm"
@@ -656,6 +677,7 @@
       >
         @csrf
 
+        <!-- Name -->
         <label class="block relative" for="name">
           <span class="block mb-2 label-text text-red-600 font-medium pl-4">Collection Name</span>
             <input
@@ -679,6 +701,7 @@
           @enderror
         </label>
 
+        <!-- Submit -->
         <div class="block">
           <button
             type="submit"
@@ -745,25 +768,30 @@ const form        = document.getElementById('uploadForm');
 const progressBar = document.getElementById('progressBar');
 const progressText= document.getElementById('progressText');
 
+// helpers
 const showAdd    = ()=> addModal.classList.remove('hidden');
 const hideAdd    = ()=> addModal.classList.add('hidden');
 const showCreate = ()=> createModal.classList.remove('hidden');
 const hideCreate = ()=> createModal.classList.add('hidden');
 
+// open/close Add→Collection
 openAddBtn.addEventListener('click', showAdd);
 closeAddBtn.addEventListener('click', hideAdd);
 addModal.addEventListener('click', e => { if(e.target===addModal) hideAdd(); });
 document.addEventListener('keyup', e => { if(e.key==='Escape' && !addModal.classList.contains('hidden')) hideAdd(); });
 
+// from inside Add, open Create
 openCreateBtn.addEventListener('click', () => {
 hideAdd();
 showCreate();
 });
 
+// close Create modal
 closeCreateBtn.addEventListener('click', hideCreate);
 createModal.addEventListener('click', e => { if(e.target===createModal) hideCreate(); });
 document.addEventListener('keyup', e => { if(e.key==='Escape' && !createModal.classList.contains('hidden')) hideCreate(); });
 
+// AJAX create‐collection
 createForm.addEventListener('submit', async e => {
 e.preventDefault();
 const token = document.querySelector('meta[name="csrf-token"]').content;

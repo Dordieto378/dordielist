@@ -1,3 +1,4 @@
+{{-- resources/views/episodes/show.blade.php --}}
 @extends('layouts.app')
 
 @section('content')
@@ -29,6 +30,7 @@
         </div>
     </div>
 
+    {{-- Episode info --}}
     <div class="w-full flex justify-center mt-6 mb-6 px-4">
         <div class="max-w-[1710px] w-full rounded-lg flex overflow-hidden">
             <div class="flex-shrink-0">

@@ -1,3 +1,4 @@
+{{-- resources/views/emails/user_activated.blade.php --}}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,6 +7,7 @@
 </head>
 <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f3f4f6; color: #1f2937;">
 
+  <!-- NAVBAR -->
   <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background-color: #ab2328  ; text-align: center; padding: 16px 0;">
     <tr>
       <td>
@@ -14,6 +16,7 @@
     </tr>
   </table>
 
+  <!-- MAIN CONTENT -->
   <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin-top: 40px;">
     <tr>
       <td align="center">
@@ -23,7 +26,7 @@
               <h1 style="font-size: 20px; font-weight: bold; color: #dc2626; margin-bottom: 16px;">Account Activated</h1>
 
               <p style="margin-bottom: 12px;">
-                Congratulations, <span style="font-weight: 600;">{{ $user->username }}</span>!
+                Congratulations, <span style="font-weight: 600;">{{ $user->username }}</span>!  
                 Your account (ID #{{ $user->user_id }}) has been activated.
               </p>
 
@@ -50,11 +53,14 @@
     </tr>
   </table>
 
+  <!-- FOOTER -->
   <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin-top: 40px; background-color: #f3f4f6;">
     <tr>
       <td align="center">
+        <!-- Divider -->
         <hr style="border: none; border-top: 1px solid #d1d5db; width: 90%; margin: 0 auto;" />
 
+        <!-- Footer Content -->
         <table width="600" cellpadding="0" cellspacing="0" role="presentation" style="margin: 24px auto; text-align: center; font-size: 14px; color: #6b7280; font-family: Arial, sans-serif;">
           <tr>
             <td style="padding-bottom: 12px;">
@@ -75,5 +81,6 @@
       </td>
     </tr>
   </table>
+
 </body>
 </html>

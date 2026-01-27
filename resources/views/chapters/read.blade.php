@@ -74,75 +74,264 @@
             : ($nextLink ?? null);
     @endphp
 
-    <div class="flex flex-col items-center py-[4rem] mt-12">
-        <div class="w-[1280px] bg-white shadow-sm rounded-md p-6 ml-[0.5rem] space-y-6">
-            <div class="relative flex items-center mb-4">
-                <div class="flex-1">
-                    <h1 class="text-2xl font-bold text-red-600">
-                        <a href="{{ $itemUrl }}" class="hover:underline">
-                            {{ shortTitle($itemTitle, 20) }}
-                        </a>
-                        - {{ shortTitle($chapter->chapter_title, 20) }}
-                    </h1>
-                </div>
+    <style>
+        body.reader-mode {
+            background: #ffffff;
+            color: #111827;
+        }
+        body.reader-mode nav,
+        body.reader-mode footer {
+            display: none !important;
+        }
+        .reader-hover-zone {
+            position: fixed;
+            inset: 0 0 auto 0;
+            height: 220px; /* even larger trigger so it shows when you're near the top */
+            z-index: 55;
+            pointer-events: auto;
+        }
+        .reader-bottom-hover {
+            position: fixed;
+            inset: auto 0 0 0;
+            height: 160px;
+            z-index: 55;
+            pointer-events: auto;
+        }
+        .reader-float-nav {
+            position: fixed;
+            inset: 0 0 auto 0;
+            z-index: 60;
+            pointer-events: none;
+        }
+        .reader-nav-panel {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 0;
+            background: #ab2328; /* tailwind flatRed */
+            box-shadow: none;
+            opacity: 0;
+            transform: translateY(-10px);
+            transition: opacity 0.18s ease, transform 0.18s ease;
+            pointer-events: none;
+        }
+        .reader-nav-inner {
+            width: 100%;
+            margin: 0 auto;
+            padding: 1rem 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .reader-hover-zone:hover + .reader-float-nav .reader-nav-panel,
+        .reader-float-nav:hover .reader-nav-panel {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+        .reader-bottom-hover:hover + .reader-bottom-float .reader-bottom-panel,
+        .reader-bottom-float:hover .reader-bottom-panel {
+            opacity: 1;
+            transform: translate(-50%, 0);
+            pointer-events: auto;
+        }
+        body.reader-bars-visible .reader-nav-panel {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+        body.reader-bars-visible .reader-bottom-panel {
+            opacity: 1;
+            transform: translate(-50%, 0);
+            pointer-events: auto;
+        }
+        .reader-logo {
+            font-weight: 700;
+            letter-spacing: normal;
+            color: #ffffff;
+            font-size: 1.5rem; /* text-2xl */
+            padding-left: 0;
+            padding-right: 0;
+        }
+        .reader-title {
+            font-size: 1rem;
+            font-weight: 700;
+            color: #ffffff;
+            text-decoration: none;
+        }
+        .reader-title:hover {
+            text-decoration: underline;
+        }
+        .reader-shell {
+            min-height: 100vh;
+            padding: 0;
+        }
+        .reader-content {
+            width: min(1200px, calc(100vw - 24px));
+            margin: 0 auto;
+        }
+        .reader-controls {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .control-btn {
+            padding: 0.45rem 0.85rem;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+            background: #f3f4f6;
+            color: #111827;
+            transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease, box-shadow 0.12s ease;
+        }
+        .control-btn:hover {
+            background: #e5e7eb;
+            border-color: #d1d5db;
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
+        }
+        .control-btn.active {
+            background: #ef4444;
+            border-color: #ef4444;
+            color: #ffffff;
+            font-weight: 700;
+        }
+        .reader-page {
+            position: relative;
+            width: 100%;
+            overflow: hidden;
+        }
+        .reader-full {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+        }
+        .reader-img {
+            width: 100%;
+            height: auto;
+            object-fit: contain;
+            display: block;
+            margin: 0 auto;
+            box-shadow: none;
+            border-radius: 0;
+        }
+        .reader-full .reader-img {
+            height: 100vh;
+            width: auto;
+            max-width: 100%;
+            object-fit: contain;
+        }
+        .jump-row {
+            display: flex;
+            gap: 0.5rem;
+        }
+        .jump-row.start { justify-content: flex-start; }
+        .jump-row.end   { justify-content: flex-end; }
+        .jump-row.between { justify-content: space-between; }
+        .jump-btn {
+            padding: 0.55rem 1.1rem;
+            border-radius: 8px;
+            background: #ffffff;
+            color: #ab2328;
+            font-weight: 700;
+            transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+        }
+        .jump-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 22px rgba(0, 0, 0, 0.18);
+            background: #f5f5f5;
+        }
+        .dual-page {
+            display: flex;
+            justify-content: center;
+            gap: 0;
+            align-items: center;
+            flex-wrap: nowrap;
+        }
+        .dual-full {
+            height: 100vh;
+            align-items: center;
+        }
+        .dual-page > div {
+            flex: 0 0 50%;
+            max-width: 50%;
+        }
+        .dual-page img {
+            width: 100%;
+            height: auto;
+        }
+        .dual-full img {
+            height: 100vh;
+            width: auto;
+            max-width: 100%;
+            object-fit: contain;
+        }
+        .reader-bottom-panel {
+            position: fixed;
+            left: 50%;
+            bottom: 24px;
+            transform: translate(-50%, 24px);
+            padding: 0.5rem 0.9rem;
+            background: #ab2328; /* flatRed pill */
+            border-radius: 12px;
+            box-shadow: 0 18px 30px rgba(0, 0, 0, 0.18);
+            opacity: 0;
+            transition: opacity 0.18s ease, transform 0.18s ease;
+            pointer-events: none;
+            z-index: 60;
+        }
+        .reader-bottom-inner {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.65rem;
+        }
+    </style>
 
-                {{-- zoom buttons --}}
-                <div class="absolute inset-x-0 flex justify-center pointer-events-none">
-                    <button onclick="zoomOut()" class="pointer-events-auto px-3 py-1 bg-gray-200 text-gray-700 rounded transition" title="Zoom Out">-</button>
-                    <button onclick="zoomIn()"  class="pointer-events-auto ml-2 px-3 py-1 bg-gray-200 text-gray-700 rounded transition" title="Zoom In">+</button>
-                </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            document.body.classList.add('reader-mode');
+        });
+    </script>
 
-                {{-- View switcher (hidden for MANWHA) --}}
-                <div class="flex-1 flex justify-end space-x-4">
+    <div class="reader-hover-zone"></div>
+    <div class="reader-float-nav">
+        <div class="reader-nav-panel">
+            <div class="reader-nav-inner">
+                <div class="flex items-center space-x-2">
+                    <a href="{{ route('home') }}" class="reader-logo uppercase">DORDIELIST</a>
+                    <span class="h-5 w-px bg-white/40"></span>
+                    <a href="{{ $itemUrl }}" class="reader-title hover:underline" title="{{ $itemTitle }}">
+                        {{ shortTitle($itemTitle, 40) }}
+                    </a>
+                </div>
+                <div class="flex items-center space-x-2 text-white text-sm">
                     @if(!$isManwha)
                         <a href="{{ route('chapters.page', array_merge($baseParams, ['page' => $pageNumber, 'view' => 'scroll'])) }}"
-                           class="p-2 rounded {{ $view === 'scroll' ? 'bg-gray-800 text-white' : 'bg-gray-200 text-gray-700' }}"
-                           title="Scroll Mode">Scroll</a>
+                           class="control-btn {{ $view === 'scroll' ? 'active' : '' }}">Scroll</a>
                         <a href="{{ route('chapters.page', array_merge($baseParams, ['page' => $pageNumber, 'view' => 'one'])) }}"
-                           class="p-2 rounded {{ $view === 'one' ? 'bg-gray-800 text-white' : 'bg-gray-200 text-gray-700' }}"
-                           title="One Page Mode">One</a>
+                           class="control-btn {{ $view === 'one' ? 'active' : '' }}">One</a>
                         <a href="{{ route('chapters.page', array_merge($baseParams, ['page' => $pageNumber, 'view' => 'double'])) }}"
-                           class="p-2 rounded {{ $view === 'double' ? 'bg-gray-800 text-white' : 'bg-gray-200 text-gray-700' }}"
-                           title="Double Page Mode">Double</a>
+                           class="control-btn {{ $view === 'double' ? 'active' : '' }}">Double</a>
                     @endif
                 </div>
             </div>
+        </div>
+    </div>
 
+    <div class="reader-shell">
+        <div class="reader-content space-y-6">
             {{-- ============== SCROLL MODE ============== --}}
             @if($view === 'scroll')
-                @php
-                    $hasNextCh = !empty($nextChapterLink);
-                    $hasPrevCh = !empty($prevChapterLink);
-
-                    // Default (Manga): left=NEXT, right=PREV
-                    $leftLink  = $nextChapterLink;
-                    $rightLink = $prevChapterLink;
-
-                    // Manwha: flip (left=PREV, right=NEXT)
-                    if ($isManwha) {
-                        $leftLink  = $prevChapterLink;
-                        $rightLink = $nextChapterLink;
-                    }
-
-                    $scrollTopJustify = ($leftLink && $rightLink) ? 'justify-between'
-                                        : ($leftLink ? 'justify-start'
-                                        : 'justify-end');
-                @endphp
-                {{-- Top chapter jump buttons --}}
-                <div class="flex {{ $scrollTopJustify }} mb-4">
-                    @if($leftLink)
-                        <a href="{{ $leftLink }}" class="px-4 py-2 flatGreen text-white rounded-[0.19rem] transition">
-                            {{ $isManwha ? 'Prev Chapter' : 'Next Chapter' }}
-                        </a>
-                    @endif
-                    @if($rightLink)
-                        <a href="{{ $rightLink }}" class="px-4 py-2 flatGreen text-white rounded-[0.19rem] transition">
-                            {{ $isManwha ? 'Next Chapter' : 'Prev Chapter' }}
-                        </a>
-                    @endif
-                </div>
-
-                <div>
+                <div class="space-y-6">
                     @foreach($chapter->pages as $p)
                         @php
                             $ext = strtolower(pathinfo($p->file_path, PATHINFO_EXTENSION) ?? '');
@@ -151,44 +340,18 @@
                         @endphp
 
                         @if($isImage)
-                            <div class="relative w-full overflow-hidden">
+                            <div class="reader-page">
                                 @if($shouldBlur)
                                     <img src="{{ asset('images/18-plus.png') }}" alt="18+" class="absolute top-4 right-4 w-10 h-10 z-30">
                                 @endif
                                 <img
                                     src="{{ $url }}"
                                     alt="Page {{ $p->page_number }}"
-                                    class="zoomable w-full h-auto object-contain mx-auto {{ $shouldBlur ? 'filter blur-2xl' : '' }}"
+                                    class="zoomable reader-img {{ $shouldBlur ? 'filter blur-2xl' : '' }}"
                                 >
                             </div>
                         @endif
                     @endforeach
-                </div>
-
-                @php
-                    // Same flip logic for the bottom buttons
-                    $leftBottom  = $nextChapterLink;
-                    $rightBottom = $prevChapterLink;
-                    if ($isManwha) {
-                        $leftBottom  = $prevChapterLink;
-                        $rightBottom = $nextChapterLink;
-                    }
-                    $scrollBottomJustify = ($leftBottom && $rightBottom) ? 'justify-between'
-                                            : ($leftBottom ? 'justify-start'
-                                            : 'justify-end');
-                @endphp
-                {{-- Bottom chapter jump buttons --}}
-                <div class="flex {{ $scrollBottomJustify }} mt-4">
-                    @if($leftBottom)
-                        <a href="{{ $leftBottom }}" class="px-4 py-2 flatGreen text-white rounded-[0.19rem] transition">
-                            {{ $isManwha ? 'Prev Chapter' : 'Next Chapter' }}
-                        </a>
-                    @endif
-                    @if($rightBottom)
-                        <a href="{{ $rightBottom }}" class="px-4 py-2 flatGreen text-white rounded-[0.19rem] transition">
-                            {{ $isManwha ? 'Next Chapter' : 'Prev Chapter' }}
-                        </a>
-                    @endif
                 </div>
 
                 {{-- ============== ONE PAGE MODE ============== --}}
@@ -201,7 +364,7 @@
                 @endphp
 
                 @if($isImage)
-                    <div class="relative w-full overflow-hidden">
+                    <div class="reader-page reader-full">
                         @if($shouldBlur)
                             <img src="{{ asset('images/18-plus.png') }}" alt="18+" class="absolute top-4 right-4 w-10 h-10 z-30">
                         @endif
@@ -209,7 +372,7 @@
                         <img
                             src="{{ $singleUrl }}"
                             alt="Page {{ $pageNumber }}"
-                            class="zoomable w-full h-auto object-contain mx-auto {{ $shouldBlur ? 'filter blur-2xl' : '' }} z-10"
+                            class="zoomable reader-img {{ $shouldBlur ? 'filter blur-2xl' : '' }} z-10"
                         >
 
                         {{-- Half-screen click zones: LEFT = NEXT, RIGHT = PREVIOUS --}}
@@ -225,21 +388,6 @@
                         @endif
                     </div>
                 @endif
-
-                @php
-                    $hasNext = !empty($nextLink);
-                    $hasPrev = !empty($prevLink);
-                    $oneJustify = $hasNext && $hasPrev ? 'justify-between' : ($hasNext ? 'justify-start' : 'justify-end');
-                @endphp
-                {{-- footer buttons (LEFT = NEXT, RIGHT = PREVIOUS) --}}
-                <div class="flex {{ $oneJustify }}">
-                    @if($nextLink)
-                        <a href="{{ $nextLink }}" class="px-4 py-2 flatGreen text-white rounded-[0.19rem] transition">Next</a>
-                    @endif
-                    @if($prevLink)
-                        <a href="{{ $prevLink }}" class="px-4 py-2 flatGreen text-white rounded-[0.19rem] transition">Prev</a>
-                    @endif
-                </div>
 
                 {{-- ============== DOUBLE PAGE MODE ============== --}}
             @elseif($view === 'double' && !$isManwha)
@@ -262,11 +410,11 @@
 
                     $hasDoubleNext = !empty($doubleNext);
                     $hasDoublePrev = !empty($doublePrev);
-                    $doubleJustify = $hasDoubleNext && $hasDoublePrev ? 'justify-between' : ($hasDoubleNext ? 'justify-start' : 'justify-end');
+                    $doubleJustify = $hasDoubleNext && $hasDoublePrev ? 'between' : ($hasDoubleNext ? 'start' : 'end');
                 @endphp
 
-                <div class="relative w-full overflow-hidden">
-                    <div class="flex justify-center space-x-2">
+                <div class="reader-page reader-full">
+                    <div class="dual-page dual-full">
                         @if($isLeftImg)
                             <div class="relative overflow-hidden">
                                 @if($shouldBlur)
@@ -275,7 +423,7 @@
                                 <img
                                     src="{{ $leftUrl }}"
                                     alt="Page {{ $leftNum }}"
-                                    class="zoomable h-auto object-contain mx-auto {{ $shouldBlur ? 'filter blur-2xl' : '' }}"
+                                    class="zoomable reader-img {{ $shouldBlur ? 'filter blur-2xl' : '' }}"
                                 >
                             </div>
                         @endif
@@ -288,7 +436,7 @@
                                 <img
                                     src="{{ $rightUrl }}"
                                     alt="Page {{ $rightNum }}"
-                                    class="zoomable h-auto object-contain mx-auto {{ $shouldBlur ? 'filter blur-2xl' : '' }}"
+                                    class="zoomable reader-img {{ $shouldBlur ? 'filter blur-2xl' : '' }}"
                                 >
                             </div>
                         @endif
@@ -307,60 +455,61 @@
                     @endif
                 </div>
 
-                {{-- footer buttons (LEFT = NEXT, RIGHT = PREVIOUS) --}}
-                <div class="flex {{ $doubleJustify }}">
-                    @if($doubleNext)
-                        <a href="{{ $doubleNext }}" class="px-4 py-2 flatGreen text-white rounded-[0.19rem] transition">Next</a>
-                    @endif
-                    @if($doublePrev)
-                        <a href="{{ $doublePrev }}" class="px-4 py-2 flatGreen text-white rounded-[0.19rem] transition">Prev</a>
-                    @endif
-                </div>
             @endif
 
         </div>
     </div>
 
-    <script>
-        // Persisted zoom
-        let zoomLevel = parseFloat(localStorage.getItem('chapterZoom')) || 1.0;
+    @php
+        $bottomLeftLink = null;
+        $bottomRightLink = null;
+        $bottomLeftLabel = null;
+        $bottomRightLabel = null;
 
-        function applyZoom(img) {
-            const natural = img.naturalHeight || img.clientHeight || 1200;
-            const newMax  = Math.max(1, natural * zoomLevel);
-            img.style.maxHeight = newMax + 'px';
-            img.style.width = 'auto';
-        }
-
-        function updateZoomAll() {
-            document.querySelectorAll('.zoomable').forEach(img => applyZoom(img));
-            localStorage.setItem('chapterZoom', zoomLevel);
-        }
-
-        function hookImage(img) {
-            if (img.complete && img.naturalHeight > 0) {
-                applyZoom(img);
-            } else {
-                img.addEventListener('load', () => applyZoom(img), { once: true });
-                setTimeout(() => { if (!img.style.maxHeight) applyZoom(img); }, 300);
+        if ($view === 'scroll') {
+            $leftBottom  = $nextChapterLink;
+            $rightBottom = $prevChapterLink;
+            if ($isManwha) {
+                $leftBottom  = $prevChapterLink;
+                $rightBottom = $nextChapterLink;
             }
+            $bottomLeftLink  = $leftBottom;
+            $bottomRightLink = $rightBottom;
+            $bottomLeftLabel = $isManwha ? 'Prev Chapter' : 'Next Chapter';
+            $bottomRightLabel = $isManwha ? 'Next Chapter' : 'Prev Chapter';
+        } elseif ($view === 'one' && !$isManwha) {
+            $bottomLeftLink  = $nextLink;
+            $bottomRightLink = $prevLink;
+            $bottomLeftLabel = 'Next';
+            $bottomRightLabel = 'Prev';
+        } elseif ($view === 'double' && !$isManwha) {
+            $doubleNext = $nextPairLink ?? $nextLink ?? null;
+            $doublePrev = $prevPairLink ?? $prevLink ?? null;
+            $bottomLeftLink  = $doubleNext;
+            $bottomRightLink = $doublePrev;
+            $bottomLeftLabel = 'Next';
+            $bottomRightLabel = 'Prev';
         }
+    @endphp
 
-        function zoomIn()  { zoomLevel = Math.min(zoomLevel + 0.05, 1.0); updateZoomAll(); }
-        function zoomOut() { zoomLevel = Math.max(zoomLevel - 0.05, 0.2); updateZoomAll(); }
+    <div class="reader-bottom-hover"></div>
+    <div class="reader-bottom-float">
+        <div class="reader-bottom-panel">
+            <div class="reader-bottom-inner">
+                @if($bottomLeftLink && $bottomLeftLabel)
+                    <a href="{{ $bottomLeftLink }}" class="jump-btn">{{ $bottomLeftLabel }}</a>
+                @endif
+                <span class="text-white font-bold text-sm px-2">
+                    Ch {{ rtrim(rtrim($chapter->chapter_number, '0'), '.') }}
+                </span>
+                @if($bottomRightLink && $bottomRightLabel)
+                    <a href="{{ $bottomRightLink }}" class="jump-btn">{{ $bottomRightLabel }}</a>
+                @endif
+            </div>
+        </div>
+    </div>
 
-        window.zoomIn = zoomIn;
-        window.zoomOut = zoomOut;
-
-        document.addEventListener('DOMContentLoaded', () => {
-            document.querySelectorAll('.zoomable').forEach(img => {
-                img.style.removeProperty('max-height');
-                img.style.width = 'auto';
-                hookImage(img);
-            });
-            updateZoomAll();
-        });
-
+    <script>
         // Arrow keys: flip for Manwha
         document.addEventListener('keydown', (e) => {
             const tag = (document.activeElement && document.activeElement.tagName) || '';
@@ -387,5 +536,29 @@
             if (e.key === 'ArrowLeft'  && leftTarget)  window.location.href = leftTarget;
             if (e.key === 'ArrowRight' && rightTarget) window.location.href = rightTarget;
         });
+
+        // Show top & bottom bars together when hovering either
+        const hoverTargets = [
+            document.querySelector('.reader-hover-zone'),
+            document.querySelector('.reader-float-nav'),
+            document.querySelector('.reader-bottom-hover'),
+            document.querySelector('.reader-bottom-float'),
+        ].filter(Boolean);
+
+        let hoverCount = 0;
+        const updateBars = (delta) => {
+            hoverCount = Math.max(0, hoverCount + delta);
+            if (hoverCount > 0) {
+                document.body.classList.add('reader-bars-visible');
+            } else {
+                document.body.classList.remove('reader-bars-visible');
+            }
+        };
+
+        hoverTargets.forEach(el => {
+            el.addEventListener('mouseenter', () => updateBars(1));
+            el.addEventListener('mouseleave', () => updateBars(-1));
+        });
+
     </script>
 @endsection

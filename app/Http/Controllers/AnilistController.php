@@ -144,28 +144,14 @@ class AnilistController extends Controller
      */
     private function canonicalType(Media $m): string
     {
-        $t = strtolower($m->type);
+        $t = strtoupper($m->type);
 
-        if ($m->source === 'anilist') {
-            // If already anime/hentai, keep it.
-            if (!in_array($t, ['manga', 'manwha'], true)) {
-                return strtoupper($t);
-            }
-
-            // If episodes were synced later, trust that.
-            if (!is_null($m->episodes_cnt)) {
-                return 'ANIME';
-            }
-
-            // If no chapter/volume info AND unreleased/releasing, assume anime.
-            $status = strtoupper((string) $m->media_status);
-            if (is_null($m->chapters_cnt) && is_null($m->volumes_cnt)
-                && in_array($status, ['NOT_YET_RELEASED', 'RELEASING'], true)) {
-                return 'ANIME';
-            }
+        // Normalize Korean-origin manga to MANWHA; otherwise trust stored type.
+        if ($t === 'MANGA' && strtoupper((string)$m->origin) === 'KR') {
+            return 'MANWHA';
         }
 
-        return strtoupper($t);
+        return $t;
     }
 
     private function mapMediaRow(Media $m): array
@@ -236,7 +222,6 @@ class AnilistController extends Controller
             'userProgress'=> null,
             'listStatus'  => $m->list_status,
             'languages'   => $languages,
-            'isNsfw' => (int)($m->isNsfw ?? 0),
         ];
     }
 
@@ -291,9 +276,6 @@ class AnilistController extends Controller
                 $genres      = $media['genres'] ?? [];
                 $tags        = array_values(array_filter(array_map(fn($t) => $t['name'] ?? null, $media['tags'] ?? [])));
                 $genresLower = array_map('mb_strtolower', $genres);
-
-                $isAdultFlag = (bool)($media['isAdult'] ?? false);
-                $isNsfw      = $isAdultFlag || in_array('hentai', $genresLower, true);
 
                 $origin   = $media['countryOfOrigin'] ?? null;
                 $avgScore = $media['averageScore']     ?? null;
@@ -378,7 +360,6 @@ class AnilistController extends Controller
                     'chapters_cnt'   => ($remoteType === 'MANGA') ? $chaptersCnt : null,
                     'volumes_cnt'    => ($remoteType === 'MANGA') ? $volumesCnt  : null,
                     'languages'      => null,
-                    'isNsfw'         => $isNsfw ? 1 : 0,
                 ];
 
                 $model = Media::updateOrCreate(

@@ -43,8 +43,6 @@ class ImportAnilist extends Command
                 $genres    = $media['genres'] ?? [];
                 $tags      = array_values(array_filter(array_map(fn($t) => $t['name'] ?? null, $media['tags'] ?? [])));
                 $genresLower = array_map('mb_strtolower', $genres);
-                $isAdultFlag = (bool)($media['isAdult'] ?? false);
-                $isNsfw      = $isAdultFlag || in_array('hentai', $genresLower, true);
                 $origin    = $media['countryOfOrigin'] ?? null;
                 $avgScore  = $media['averageScore'] ?? null;
                 $mStatus   = $media['status'] ?? null;
@@ -165,7 +163,6 @@ class ImportAnilist extends Command
                         'chapters_cnt'   => $chaptersToSave,
                         'volumes_cnt'    => $volumesToSave,
                         'languages'      => null,
-                        'isNsfw'         => $isNsfw ? 1 : 0,
                     ]
                 );
 

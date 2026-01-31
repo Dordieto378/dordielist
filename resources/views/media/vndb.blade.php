@@ -31,11 +31,11 @@
         <div class="flex flex-col md:flex-row">
             {{-- Left Column: Image & Buttons --}}
             <div class="flex flex-col items-center">
-                <div class="relative w-[325px] h-[450px] overflow-hidden rounded">
+                <div class="relative w-[325px] max-h-[450px] overflow-hidden rounded">
                     <img
                         src="{{ $item['image']['url'] ?? asset('images/no-image.jpg') }}"
                         alt="Cover Image"
-                        class="w-full h-full object-cover"
+                        class="w-full h-auto max-h-[450px] object-contain"
                     >
                 </div>
                 @auth

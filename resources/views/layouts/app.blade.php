@@ -242,7 +242,7 @@
                     row.innerHTML = `
         <span class="relative inline-block w-12 h-12 flex-shrink-0 mr-3">
           <img src="${item.coverImage?.extraLarge ?? '/images/no-image.jpg'}"
-               alt="Cover" class="w-full h-full rounded object-cover">
+               alt="Cover" class="w-full h-auto max-h-16 rounded object-contain">
         </span>
         <div>
           <p class="font-semibold text-black group-hover:text-red-600">

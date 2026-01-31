@@ -69,7 +69,7 @@
                             src="{{ $thumbUrl }}"
                             alt="{{ $ci->title ?? 'Cover' }}"
                             loading="lazy"
-                            class="rounded-lg shadow-lg w-[302px] h-[424px] object-cover"
+                            class="rounded-lg shadow-lg w-[302px] max-h-[424px] h-auto object-contain"
                         >
                         <div class="py-3">
                             <p class="text-red-600 font-bold">

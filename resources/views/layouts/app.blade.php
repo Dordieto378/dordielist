@@ -177,7 +177,7 @@
             </svg>
 
             <!-- Search Results Dropdown -->
-            <div id="searchResults" class="absolute top-full left-0 w-full bg-white shadow-lg rounded-lg mt-4 hidden">
+            <div id="searchResults" class="absolute top-full left-0 w-full bg-white shadow-lg rounded-lg mt-4 pb-4 hidden">
                 <!-- Results will be injected here -->
             </div>
         </div>

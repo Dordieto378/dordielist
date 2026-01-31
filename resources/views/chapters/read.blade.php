@@ -174,32 +174,38 @@
             display: flex;
             align-items: center;
             justify-content: flex-end;
-            gap: 1rem;
+            gap: 0.75rem; /* keep control groups near each other */
             margin-bottom: 1rem;
         }
         .control-group {
             display: flex;
             align-items: center;
-            gap: 0.5rem;
+            gap: 0.3rem; /* tighter button spacing */
         }
         .control-btn {
-            padding: 0.45rem 0.85rem;
-            border-radius: 8px;
-            border: 1px solid #e5e7eb;
-            background: #f3f4f6;
-            color: #111827;
-            transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease, box-shadow 0.12s ease;
+            padding: 0.35rem;
+            border-radius: 9999px;
+            border: none;
+            background: transparent;
+            color: #ffffff;
+            transition: transform 0.12s ease, opacity 0.12s ease;
+            opacity: 0.75;
+            line-height: 0; /* prevent icon height from affecting navbar */
+        }
+        .control-btn svg {
+            width: 22px;  /* small box */
+            height: 22px;
+            stroke-width: 2.2; /* slightly slimmer lines */
+            transform: scale(1.8); /* visually larger without changing layout height */
+            transform-origin: center;
         }
         .control-btn:hover {
-            background: #e5e7eb;
-            border-color: #d1d5db;
-            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
+            transform: translateY(-1px);
+            opacity: 1;
         }
         .control-btn.active {
-            background: #ef4444;
-            border-color: #ef4444;
             color: #ffffff;
-            font-weight: 700;
+            opacity: 1;
         }
         .reader-page {
             position: relative;
@@ -315,11 +321,31 @@
                 <div class="flex items-center space-x-2 text-white text-sm">
                     @if(!$isManwha)
                         <a href="{{ route('chapters.page', array_merge($baseParams, ['page' => $pageNumber, 'view' => 'scroll'])) }}"
-                           class="control-btn {{ $view === 'scroll' ? 'active' : '' }}">Scroll</a>
+                           class="control-btn {{ $view === 'scroll' ? 'active' : '' }}"
+                           aria-label="Scroll view">
+                            <span class="sr-only">Scroll</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="6" y="4" width="12" height="16" rx="2" />
+                                <path d="M12 8v8m-3-3h6" />
+                            </svg>
+                        </a>
                         <a href="{{ route('chapters.page', array_merge($baseParams, ['page' => $pageNumber, 'view' => 'one'])) }}"
-                           class="control-btn {{ $view === 'one' ? 'active' : '' }}">One</a>
+                           class="control-btn {{ $view === 'one' ? 'active' : '' }}"
+                           aria-label="Single page view">
+                            <span class="sr-only">One</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="6" y="4" width="12" height="16" rx="2" />
+                            </svg>
+                        </a>
                         <a href="{{ route('chapters.page', array_merge($baseParams, ['page' => $pageNumber, 'view' => 'double'])) }}"
-                           class="control-btn {{ $view === 'double' ? 'active' : '' }}">Double</a>
+                           class="control-btn {{ $view === 'double' ? 'active' : '' }}"
+                           aria-label="Double page view">
+                            <span class="sr-only">Double</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="4" y="5" width="7" height="14" rx="2" />
+                                <rect x="13" y="5" width="7" height="14" rx="2" />
+                            </svg>
+                        </a>
                     @endif
                 </div>
             </div>

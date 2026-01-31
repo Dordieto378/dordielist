@@ -24,5 +24,12 @@
           </a>
       </li>
     @endif
+    <li>
+      <a href="{{ route('settings.security') }}"
+         class="block pl-4 pr-4 py-3 rounded-md
+                {{ request()->routeIs('settings.security') ? 'bg-red-600 text-white' : 'text-gray-700' }}">
+        2FA
+      </a>
+    </li>
   </ul>
 </aside>

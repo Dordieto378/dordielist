@@ -111,8 +111,8 @@ Route::middleware('auth')->group(function () {
         // Users
         Route::get('/users', [SettingsController::class, 'users'])->name('users');
 
-        // Security page view (already behind auth)
-        Route::view('/security', 'account.security')->name('security');
+        // Security / 2FA
+        Route::view('/security', 'settings.security')->name('security');
     });
 
     // Collections

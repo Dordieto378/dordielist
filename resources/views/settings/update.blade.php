@@ -13,19 +13,19 @@
                         <h1 class="text-2xl font-bold text-red-600 mb-4">Update List</h1>
                         <form method="POST" action="{{ route('anilist.sync') }}" class="mt-3">
                             @csrf
-                            <button type="submit" class="flatGreen text-white px-7 py-3 rounded-[0.19rem] mt-2">
+                            <button type="submit" class="inline-block w-full px-4 py-2 flatGreen text-white rounded-[0.19rem] mt-2 hover:bg-emerald-700 text-center">
                                 Update Anilist
                             </button>
                         </form>
                         <form method="POST" action="{{ route('doujin.sync') }}" class="mt-3">
                             @csrf
-                            <button type="submit" class="flatGreen text-white px-7 py-3 rounded-[0.19rem] mt-2">
+                            <button type="submit" class="inline-block w-full px-4 py-2 flatGreen text-white rounded-[0.19rem] mt-2 hover:bg-emerald-700 text-center">
                                 Update Doujin
                             </button>
                         </form>
                         <form method="POST" action="{{ route('vndb.sync') }}" class="mt-3">
                             @csrf
-                            <button type="submit" class="flatGreen text-white px-7 py-3 rounded-[0.19rem] mt-2">
+                            <button type="submit" class="inline-block w-full px-4 py-2 flatGreen text-white rounded-[0.19rem] mt-2 hover:bg-emerald-700 text-center">
                                 Update Vndb
                             </button>
                         </form>

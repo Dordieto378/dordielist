@@ -110,11 +110,7 @@
                     </a>
                     </li>
                     <li>
-                    <a href="{{ route('settings.security') }}"
-                        class="block w-full text-left pl-3 pr-3 py-3.5 hover:bg-gray-100 rounded-[0.2rem] text-gray-800">
-                        2FA
-                    </a>
-                    </li>
+                    {{-- 2FA now lives inside Settings sidebar; optional shortcut removed --}}
                     <li>
                         <form
                         method="POST"

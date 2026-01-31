@@ -227,14 +227,47 @@
                 <div class="grid grid-cols-[7rem,1fr] gap-x-3 gap-y-4 text-sm mt-2 mb-2">
                 @if($isChapterBased)
                     <div>Chapters</div>
-                    <div>{{ $item['chapters'] ?? 'N/A' }}</div>
+                    @php
+                        $chapTotal     = $item['chapters'] ?? null;
+                        $chapProgress  = $item['userProgress'] ?? null;
+
+                        if ($chapProgress !== null) {
+                            if ($chapTotal !== null && $chapTotal > 0) {
+                                $chapDisplay = ($chapProgress < $chapTotal)
+                                    ? "{$chapProgress} / {$chapTotal}"
+                                    : $chapTotal;
+                            } else {
+                                // total unknown
+                                $chapDisplay = "{$chapProgress} / N/A";
+                            }
+                        } else {
+                            $chapDisplay = $chapTotal ?? 'N/A';
+                        }
+                    @endphp
+                    <div>{{ $chapDisplay ?? 'N/A' }}</div>
                     @if(!empty($item['volumes']) && $item['volumes'] > 0)
                         <div>Volumes</div>
                         <div>{{ $item['volumes'] }}</div>
                     @endif
                 @elseif($isEpisodeBased)
                     <div>Episodes</div>
-                    <div>{{ $item['episodes'] ?? 'N/A' }}</div>
+                    @php
+                        $epTotal     = $item['episodes'] ?? null;
+                        $epProgress  = $item['userProgress'] ?? null;
+
+                        if ($epProgress !== null) {
+                            if ($epTotal !== null && $epTotal > 0) {
+                                $epDisplay = ($epProgress < $epTotal)
+                                    ? "{$epProgress} / {$epTotal}"
+                                    : $epTotal;
+                            } else {
+                                $epDisplay = "{$epProgress} / N/A";
+                            }
+                        } else {
+                            $epDisplay = $epTotal ?? 'N/A';
+                        }
+                    @endphp
+                    <div>{{ $epDisplay ?? 'N/A' }}</div>
                 @endif
 
                     <div>Status</div>
@@ -761,10 +794,18 @@ const progressBar = document.getElementById('progressBar');
 const progressText= document.getElementById('progressText');
 
 // helpers
-const showAdd    = ()=> addModal.classList.remove('hidden');
-const hideAdd    = ()=> addModal.classList.add('hidden');
-const showCreate = ()=> createModal.classList.remove('hidden');
-const hideCreate = ()=> createModal.classList.add('hidden');
+const lockBody   = ()=> document.body.classList.add('overflow-hidden');
+const unlockBody = ()=> {
+  // only unlock if both modals are hidden
+  if (addModal.classList.contains('hidden') && createModal.classList.contains('hidden')) {
+    document.body.classList.remove('overflow-hidden');
+  }
+};
+
+const showAdd    = ()=> { addModal.classList.remove('hidden'); lockBody(); };
+const hideAdd    = ()=> { addModal.classList.add('hidden'); unlockBody(); };
+const showCreate = ()=> { createModal.classList.remove('hidden'); lockBody(); };
+const hideCreate = ()=> { createModal.classList.add('hidden'); unlockBody(); };
 
 // open/close Add→Collection
 openAddBtn.addEventListener('click', showAdd);

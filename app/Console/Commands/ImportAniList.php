@@ -48,6 +48,7 @@ class ImportAnilist extends Command
                 $mStatus   = $media['status'] ?? null;
                 $lStatus   = $entry['status'] ?? null;
                 $uScore    = isset($entry['score']) ? (int)$entry['score'] : null;
+                $progress  = isset($entry['progress']) ? (int)$entry['progress'] : null;
 
 
                 $publishers = [];
@@ -163,6 +164,7 @@ class ImportAnilist extends Command
                         'chapters_cnt'   => $chaptersToSave,
                         'volumes_cnt'    => $volumesToSave,
                         'languages'      => null,
+                        'progress'       => $progress,
                     ]
                 );
 
@@ -196,6 +198,7 @@ class ImportAnilist extends Command
               entries {
                 status
                 score
+                progress
                 createdAt
                 updatedAt
                 media {

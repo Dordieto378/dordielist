@@ -215,11 +215,11 @@ class AnilistController extends Controller
             'authors'     => $authors,
             'mediaListEntry' => [
                 'score'    => $m->user_score,
-                'progress' => null,
+                'progress' => $m->progress,
                 'status'   => $m->list_status,
             ],
             'userScore'   => $m->user_score,
-            'userProgress'=> null,
+            'userProgress'=> $m->progress,
             'listStatus'  => $m->list_status,
             'languages'   => $languages,
         ];
@@ -282,6 +282,7 @@ class AnilistController extends Controller
                 $mStatus  = $media['status']           ?? null;
                 $lStatus  = $entry['status']           ?? null;
                 $uScore   = isset($entry['score']) ? (int)$entry['score'] : null;
+                $progress = isset($entry['progress']) ? (int)$entry['progress'] : null;
 
                 $publishers = [];
                 if (!empty($media['studios']['edges'])) {
@@ -360,6 +361,7 @@ class AnilistController extends Controller
                     'chapters_cnt'   => ($remoteType === 'MANGA') ? $chaptersCnt : null,
                     'volumes_cnt'    => ($remoteType === 'MANGA') ? $volumesCnt  : null,
                     'languages'      => null,
+                    'progress'       => $progress,
                 ];
 
                 $model = Media::updateOrCreate(
@@ -407,6 +409,7 @@ class AnilistController extends Controller
           entries {
             status
             score
+            progress
             createdAt
             updatedAt
             media {

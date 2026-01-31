@@ -28,12 +28,14 @@ use App\Http\Controllers\ConfirmTwoFactorAuthenticationController;
 // Public
 // -----------------------------
 
-Route::get('/', [AnilistController::class, 'home'])->name('home');
+Route::get('/', [AnilistController::class, 'home'])->middleware('auth')->name('home');
 
 Route::get('/home-paginated', [AnilistController::class, 'paginatedMedia'])
+    ->middleware('auth')
     ->name('home.paginated');
 
 Route::get('/search', [SearchController::class, 'index'])
+    ->middleware('auth')
     ->name('search.index');
 
 // Registration
@@ -58,11 +60,11 @@ Route::get('/two_factor_challenge',  [TwoFactorAuthenticatedSessionController::c
 Route::post('/two_factor_challenge', [TwoFactorAuthenticatedSessionController::class, 'store']);
 
 // Media detail pages
-Route::get('/media/{id}', [AnilistController::class, 'show'])->name('media.show');
-Route::get('/vn/{id}',    [VndbController::class, 'show'])->name('vn.show');
+Route::get('/media/{id}', [AnilistController::class, 'show'])->middleware('auth')->name('media.show');
+Route::get('/vn/{id}',    [VndbController::class, 'show'])->middleware('auth')->name('vn.show');
 
 // VNDB API endpoints
-Route::prefix('vndb')->group(function () {
+Route::prefix('vndb')->middleware('auth')->group(function () {
     Route::get('search',   [VndbController::class, 'searchVN']);
     Route::get('vn/{id}',  [VndbController::class, 'getVNDetails']);
     Route::get('api-media',[VndbController::class, 'apiList'])->name('vndb.api.media');
@@ -71,11 +73,12 @@ Route::prefix('vndb')->group(function () {
 // Category browsing
 Route::get('/category/{category}/{listFilter?}/{mediaStatus?}/{titleOrder?}/{scoreOrder?}/{dateOrder?}',
     [CategoryController::class, 'show'])
+    ->middleware('auth')
     ->where('category', '(?i)(ANIMES|MANGAS|MANWHAS|HENTAIS|DOUJINS|VISUAL-NOVEL)')
     ->name('category');
 
 // Doujin pages
-Route::get('/doujin/{media}', [DoujinController::class, 'show'])->name('doujins.show');
+Route::get('/doujin/{media}', [DoujinController::class, 'show'])->middleware('auth')->name('doujins.show');
 
 // -----------------------------
 // Authenticated

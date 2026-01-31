@@ -14,122 +14,122 @@
     <!-- Navbar -->
     <nav class="bg-flatRed tracking-wide fixed top-0 left-0 w-full z-50">
         <div class="container mx-auto px-4 py-4 flex justify-between items-center">
-            <div class="flex items-center space-x-1">
-                <!-- Title -->
-                <a href="{{ route('home') }}" class="text-2xl font-bold ml-[6.2rem] pr-2">DORDIELIST</a>
-                <!-- Menu Items -->
-                <div class="hidden md:flex items-center">
-                    <a href="{{ route('category', ['category' => 'ANIMES']) }}" class="text-white text-sm px-2 py-1 rounded hover:bg-red-600">Animes</a>
-                    <a href="{{ route('category', ['category' => 'MANGAS']) }}" class="text-white text-sm px-2 py-1 rounded hover:bg-red-600">Mangas</a>
-                    <a href="{{ route('category', ['category' => 'MANWHAS']) }}" class="text-white text-sm px-2 py-1 rounded hover:bg-red-600">Manwhas</a>
-                    <a href="{{ route('category', ['category' => 'HENTAIS']) }}" class="text-white text-sm px-2 py-1 rounded hover:bg-red-600">Hentais</a>
-                    <div class="h-4 w-0.5 bg-gray-300 bg-opacity-25 rounded mx-1"></div>
-                                        <a href="{{ route('category', ['category' => 'DOUJINS']) }}" class="text-white text-sm px-2 py-1 rounded hover:bg-red-600">Doujins</a>
-                    <div class="h-4 w-0.5 bg-gray-300 bg-opacity-25 rounded mx-1"></div>
-                    <a href="{{ route('category', ['category' => 'VISUAL-NOVEL']) }}" class="text-white text-sm px-2 py-1 rounded hover:bg-red-600">Visual Novels</a>
+            @guest
+                <div class="flex-1"></div>
+                <div class="flex-1 flex justify-center">
+                    <a href="{{ route('home') }}" class="text-2xl font-bold text-white">DORDIELIST</a>
                 </div>
-            </div>
-            <div class="flex items-center space-x-4 mr-[7.3rem]">
-                <button id="searchButton" type="button" class="relative group w-[80px] md:w-[170px] h-[40px] rounded-[0.8rem] pl-10 pr-4 flex items-center justify-center transition-all group dark:bg-gray-800 dark:bg-opacity-20 text-gray-300 hover:bg-red-600 text-opacity-50 group-hover:opacity-100 hover:text-white">
-                    <span class="text-sm">Quick search...</span>
-                    <svg xmlns="http://www.w3.org/2000/svg"
-                        class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5"
-                        fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
-                            d="M21 21l-4.35-4.35m1.65-6.15a7.5 7.5 0 11-15 0 7.5 7.5 0 0115 0z" />
-                    </svg>
-                </button>
-                @guest
-                <a href="{{ route('login') }}" class="text-white text-sm py-1 px-2 rounded hover:bg-red-600">Login</a>
-                <a href="{{ route('register') }}" class="bg-red-600 text-sm text-white px-2 py-1 rounded">Register</a>
-                @endguest
-
-                @auth
-                <div class="relative group ml-4 py-1 px-2 rounded hover:bg-red-600">
-                    <button
-                    id="accountToggle"
-                    class="menu-link-text flex items-center js-my-account-links"
-                    data-target="my-account-drop-links"
-                    aria-haspopup="true"
-                    aria-expanded="false"
-                    >
-                        <span class="sr-only">My Account</span>
-                        <span class="font-semibold pr-2">
-                            <svg
-                            class="size-4 fill-white h-4 w-4"
-                            xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 0 448 512"
-                            >
-                            <path
-                                d="M224 256A128 128 0 1 0 224 0a128 128 0 1 0 0 256zm-45.7 48C79.8
-                                304 0 383.8 0 482.3C0 498.7 13.3 512 29.7 512l388.6 0c16.4 0
-                                29.7-13.3 29.7-29.7C448 383.8 368.2 304 269.7 304l-91.4 0z"
-                            />
-                            </svg>
-                        </span>
+                <div class="flex-1"></div>
+            @else
+                <div class="flex items-center space-x-1">
+                    <!-- Title -->
+                    <a href="{{ route('home') }}" class="text-2xl font-bold ml-[6.2rem] pr-2">DORDIELIST</a>
+                    <!-- Menu Items -->
+                    <div class="hidden md:flex items-center">
+                        <a href="{{ route('category', ['category' => 'ANIMES']) }}" class="text-white text-sm px-2 py-1 rounded hover:bg-red-600">Animes</a>
+                        <a href="{{ route('category', ['category' => 'MANGAS']) }}" class="text-white text-sm px-2 py-1 rounded hover:bg-red-600">Mangas</a>
+                        <a href="{{ route('category', ['category' => 'MANWHAS']) }}" class="text-white text-sm px-2 py-1 rounded hover:bg-red-600">Manwhas</a>
+                        <a href="{{ route('category', ['category' => 'HENTAIS']) }}" class="text-white text-sm px-2 py-1 rounded hover:bg-red-600">Hentais</a>
+                        <div class="h-4 w-0.5 bg-gray-300 bg-opacity-25 rounded mx-1"></div>
+                        <a href="{{ route('category', ['category' => 'DOUJINS']) }}" class="text-white text-sm px-2 py-1 rounded hover:bg-red-600">Doujins</a>
+                        <div class="h-4 w-0.5 bg-gray-300 bg-opacity-25 rounded mx-1"></div>
+                        <a href="{{ route('category', ['category' => 'VISUAL-NOVEL']) }}" class="text-white text-sm px-2 py-1 rounded hover:bg-red-600">Visual Novels</a>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4 mr-[7.3rem]">
+                    <button id="searchButton" type="button" class="relative group w-[80px] md:w-[170px] h-[40px] rounded-[0.8rem] pl-10 pr-4 flex items-center justify-center transition-all group dark:bg-gray-800 dark:bg-opacity-20 text-gray-300 hover:bg-red-600 text-opacity-50 group-hover:opacity-100 hover:text-white">
+                        <span class="text-sm">Quick search...</span>
                         <svg xmlns="http://www.w3.org/2000/svg"
-                            width="22" height="22"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
-                            stroke-linecap="round"
-                            stroke-linejoin="round">
-                        <polyline points="6 9 12 15 18 9"/>
+                            class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5"
+                            fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                                d="M21 21l-4.35-4.35m1.65-6.15a7.5 7.5 0 11-15 0 7.5 7.5 0 0115 0z" />
                         </svg>
                     </button>
-                    <ul
-                    id="my-account-drop-links"
-                    class="absolute right-0 mt-2 w-[100px] bg-white text-gray-800 rounded-[0.2rem] shadow-lg
-                            opacity-0 pointer-events-none transition-opacity font-medium text-sm text-left list-none p-0 m-0"
-                    >
-                    <li>
-                        <button
-                        class="w-full text-left pl-3 pr-3 py-3.5 hover:bg-gray-100 rounded-[0.2rem]"
-                        >
-                        <a href="{{ route('collection.index') }}">Collections</a>
-                        </button>
-                    </li>
-                    @php
-                    // Grab the system “Favorites” collection
-                    $favorites = \App\Models\Collection::where('is_system', true)->first();
-                    @endphp
 
-                    <li>
-                    <a
-                        href="{{ route('collection.show', $favorites) }}"
-                        class="block w-full text-left pl-3 pr-3 py-3.5 hover:bg-gray-100 rounded-[0.2rem] text-gray-800"
-                    >
-                        Favorites
-                    </a>
-                    </li>
-                    <li>
-                    <a href="{{ route('settings.profile.edit') }}"
-                        class="block w-full text-left pl-3 pr-3 py-3.5 hover:bg-gray-100 rounded-[0.2rem] text-gray-800">
-                        Settings
-                    </a>
-                    </li>
-                    <li>
-                    {{-- 2FA now lives inside Settings sidebar; optional shortcut removed --}}
-                    <li>
-                        <form
-                        method="POST"
-                        action="{{ route('logout') }}"
-                        class="block w-full m-0 p-0"
-                        >
-                        @csrf
+                    <div class="relative group ml-4 py-1 px-2 rounded hover:bg-red-600">
                         <button
-                            type="submit"
-                            class="w-full text-left pl-3 pr-3 py-3.5 hover:bg-gray-100 rounded-[0.2rem]"
+                        id="accountToggle"
+                        class="menu-link-text flex items-center js-my-account-links"
+                        data-target="my-account-drop-links"
+                        aria-haspopup="true"
+                        aria-expanded="false"
                         >
-                            Logout
+                            <span class="sr-only">My Account</span>
+                            <span class="font-semibold pr-2">
+                                <svg
+                                class="size-4 fill-white h-4 w-4"
+                                xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 0 448 512"
+                                >
+                                <path
+                                    d="M224 256A128 128 0 1 0 224 0a128 128 0 1 0 0 256zm-45.7 48C79.8
+                                    304 0 383.8 0 482.3C0 498.7 13.3 512 29.7 512l388.6 0c16.4 0
+                                    29.7-13.3 29.7-29.7C448 383.8 368.2 304 269.7 304l-91.4 0z"
+                                />
+                                </svg>
+                            </span>
+                            <svg xmlns="http://www.w3.org/2000/svg"
+                                width="22" height="22"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                stroke-linecap="round"
+                                stroke-linejoin="round">
+                            <polyline points="6 9 12 15 18 9"/>
+                            </svg>
                         </button>
-                        </form>
-                    </li>
-                    </ul>
+                        <ul
+                        id="my-account-drop-links"
+                        class="absolute right-0 mt-2 w-[100px] bg-white text-gray-800 rounded-[0.2rem] shadow-lg
+                                opacity-0 pointer-events-none transition-opacity font-medium text-sm text-left list-none p-0 m-0"
+                        >
+                        <li>
+                            <button
+                            class="w-full text-left pl-3 pr-3 py-3.5 hover:bg-gray-100 rounded-[0.2rem]"
+                            >
+                            <a href="{{ route('collection.index') }}">Collections</a>
+                            </button>
+                        </li>
+                        @php
+                        // Grab the system “Favorites” collection
+                        $favorites = \App\Models\Collection::where('is_system', true)->first();
+                        @endphp
+
+                        <li>
+                        <a
+                            href="{{ route('collection.show', $favorites) }}"
+                            class="block w-full text-left pl-3 pr-3 py-3.5 hover:bg-gray-100 rounded-[0.2rem] text-gray-800"
+                        >
+                            Favorites
+                        </a>
+                        </li>
+                        <li>
+                        <a href="{{ route('settings.profile.edit') }}"
+                            class="block w-full text-left pl-3 pr-3 py-3.5 hover:bg-gray-100 rounded-[0.2rem] text-gray-800">
+                            Settings
+                        </a>
+                        </li>
+                        <li>
+                            <form
+                            method="POST"
+                            action="{{ route('logout') }}"
+                            class="block w-full m-0 p-0"
+                            >
+                            @csrf
+                            <button
+                                type="submit"
+                                class="w-full text-left pl-3 pr-3 py-3.5 hover:bg-gray-100 rounded-[0.2rem]"
+                            >
+                                Logout
+                            </button>
+                            </form>
+                        </li>
+                        </ul>
+                    </div>
                 </div>
-                @endauth
-            </div>
+            @endguest
         </div>
     </nav>
 

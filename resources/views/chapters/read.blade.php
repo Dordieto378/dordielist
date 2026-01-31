@@ -188,7 +188,7 @@
             border: none;
             background: transparent;
             color: #ffffff;
-            transition: transform 0.12s ease, opacity 0.12s ease;
+            transition: opacity 0.12s ease; /* remove hover lift animation */
             opacity: 0.75;
             line-height: 0; /* prevent icon height from affecting navbar */
         }
@@ -200,7 +200,7 @@
             transform-origin: center;
         }
         .control-btn:hover {
-            transform: translateY(-1px);
+            transform: none;
             opacity: 1;
         }
         .control-btn.active {

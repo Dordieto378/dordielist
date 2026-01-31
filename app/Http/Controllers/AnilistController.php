@@ -138,6 +138,36 @@ class AnilistController extends Controller
         ]);
     }
 
+    /**
+     * Derive a canonical type so unreleased AniList anime without episode counts
+     * aren't mislabeled as manga/manwha locally.
+     */
+    private function canonicalType(Media $m): string
+    {
+        $t = strtolower($m->type);
+
+        if ($m->source === 'anilist') {
+            // If already anime/hentai, keep it.
+            if (!in_array($t, ['manga', 'manwha'], true)) {
+                return strtoupper($t);
+            }
+
+            // If episodes were synced later, trust that.
+            if (!is_null($m->episodes_cnt)) {
+                return 'ANIME';
+            }
+
+            // If no chapter/volume info AND unreleased/releasing, assume anime.
+            $status = strtoupper((string) $m->media_status);
+            if (is_null($m->chapters_cnt) && is_null($m->volumes_cnt)
+                && in_array($status, ['NOT_YET_RELEASED', 'RELEASING'], true)) {
+                return 'ANIME';
+            }
+        }
+
+        return strtoupper($t);
+    }
+
     private function mapMediaRow(Media $m): array
     {
         $genres   = $this->toArray($m->genres);
@@ -145,8 +175,10 @@ class AnilistController extends Controller
         $publisher = $this->toArray($m->publisher);
         $languages= $this->toArray($m->languages);
 
-        $studios = in_array($m->type, ['anime','hentai'], true) ? $publisher : [];
-        $authors = in_array($m->type, ['manga','manwha'], true) ? $publisher : [];
+        $canonicalType = $this->canonicalType($m);
+
+        $studios = in_array(strtolower($canonicalType), ['anime','hentai'], true) ? $publisher : [];
+        $authors = in_array(strtolower($canonicalType), ['manga','manwha'], true) ? $publisher : [];
 
         $descHtml = $m->description ?? '';
 
@@ -169,7 +201,7 @@ class AnilistController extends Controller
 
         return [
             'id'          => $m->id,
-            'type'        => strtoupper($m->type),
+            'type'        => $canonicalType,
             'title'       => [
                 'english' => $m->title_english,
                 'romaji'  => $m->title_romaji,
@@ -442,7 +474,29 @@ class AnilistController extends Controller
 
     private function guessRemoteType(array $media, array $genres): string
     {
-        return isset($media['episodes']) ? 'ANIME' : 'MANGA';
+        // Prefer the explicit AniList media type when present.
+        $type = strtoupper($media['type'] ?? '');
+        if (in_array($type, ['ANIME', 'MANGA'], true)) {
+            return $type;
+        }
+
+        // Fall back to format hints (AniList formats like TV, OVA, MOVIE, etc.).
+        $format = strtoupper($media['format'] ?? '');
+        $animeFormats = ['TV', 'TV_SHORT', 'MOVIE', 'SPECIAL', 'OVA', 'ONA', 'MUSIC'];
+        if ($format && in_array($format, $animeFormats, true)) {
+            return 'ANIME';
+        }
+
+        // Use available counts as a last resort.
+        if (array_key_exists('episodes', $media) && $media['episodes'] !== null) {
+            return 'ANIME';
+        }
+        if (array_key_exists('chapters', $media) && $media['chapters'] !== null) {
+            return 'MANGA';
+        }
+
+        // Default to ANIME when unsure (prevents unreleased shows from being mis-filed as manga).
+        return 'ANIME';
     }
 
 }

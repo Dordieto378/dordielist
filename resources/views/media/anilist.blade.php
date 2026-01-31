@@ -80,7 +80,6 @@
     // Collections list for the modal
     $allCollections = Collection::orderBy('name')->get();
 
-    $blur = ((int)($item['isNsfw'] ?? 0) === 1) && !Auth::check();
 @endphp
 
 <div class="flex flex-col items-center py-[8.5rem]">
@@ -89,17 +88,10 @@
             {{-- Left Column: Image & Buttons --}}
             <div class="flex flex-col items-center">
                 <div class="relative w-[325px] h-[450px] overflow-hidden rounded">
-                    @if($blur)
-                        <img
-                            src="{{ asset('images/18-plus.png') }}"
-                            alt="18+"
-                            class="absolute top-2 right-2 w-9 h-9 z-10 select-none pointer-events-none"
-                        >
-                    @endif
                     <img
                         src="{{ $item['coverImage']['extraLarge'] ?? asset('images/no-image.jpg') }}"
                         alt="Cover Image"
-                        class="w-full h-full object-cover {{ $blur ? 'filter blur-2xl' : '' }}"
+                        class="w-full h-full object-cover"
                     >
                 </div>
                 @auth

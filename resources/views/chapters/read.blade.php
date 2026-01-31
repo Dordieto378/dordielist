@@ -11,7 +11,6 @@
                 return substr($title, 0, $maxLen - 1) . '…';
             }
         }
-        $shouldBlur  = ! Auth::check();
         $allowedExts = ['jpg','jpeg','png','gif','webp'];
 
         // --- FORCE VIEW FOR MANWHA ---
@@ -341,13 +340,10 @@
 
                         @if($isImage)
                             <div class="reader-page">
-                                @if($shouldBlur)
-                                    <img src="{{ asset('images/18-plus.png') }}" alt="18+" class="absolute top-4 right-4 w-10 h-10 z-30">
-                                @endif
                                 <img
                                     src="{{ $url }}"
                                     alt="Page {{ $p->page_number }}"
-                                    class="zoomable reader-img {{ $shouldBlur ? 'filter blur-2xl' : '' }}"
+                                    class="zoomable reader-img"
                                 >
                             </div>
                         @endif
@@ -365,14 +361,10 @@
 
                 @if($isImage)
                     <div class="reader-page reader-full">
-                        @if($shouldBlur)
-                            <img src="{{ asset('images/18-plus.png') }}" alt="18+" class="absolute top-4 right-4 w-10 h-10 z-30">
-                        @endif
-
                         <img
                             src="{{ $singleUrl }}"
                             alt="Page {{ $pageNumber }}"
-                            class="zoomable reader-img {{ $shouldBlur ? 'filter blur-2xl' : '' }} z-10"
+                            class="zoomable reader-img z-10"
                         >
 
                         {{-- Half-screen click zones: LEFT = NEXT, RIGHT = PREVIOUS --}}
@@ -417,26 +409,20 @@
                     <div class="dual-page dual-full">
                         @if($isLeftImg)
                             <div class="relative overflow-hidden">
-                                @if($shouldBlur)
-                                    <img src="{{ asset('images/18-plus.png') }}" alt="18+" class="absolute top-4 right-4 w-10 h-10 z-30">
-                                @endif
                                 <img
                                     src="{{ $leftUrl }}"
                                     alt="Page {{ $leftNum }}"
-                                    class="zoomable reader-img {{ $shouldBlur ? 'filter blur-2xl' : '' }}"
+                                    class="zoomable reader-img"
                                 >
                             </div>
                         @endif
 
                         @if($isRightImg)
                             <div class="relative overflow-hidden">
-                                @if($shouldBlur)
-                                    <img src="{{ asset('images/18-plus.png') }}" alt="18+" class="absolute top-4 right-4 w-10 h-10 z-30">
-                                @endif
                                 <img
                                     src="{{ $rightUrl }}"
                                     alt="Page {{ $rightNum }}"
-                                    class="zoomable reader-img {{ $shouldBlur ? 'filter blur-2xl' : '' }}"
+                                    class="zoomable reader-img"
                                 >
                             </div>
                         @endif

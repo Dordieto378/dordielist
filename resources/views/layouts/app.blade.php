@@ -235,18 +235,14 @@
 
                 items.slice(0, 10).forEach(item => {
                     const title = item.title.english || item.title.romaji || "No Title";
-                    const shouldBlur = isGuest && (item.isNsfw === true || item.isNsfw === 1);
 
                     const row = document.createElement("div");
                     row.className = "flex items-center p-3 cursor-pointer rounded-lg group";
 
                     row.innerHTML = `
         <span class="relative inline-block w-12 h-12 flex-shrink-0 mr-3">
-          ${shouldBlur ? `
-            <img src="/images/18-plus.png" alt="18+"
-                 class="absolute top-0 right-0 w-4 h-4 z-10">` : ``}
           <img src="${item.coverImage?.extraLarge ?? '/images/no-image.jpg'}"
-               alt="Cover" class="w-full h-full rounded object-cover ${shouldBlur ? 'filter blur-2xl' : ''}">
+               alt="Cover" class="w-full h-full rounded object-cover">
         </span>
         <div>
           <p class="font-semibold text-black group-hover:text-red-600">

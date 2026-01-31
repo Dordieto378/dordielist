@@ -45,12 +45,6 @@
                 return substr($title, 0, $maxLen - 1) . '…';
             }
         }
-
-        if (!function_exists('shouldBlurItem')) {
-            function shouldBlurItem(array $item): bool {
-                return ((int)($item['isNsfw'] ?? 0) === 1) && !Auth::check();
-            }
-        }
     @endphp
 
     <div id="preContent" class="py-[4.5rem] {{ !$isOnFirstPage ? 'hidden' : '' }}">
@@ -71,9 +65,6 @@
                         <div class="flex space-x-0 h-[433px] text-sm">
                             @foreach($dropped as $item)
                                 @php
-                                    // Blur logic: doujins are always NSFW for guests, others use isAdult
-                                    $shouldBlur = shouldBlurItem($item);
-
                                     // Title logic:
                                     $fullTitle = $item['title']['english']
                                                 ?? $item['title']['romaji']
@@ -96,19 +87,11 @@
                                 )
                                     <div onclick="window.location.href='{{ $href }}'"
                                          class="cursor-pointer w-[270px] flex-shrink-0 mt-7">
-                                        {{-- 1) Image container: relative so we can overlay the “18+” badge --}}
                                         <div class="relative w-[256px] h-[360px] mx-auto rounded shadow-lg overflow-hidden">
-                                            @if($shouldBlur)
-                                                <img
-                                                    src="{{ asset('images/18-plus.png') }}"
-                                                    alt="18+"
-                                                    class="absolute top-2 right-2 w-8 h-8 z-10"
-                                                >
-                                            @endif
                                             <img
                                                 src="{{ $item['coverImage']['extraLarge'] ?? asset('images/6.jpg') }}"
                                                 alt="Image"
-                                                class="w-full h-full object-cover {{ $shouldBlur ? 'filter blur-2xl' : '' }}"
+                                                class="w-full h-full object-cover"
                                             >
                                         </div>
 
@@ -120,17 +103,10 @@
                                     <div onclick="window.location.href='{{ $href }}'"
                                          class="cursor-pointer w-[270px] flex-shrink-0 mt-7">
                                         <div class="relative w-[256px] h-[360px] mx-auto rounded shadow-lg overflow-hidden">
-                                            @if($shouldBlur)
-                                                <img
-                                                    src="{{ asset('images/18-plus.png') }}"
-                                                    alt="18+"
-                                                    class="absolute top-2 right-2 w-8 h-8 z-10"
-                                                >
-                                            @endif
                                             <img
                                                 src="{{ $item['coverImage']['extraLarge'] ?? asset('images/6.jpg') }}"
                                                 alt="Image"
-                                                class="w-full h-full object-cover {{ $shouldBlur ? 'filter blur-2xl' : '' }}"
+                                                class="w-full h-full object-cover"
                                             >
                                         </div>
 
@@ -160,8 +136,6 @@
                 <!-- Show top 4 series you rated the highest -->
                 @foreach($highestRated4 as $item)
                     @php
-                        $shouldBlur = shouldBlurItem($item);
-
                         $fullTitle = $item['title']['english']
                                   ?? $item['title']['romaji']
                                   ?? 'No Title';
@@ -182,19 +156,11 @@
                     )
                         <div onclick="window.location.href='{{ $href }}'"
                              class="cursor-pointer flex-shrink-0 overflow-hidden">
-                            {{-- 1) Image container with blur logic --}}
                             <div class="relative w-[302px] h-[424px] rounded-lg shadow-lg overflow-hidden">
-                                @if($shouldBlur)
-                                    <img
-                                        src="{{ asset('images/18-plus.png') }}"
-                                        alt="18+"
-                                        class="absolute top-2 right-2 w-8 h-8 z-10"
-                                    >
-                                @endif
                                 <img
                                     src="{{ $item['coverImage']['extraLarge'] ?? asset('images/no-image.jpg') }}"
                                     alt="Cover Image"
-                                    class="w-full h-full object-cover {{ $shouldBlur ? 'filter blur-2xl' : '' }}"
+                                    class="w-full h-full object-cover"
                                 >
                             </div>
 
@@ -208,17 +174,10 @@
                         <div onclick="window.location.href='{{ $href }}'"
                              class="cursor-pointer flex-shrink-0 overflow-hidden">
                             <div class="relative w-[302px] h-[424px] rounded-lg shadow-lg overflow-hidden">
-                                @if($shouldBlur)
-                                    <img
-                                        src="{{ asset('images/18-plus.png') }}"
-                                        alt="18+"
-                                        class="absolute top-2 right-2 w-8 h-8 z-10"
-                                    >
-                                @endif
                                 <img
                                     src="{{ $item['coverImage']['extraLarge'] ?? asset('images/no-image.jpg') }}"
                                     alt="Cover Image"
-                                    class="w-full h-full object-cover {{ $shouldBlur ? 'filter blur-2xl' : '' }}"
+                                    class="w-full h-full object-cover"
                                 >
                             </div>
 
@@ -286,9 +245,6 @@
                                 ?? $item['title']['romaji']
                                 ?? 'No Title';
 
-                    // Blur logic for AniList + doujin
-                    $shouldBlur = shouldBlurItem($item);
-
                     // Click target per type
                     $href = $item['type'] === 'DOUJIN'
                         ? "/doujin/{$item['id']}"
@@ -306,22 +262,15 @@
                     $item['type'] === 'DOUJIN'
                 )
                     <div onclick="window.location.href='{{ $href }}'"
-                         class="cursor-pointer card grid-view
-                            w-[305px] flex-shrink-0 overflow-hidden
-                            {{ $isGrid ? '' : 'hidden' }}">
+                        class="cursor-pointer card grid-view
+                           w-[305px] flex-shrink-0 overflow-hidden
+                           {{ $isGrid ? '' : 'hidden' }}">
                         {{-- Image container --}}
                         <div class="relative w-[302px] h-[424px] rounded-lg shadow-lg overflow-hidden">
-                            @if($shouldBlur)
-                                <img
-                                    src="{{ asset('images/18-plus.png') }}"
-                                    alt="18+"
-                                    class="absolute top-2 right-2 w-8 h-8 z-10"
-                                >
-                            @endif
                             <img
                                 src="{{ $item['coverImage']['extraLarge'] ?? asset('images/no-image.jpg') }}"
                                 alt="Cover Image"
-                                class="w-full h-full object-cover {{ $shouldBlur ? 'filter blur-2xl' : '' }}"
+                                class="w-full h-full object-cover"
                             >
                         </div>
                         <div class="py-3">
@@ -335,22 +284,15 @@
                     </div>
                 @elseif($item['type'] === 'VN')
                     <div onclick="window.location.href='{{ $href }}'"
-                         class="cursor-pointer card grid-view
-                        w-[305px] flex-shrink-0 overflow-hidden
-                        {{ $isGrid ? '' : 'hidden' }}">
+                        class="cursor-pointer card grid-view
+                       w-[305px] flex-shrink-0 overflow-hidden
+                       {{ $isGrid ? '' : 'hidden' }}">
                         {{-- Image container --}}
                         <div class="relative w-[302px] h-[424px] rounded-lg shadow-lg overflow-hidden">
-                            @if($shouldBlur)
-                                <img
-                                    src="{{ asset('images/18-plus.png') }}"
-                                    alt="18+"
-                                    class="absolute top-2 right-2 w-8 h-8 z-10"
-                                >
-                            @endif
                             <img
                                 src="{{ $item['coverImage']['extraLarge'] ?? asset('images/no-image.jpg') }}"
                                 alt="Cover Image"
-                                class="w-full h-full object-cover {{ $shouldBlur ? 'filter blur-2xl' : '' }}"
+                                class="w-full h-full object-cover"
                             >
                         </div>
                         <div class="py-3">
@@ -377,38 +319,24 @@
                         $item['type'] === 'DOUJIN'
                     )
                         <div onclick="window.location.href='{{ $href }}'" class="cursor-pointer flex">
-                            @if($shouldBlur)
-                                <img
-                                    src="{{ asset('images/18-plus.png') }}"
-                                    alt="18+"
-                                    class="absolute top-2 right-2 w-8 h-8 z-10"
-                                >
-                            @endif
                             <img src="{{ $item['coverImage']['extraLarge'] ?? asset('images/no-image.jpg') }}"
                                  alt="Cover Image"
-                                 class="w-[256px] h-[360px] object-cover {{ $shouldBlur ? 'filter blur-2xl' : '' }}">
+                                 class="w-[256px] h-[360px] object-cover">
                             <img
                                 src="{{ $item['bannerImage'] ?? asset('images/no-image.jpg') }}"
                                 alt="Banner Image"
-                                class="w-[256px] h-[360px] object-cover {{ $shouldBlur ? 'filter blur-2xl' : '' }}"
+                                class="w-[256px] h-[360px] object-cover"
                             >
                         </div>
                     @elseif($item['type']  === 'VN')
                         <div onclick="window.location.href='{{ $href }}'" class="cursor-pointer flex">
-                            @if($shouldBlur)
-                                <img
-                                    src="{{ asset('images/18-plus.png') }}"
-                                    alt="18+"
-                                    class="absolute top-2 right-2 w-8 h-8 z-10"
-                                >
-                            @endif
                             <img src="{{ $item['coverImage']['extraLarge'] ?? asset('images/no-image.jpg') }}"
                                  alt="Cover Image"
-                                 class="w-[256px] h-[360px] object-cover {{ $shouldBlur ? 'filter blur-2xl' : '' }}">
+                                 class="w-[256px] h-[360px] object-cover">
                             <img
                                 src="{{ $item['bannerImage'] ?? asset('images/no-image.jpg') }}"
                                 alt="Banner Image"
-                                class="w-[256px] h-[360px] object-cover {{ $shouldBlur ? 'filter blur-2xl' : '' }}"
+                                class="w-[256px] h-[360px] object-cover"
                             >
                         </div>
                     @endif

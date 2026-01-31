@@ -260,18 +260,33 @@ class CategoryController extends Controller
             });
         };
 
+        // Treat unreleased AniList anime (often missing episode counts) that were
+        // ingested as manga/manwha but have no chapter/volume data as anime.
+        $misclassifiedAnime = function ($builder) {
+            $builder->where('source', 'anilist')
+                ->whereIn('type', ['manga', 'manwha'])
+                ->whereNull('chapters_cnt')
+                ->whereNull('volumes_cnt')
+                ->whereIn('media_status', ['NOT_YET_RELEASED', 'RELEASING']);
+        };
+
         switch (strtoupper($normalized)) {
             case 'ANIMES':
-                $q->where('type', 'anime');
+                $q->where(function ($qq) use ($misclassifiedAnime) {
+                    $qq->where('type', 'anime')
+                        ->orWhere($misclassifiedAnime);
+                });
                 break;
             case 'HENTAIS':
                 $q->where('type', 'hentai');
                 break;
             case 'MANGAS':
-                $q->where('type', 'manga');
+                $q->where('type', 'manga')
+                    ->whereNot($misclassifiedAnime);
                 break;
             case 'MANWHAS':
-                $q->where('type', 'manwha');
+                $q->where('type', 'manwha')
+                    ->whereNot($misclassifiedAnime);
                 break;
             case 'DOUJINS':
                 $q->where('type', 'doujin');

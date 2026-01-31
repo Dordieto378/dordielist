@@ -24,7 +24,6 @@
         $mediaModel = $item['media'] ?? null;
 
 
-        $blur = ((int)($mediaModel->isNsfw ?? 0) === 1) && !Auth::check();
     @endphp
 
 <div class="flex flex-col items-center py-[8.5rem]">
@@ -33,17 +32,10 @@
             {{-- Left Column: Image & Buttons --}}
             <div class="flex flex-col items-center">
                 <div class="relative w-[325px] h-[450px] overflow-hidden rounded">
-                    @if($blur)
-                        <img
-                            src="{{ asset('images/18-plus.png') }}"
-                            alt="18+"
-                            class="absolute top-2 right-2 w-9 h-9 z-10 select-none pointer-events-none"
-                        >
-                    @endif
                     <img
                         src="{{ $item['image']['url'] ?? asset('images/no-image.jpg') }}"
                         alt="Cover Image"
-                        class="w-full h-full object-cover {{ $blur ? 'filter blur-2xl' : '' }}"
+                        class="w-full h-full object-cover"
                     >
                 </div>
                 @auth
@@ -134,31 +126,6 @@
                               <span class="ml-1">Add Game Files</span>
                           </button>
                       </form>
-                      @if((int)($mediaModel->isNsfw ?? 0) !== 1)
-                          <form method="POST" action="{{ route('vn.markNsfw', ['media' => $item['id']]) }}" class="w-full mt-2">
-                              @csrf
-                              <button type="submit"
-                                      class="flex items-center justify-start w-full text-blue-950 py-2 rounded-sm hover:text-red-600">
-                                  <svg xmlns="http://www.w3.org/2000/svg"
-                                       class="ml-[1.4rem] h-[1.1rem] w-[1.1rem] mr-[0.5rem] mb-[0.1rem]"
-                                       fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                      <path stroke-linecap="round" stroke-linejoin="round"
-                                            d="M12 9v4m0 4h.01M3 12a9 9 0 1118 0 9 9 0 01-18 0z"/>
-                                  </svg>
-                                  <span class="ml-1">Mark NSFW</span>
-                              </button>
-                          </form>
-                      @else
-                          <div class="flex items-center justify-start w-full py-2 rounded-sm text-red-600">
-                              <svg xmlns="http://www.w3.org/2000/svg"
-                                   class="ml-[1.4rem] h-[1.1rem] w-[1.1rem] mr-[0.5rem] mb-[0.1rem]"
-                                   fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                  <path stroke-linecap="round" stroke-linejoin="round"
-                                        d="M5 13l4 4L19 7"/>
-                              </svg>
-                              <span class="ml-1">NSFW enabled</span>
-                          </div>
-                      @endif
                   </div>
                 @endauth
             </div>

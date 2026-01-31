@@ -10,8 +10,6 @@
         return substr($title, 0, $maxLen - 1) . '…';
     }
 
-    $shouldBlur = true && ! Auth::check();
-
     $pages = $doujin->pages->pluck('page_number')->sort()->values();
     $totalPages = $pages->count();
 
@@ -156,17 +154,10 @@
 
         @if($isImage)
             <div class="relative w-full overflow-hidden">
-            @if($shouldBlur)
-                <img
-                src="{{ asset('images/18-plus.png') }}"
-                alt="18+"
-                class="absolute top-4 right-4 w-10 h-10 z-30"
-                >
-            @endif
             <img
                 src="{{ $url }}"
                 alt="Page {{ $p->page_number }}"
-                class="zoomable w-full h-auto object-contain mx-auto {{ $shouldBlur ? 'filter blur-2xl' : '' }}"
+                class="zoomable w-full h-auto object-contain mx-auto"
             >
             </div>
         @endif
@@ -182,18 +173,10 @@
 
         @if($isSingleImage)
             <div class="relative w-full overflow-hidden">
-                @if($shouldBlur)
-                    <img
-                        src="{{ asset('images/18-plus.png') }}"
-                        alt="18+"
-                        class="absolute top-4 right-4 w-10 h-10 z-30"
-                    >
-                @endif
-
                 <img
                     src="{{ $singleUrl }}"
                     alt="Page {{ $pageNumber }}"
-                    class="zoomable w-full h-auto object-contain mx-auto {{ $shouldBlur ? 'filter blur-2xl' : '' }} z-10"
+                    class="zoomable w-full h-auto object-contain mx-auto z-10"
                 >
 
                 @if($next)
@@ -239,33 +222,19 @@
         <div class="flex justify-center space-x-2">
         @if($isLeftImage)
             <div class="relative overflow-hidden">
-            @if($shouldBlur)
-                <img
-                src="{{ asset('images/18-plus.png') }}"
-                alt="18+"
-                class="absolute top-4 right-4 w-10 h-10 z-30"
-                >
-            @endif
             <img
                 src="{{ $leftUrl }}"
                 alt="Page {{ $leftNum }}"
-                class="zoomable h-auto object-contain mx-auto {{ $shouldBlur ? 'filter blur-2xl' : '' }}"
+                class="zoomable h-auto object-contain mx-auto"
             >
             </div>
         @endif
         @if($isRightImage)
             <div class="relative overflow-hidden">
-            @if($shouldBlur)
-                <img
-                src="{{ asset('images/18-plus.png') }}"
-                alt="18+"
-                class="absolute top-4 right-4 w-10 h-10 z-30"
-                >
-            @endif
             <img
                 src="{{ $rightUrl }}"
                 alt="Page {{ $rightNum }}"
-                class="zoomable h-auto object-contain mx-auto {{ $shouldBlur ? 'filter blur-2xl' : '' }}"
+                class="zoomable h-auto object-contain mx-auto"
             >
             </div>
         @endif

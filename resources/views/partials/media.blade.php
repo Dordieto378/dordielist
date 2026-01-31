@@ -5,24 +5,13 @@
                 $url   = $card['url']   ?? '#';
                 $cover = $card['cover'] ?? asset('images/default.jpg');
                 $title = $card['title'] ?? 'No Title';
-                $nsfw  = (bool)($card['nsfw'] ?? false);
-                $blur  = $nsfw && !Auth::check();
             @endphp
 
             <a href="{{ $url }}" class="block group">
                 <div class="relative w-[242px] h-[339px] rounded-lg overflow-hidden shadow-lg">
-                    {{-- 18+ badge --}}
-                    @if($blur)
-                        <img
-                            src="{{ asset('images/18-plus.png') }}"
-                            alt="18+"
-                            class="absolute top-2 right-2 w-8 h-8 z-10 select-none pointer-events-none"
-                        >
-                    @endif
-
                     {{-- Cover --}}
                     <img src="{{ $cover }}" alt="Cover"
-                         class="w-full h-full object-cover {{ $blur ? 'filter blur-2xl' : '' }}">
+                         class="w-full h-full object-cover">
                 </div>
 
                 <div class="mt-2">

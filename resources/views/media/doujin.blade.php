@@ -48,12 +48,11 @@
             <div class="flex flex-col md:flex-row">
                 {{-- Left Column --}}
                 <div class="flex flex-col items-center">
-                    <div class="relative w-[325px] max-h-[450px] overflow-hidden rounded">
+                    <div class="thumb-wrapper thumb-portrait relative w-[325px] h-[450px] overflow-hidden rounded">
                         <img
                             src="{{ $coverUrl ?? asset('images/no-image.jpg') }}"
                             alt="Cover Image"
-                            class="w-full h-auto max-h-[450px] object-contain"
-                        >
+                            class="thumb-img w-full h-full">
                     </div>
                     @auth
                         <div class="mt-4 flex flex-col space-y-3 w-[325px] font-bold">

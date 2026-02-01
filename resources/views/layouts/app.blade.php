@@ -9,6 +9,11 @@
         <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css" />
     <title>Dordielist</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    <style>
+        .thumb-wrapper { position: relative; overflow: hidden; }
+        .thumb-img { width: 100%; height: 100%; object-fit: cover; }
+        .thumb-landscape { height: 190px !important; }
+    </style>
 </head>
 <body class="bg-gray-100 font-sans text-white text-base font-semibold capitalize">
     <!-- Navbar -->
@@ -208,12 +213,12 @@
                     body.classList.remove("overflow-hidden");
                 }
             });
-            document.addEventListener("keydown", (e) => {
-                if (e.key === "Escape") {
-                    popupOverlay.classList.add("hidden");
-                    body.classList.remove("overflow-hidden");
-                }
-            });
+        document.addEventListener("keydown", (e) => {
+            if (e.key === "Escape") {
+                popupOverlay.classList.add("hidden");
+                body.classList.remove("overflow-hidden");
+            }
+        });
 
             function highlightMatch(text, query) {
                 if (!query) return text;
@@ -334,6 +339,23 @@
                 if (e.key === 'Escape') closeMenu();
             });
         });
+    </script>
+    <script>
+      document.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('.thumb-wrapper').forEach(wrap => {
+          const img = wrap.querySelector('.thumb-img');
+          if (!img) return;
+          const apply = () => {
+            if (img.naturalWidth > img.naturalHeight) {
+              wrap.classList.add('thumb-landscape');
+            } else {
+              wrap.classList.remove('thumb-landscape');
+            }
+          };
+          if (img.complete) apply();
+          else img.addEventListener('load', apply, { once: true });
+        });
+      });
     </script>
 
 </body>

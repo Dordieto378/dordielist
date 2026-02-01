@@ -8,10 +8,10 @@
             @endphp
 
             <a href="{{ $url }}" class="block group">
-                <div class="relative w-[242px] max-h-[339px] rounded-lg overflow-hidden shadow-lg">
+                <div class="thumb-wrapper thumb-portrait relative w-[242px] h-[339px] rounded-lg overflow-hidden shadow-lg">
                     {{-- Cover --}}
                     <img src="{{ $cover }}" alt="Cover"
-                         class="w-full h-auto max-h-[339px] object-contain">
+                         class="thumb-img w-full h-full">
                 </div>
 
                 <div class="mt-2">

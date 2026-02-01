@@ -65,12 +65,14 @@
 
                 <div class="relative group">
                     <div class="cursor-pointer card overflow-hidden" onclick="location='{{ $link }}'">
-                        <img
-                            src="{{ $thumbUrl }}"
-                            alt="{{ $ci->title ?? 'Cover' }}"
-                            loading="lazy"
-                            class="rounded-lg shadow-lg w-[302px] max-h-[424px] h-auto object-contain"
-                        >
+                        <div class="thumb-wrapper thumb-portrait rounded-lg shadow-lg w-[302px] h-[424px] overflow-hidden">
+                            <img
+                                src="{{ $thumbUrl }}"
+                                alt="{{ $ci->title ?? 'Cover' }}"
+                                loading="lazy"
+                                class="thumb-img w-full h-full"
+                            >
+                        </div>
                         <div class="py-3">
                             <p class="text-red-600 font-bold">
                                 {{ \Illuminate\Support\Str::limit($ci->title ?? 'Untitled', 25) }}

@@ -47,6 +47,20 @@
         }
     @endphp
 
+    <style>
+        /* Thumb sizing for "Most recent" grid */
+        .thumb-wrapper {
+            width: 302px;
+            height: 424px; /* portrait default */
+        }
+        .thumb-wrapper.thumb-landscape {
+            height: 190px; /* fixed landscape height */
+        }
+        .thumb-img {
+            object-fit: cover;
+        }
+    </style>
+
     <div id="preContent" class="py-[4.5rem] {{ !$isOnFirstPage ? 'hidden' : '' }}">
         <!-- Scrollable Section -->
         <section class="bg-black text-white py-6">
@@ -266,11 +280,11 @@
                            w-[305px] flex-shrink-0 overflow-hidden
                            {{ $isGrid ? '' : 'hidden' }}">
                         {{-- Image container --}}
-                        <div class="relative w-[302px] h-[424px] rounded-lg shadow-lg overflow-hidden">
+                        <div class="relative thumb-wrapper thumb-portrait rounded-lg shadow-lg overflow-hidden">
                             <img
                                 src="{{ $item['coverImage']['extraLarge'] ?? asset('images/no-image.jpg') }}"
                                 alt="Cover Image"
-                                class="w-full h-full object-cover"
+                                class="thumb-img w-full h-full object-cover"
                             >
                         </div>
                         <div class="py-3">
@@ -288,11 +302,11 @@
                        w-[305px] flex-shrink-0 overflow-hidden
                        {{ $isGrid ? '' : 'hidden' }}">
                         {{-- Image container --}}
-                        <div class="relative w-[302px] h-[424px] rounded-lg shadow-lg overflow-hidden">
+                        <div class="relative thumb-wrapper thumb-portrait rounded-lg shadow-lg overflow-hidden">
                             <img
                                 src="{{ $item['coverImage']['extraLarge'] ?? asset('images/no-image.jpg') }}"
                                 alt="Cover Image"
-                                class="w-full h-full object-cover"
+                                class="thumb-img w-full h-full object-cover"
                             >
                         </div>
                         <div class="py-3">
@@ -562,5 +576,20 @@
                 }
             });
         }
+
+        // Thumb orientation (Most recent grid)
+        document.querySelectorAll('.thumb-wrapper .thumb-img').forEach(img => {
+            const apply = () => {
+                const wrap = img.closest('.thumb-wrapper');
+                if (!wrap) return;
+                if (img.naturalWidth > img.naturalHeight) {
+                    wrap.classList.add('thumb-landscape');
+                } else {
+                    wrap.classList.remove('thumb-landscape');
+                }
+            };
+            if (img.complete) apply();
+            else img.addEventListener('load', apply, { once: true });
+        });
     });
 </script>

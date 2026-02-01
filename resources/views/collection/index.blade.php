@@ -18,12 +18,14 @@
             <div id="contentContainer" class="w-full max-w-screen-xl grid grid-cols-4 gap-4">
                 <div class="cursor-pointer card grid-view overflow-hidden"
                      onclick="window.location.href='{{ route('collection.show', $favorites) }}'">
-                    <img
-                        src="{{ $favoritesThumbnail ?? asset('images/no-image.jpg') }}"
-                        alt="Favorites Cover"
-                        loading="lazy"
-                            class="rounded-lg shadow-lg w-[302px] max-h-[424px] h-auto object-contain"
-                    />
+                    <div class="thumb-wrapper thumb-portrait rounded-lg shadow-lg w-[302px] h-[424px] overflow-hidden">
+                        <img
+                            src="{{ $favoritesThumbnail ?? asset('images/no-image.jpg') }}"
+                            alt="Favorites Cover"
+                            loading="lazy"
+                            class="thumb-img w-full h-full"
+                        />
+                    </div>
                     <div class="py-3">
                         <p class="text-red-600 font-bold">Favorites</p>
                     </div>
@@ -76,12 +78,14 @@
 
                         <div onclick="window.location.href='{{ $cardHref }}'">
                             <div class="cursor-pointer card grid-view overflow-hidden">
-                                <img
-                                    src="{{ $thumbUrl }}"
-                                    alt="Cover for {{ $col->name }}"
-                                    loading="lazy"
-                                    class="rounded-lg shadow-lg w-[302px] max-h-[424px] h-auto object-contain"
-                                />
+                                <div class="thumb-wrapper thumb-portrait rounded-lg shadow-lg w-[302px] h-[424px] overflow-hidden">
+                                    <img
+                                        src="{{ $thumbUrl }}"
+                                        alt="Cover for {{ $col->name }}"
+                                        loading="lazy"
+                                        class="thumb-img w-full h-full"
+                                    />
+                                </div>
                                 <div class="py-3">
                                     <p class="text-red-600 font-bold">{{ $col->name }}</p>
                                 </div>

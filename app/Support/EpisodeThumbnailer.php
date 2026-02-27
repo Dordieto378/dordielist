@@ -24,7 +24,6 @@ class EpisodeThumbnailer
         $outputPath = $disk->path($thumbRelPath);
 
         if (!$force && $disk->exists($thumbRelPath)) {
-            self::ensurePublicStorageMirror($thumbRelPath, $outputPath);
             return $thumbRelPath;
         }
 
@@ -72,7 +71,6 @@ class EpisodeThumbnailer
                     }
 
                     if (is_file($outputPath) && filesize($outputPath) > 0) {
-                        self::ensurePublicStorageMirror($thumbRelPath, $outputPath);
                         return $thumbRelPath;
                     }
                 }
@@ -86,27 +84,5 @@ class EpisodeThumbnailer
         }
 
         return null;
-    }
-
-    /**
-     * Some environments use a real public/storage directory instead of a symlink.
-     * Mirror thumbnails there so /storage/... URLs resolve immediately.
-     */
-    private static function ensurePublicStorageMirror(string $thumbRelPath, string $sourcePath): void
-    {
-        $publicStorageRoot = public_path('storage');
-        if (!is_dir($publicStorageRoot)) {
-            return;
-        }
-
-        $targetPath = $publicStorageRoot.DIRECTORY_SEPARATOR.str_replace('/', DIRECTORY_SEPARATOR, ltrim($thumbRelPath, '/'));
-        $targetDir = dirname($targetPath);
-        if (!is_dir($targetDir)) {
-            @mkdir($targetDir, 0775, true);
-        }
-
-        if (!is_file($targetPath) || filesize($targetPath) <= 0) {
-            @copy($sourcePath, $targetPath);
-        }
     }
 }

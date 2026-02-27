@@ -9,6 +9,14 @@
         $episodeNumber = $episode->episode_number;
         $totalEps      = $item['episodes'] ?? Episode::where('media_fk', $item['id'])->count();
         $mediaUrl      = route('media.show', $item['id']);
+        $categoryLabel = match (strtolower((string) $category)) {
+            'animes'  => 'Anime',
+            'hentais' => 'Hentai',
+            'mangas'  => 'Manga',
+            'manwhas' => 'Manwha',
+            'doujins' => 'Doujin',
+            default   => ucfirst(rtrim((string) $category, 's')),
+        };
 
         $src  = asset('storage/'.$episode->file_path);
         $ext  = strtolower(pathinfo($episode->file_path, PATHINFO_EXTENSION));
@@ -39,10 +47,10 @@
             <div class="p-4 flex-col justify-start">
                 <h1 class="text-2xl font-bold text-red-600 truncate">
                     <a class="hover:underline" href="{{ $mediaUrl }}">{{ $title }}</a>
-                    <span class="font-light text-gray-600">- Episode {{ $episodeNumber }}</span>
+                    <span class="font-light text-gray-600">- {{ $episodeNumber }}</span>
                 </h1>
                 <div class="mt-1 text-sm font-medium text-gray-600 space-x-2">
-                    <span>{{ $category }}</span>
+                    <span>{{ $categoryLabel }}</span>
                     <span>&bull;</span>
                     <span>{{ $totalEps ?: 'N/A' }} Episodes</span>
                 </div>

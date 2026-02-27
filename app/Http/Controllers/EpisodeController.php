@@ -141,7 +141,7 @@ class EpisodeController extends Controller
         $genres  = $item['genres'] ?? [];
         $type    = $item['type'] ?? '';
         $origin  = strtoupper($item['countryOfOrigin'] ?? '');
-        if ($type === 'ANIME' && in_array('Hentai', $genres, true)) {
+        if ($type === 'HENTAI' || ($type === 'ANIME' && in_array('Hentai', $genres, true))) {
             $category = 'hentais';
         } elseif ($type === 'ANIME') {
             $category = 'animes';

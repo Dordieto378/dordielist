@@ -174,6 +174,12 @@
             font-weight: 700;
             color: #ffffff;
         }
+        .reader-title-sep {
+            font-size: 1rem;
+            font-weight: 700;
+            color: #ffffff;
+            margin: 0 0.2rem;
+        }
         .reader-shell {
             min-height: 100vh;
             padding: 0;
@@ -466,11 +472,12 @@
                 <div class="flex items-center space-x-2">
                     <a href="{{ route('home') }}" class="reader-logo uppercase">DORDIELIST</a>
                     <span class="h-5 w-px bg-white/40"></span>
-                    <div class="flex items-center gap-1">
+                    <div class="flex items-center">
                         <a href="{{ $itemUrl }}" class="reader-title" title="{{ $itemTitle }}">
                             {{ shortTitle($itemTitle, 40) }}
                         </a>
-                        <span class="reader-title-chapter"> - Chapter {{ $chapterDisplay }}</span>
+                        <span class="reader-title-sep"> - </span>
+                        <span class="reader-title-chapter">Chapter {{ $chapterDisplay }}</span>
                     </div>
                 </div>
                 <div class="flex items-center space-x-2 text-white text-sm">

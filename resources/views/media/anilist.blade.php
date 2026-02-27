@@ -514,26 +514,30 @@
                         @endfor
                     @endif
 
-                    @foreach($cells as $chapter)
-                        @php
-                            $firstPage = $chapter->pages->first();
-                            $ext       = strtolower(pathinfo($firstPage->file_path ?? '', PATHINFO_EXTENSION));
-                            $isImage   = $firstPage && in_array($ext, $allowedExts, true);
-                            $thumb     = $isImage ? Storage::url($firstPage->file_path) : asset('images/no-thumb.jpg');
+                        @foreach($cells as $chapter)
+                            @php
+                                $firstPage = $chapter->pages->first();
+                                $ext       = strtolower(pathinfo($firstPage->file_path ?? '', PATHINFO_EXTENSION));
+                                $isImage   = $firstPage && in_array($ext, $allowedExts, true);
+                                $thumb     = $isImage ? Storage::url($firstPage->file_path) : asset('images/no-thumb.jpg');
+                                $chapterBadge = ($chapter->chapter_number !== null && $chapter->chapter_number !== '')
+                                    ? rtrim(rtrim((string) $chapter->chapter_number, '0'), '.')
+                                    : ((preg_match('/\d+(?:\.\d+)?/', (string) $chapter->chapter_title, $m) === 1) ? $m[0] : '?');
 
-                            $chapterParam = $chapter->chapter_number !== null && $chapter->chapter_number !== ''
-                                ? (string) $chapter->chapter_number
-                                : rawurlencode((string) $chapter->chapter_title);
-                        @endphp
+                                $chapterParam = $chapter->chapter_number !== null && $chapter->chapter_number !== ''
+                                    ? (string) $chapter->chapter_number
+                                    : rawurlencode((string) $chapter->chapter_title);
+                            @endphp
 
                         <div onclick="window.location.href='{{ route('chapters.page', ['media' => $chapter->item_id, 'chapter' => $chapterParam, 'page' => 1]) }}'"
                              class="cursor-pointer">
                             <div class="relative w-full rounded-lg overflow-hidden shadow-lg">
                                 <img src="{{ $thumb }}" alt="{{ $chapter->chapter_title }}" class="w-full h-auto object-contain">
+                                <span class="absolute z-10 bg-black/70 text-white text-lg font-semibold px-2 py-0.5 rounded leading-none"
+                                      style="right: 8px; bottom: 8px; top: auto; left: auto;">
+                                    {{ $chapterBadge }}
+                                </span>
                             </div>
-                            <p class="text-center text-sm text-gray-600 mt-2">
-                                {{ $chapter->chapter_title }}
-                            </p>
                         </div>
                     @endforeach
                 @endforeach

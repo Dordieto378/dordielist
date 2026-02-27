@@ -15,6 +15,7 @@ class Kernel extends ConsoleKernel
         \App\Console\Commands\ImportVndb::class,
         \App\Console\Commands\ImportAnilist::class,
         \App\Console\Commands\ImportDoujin::class,
+        \App\Console\Commands\GenerateEpisodeThumbnails::class,
     ];
 
     /**

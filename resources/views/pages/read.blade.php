@@ -260,6 +260,14 @@
     font-size: 1em;
     line-height: 1;
   }
+  .doujin-scroll-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+  .doujin-scroll-stack img {
+    display: block;
+  }
 </style>
 
 <div class="{{ $isFixedView ? 'doujin-reader fixed-mode' : 'flex flex-col items-center py-[4rem] mt-12' }}">
@@ -346,7 +354,7 @@
       </div>
     </div>
     @if($view === 'scroll')
-    <div>
+    <div class="doujin-scroll-stack">
         @foreach($doujin->pages as $p)
         @php
             $ext = strtolower(pathinfo($p->file_path, PATHINFO_EXTENSION) ?? '');
@@ -359,7 +367,7 @@
             <img
                 src="{{ $url }}"
                 alt="Page {{ $p->page_number }}"
-                class="zoomable w-full h-auto object-contain mx-auto"
+                class="zoomable block w-full h-auto object-contain mx-auto"
             >
             </div>
         @endif

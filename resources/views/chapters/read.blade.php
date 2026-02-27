@@ -196,6 +196,11 @@
         .reader-content-fixed.space-y-6 > :not([hidden]) ~ :not([hidden]) {
             margin-top: 0;
         }
+        .reader-scroll-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+        }
         .reader-controls {
             display: flex;
             align-items: center;
@@ -506,7 +511,7 @@
         <div class="reader-content space-y-6 {{ $isFixedView ? 'reader-content-fixed' : '' }}">
             {{-- ============== SCROLL MODE ============== --}}
             @if($view === 'scroll')
-                <div class="space-y-6">
+                <div class="reader-scroll-stack">
                     @foreach($chapter->pages as $p)
                         @php
                             $ext = strtolower(pathinfo($p->file_path, PATHINFO_EXTENSION) ?? '');
@@ -652,6 +657,8 @@
             $bottomLeftAction = 'next';
             $bottomRightAction = 'prev';
         }
+        $nextArrowClass = $isManwha ? 'is-right' : 'is-left';
+        $prevArrowClass = $isManwha ? 'is-left' : 'is-right';
 
         if ($view === 'one' && !$isManwha) {
             $bottomMainLabel = 'Page';
@@ -675,13 +682,13 @@
                 <div class="reader-bottom-dock">
                 @if($bottomLeftLink)
                     <a href="{{ $bottomLeftLink }}" class="reader-arrow-square left" aria-label="{{ $bottomLeftAction === 'next' ? 'Next' : 'Previous' }}">
-                        <svg class="reader-arrow-icon {{ $bottomLeftAction === 'next' ? 'is-left' : 'is-right' }}" viewBox="0 0 24 24" aria-hidden="true">
+                        <svg class="reader-arrow-icon {{ $bottomLeftAction === 'next' ? $nextArrowClass : $prevArrowClass }}" viewBox="0 0 24 24" aria-hidden="true">
                             <polyline points="15 4 7 12 15 20"></polyline>
                         </svg>
                     </a>
                 @else
                     <span class="reader-arrow-square left disabled" aria-hidden="true">
-                        <svg class="reader-arrow-icon {{ $bottomLeftAction === 'next' ? 'is-left' : 'is-right' }}" viewBox="0 0 24 24">
+                        <svg class="reader-arrow-icon {{ $bottomLeftAction === 'next' ? $nextArrowClass : $prevArrowClass }}" viewBox="0 0 24 24">
                             <polyline points="15 4 7 12 15 20"></polyline>
                         </svg>
                     </span>
@@ -705,13 +712,13 @@
 
                 @if($bottomRightLink)
                     <a href="{{ $bottomRightLink }}" class="reader-arrow-square right" aria-label="{{ $bottomRightAction === 'next' ? 'Next' : 'Previous' }}">
-                        <svg class="reader-arrow-icon {{ $bottomRightAction === 'next' ? 'is-left' : 'is-right' }}" viewBox="0 0 24 24" aria-hidden="true">
+                        <svg class="reader-arrow-icon {{ $bottomRightAction === 'next' ? $nextArrowClass : $prevArrowClass }}" viewBox="0 0 24 24" aria-hidden="true">
                             <polyline points="15 4 7 12 15 20"></polyline>
                         </svg>
                     </a>
                 @else
                     <span class="reader-arrow-square right disabled" aria-hidden="true">
-                        <svg class="reader-arrow-icon {{ $bottomRightAction === 'next' ? 'is-left' : 'is-right' }}" viewBox="0 0 24 24">
+                        <svg class="reader-arrow-icon {{ $bottomRightAction === 'next' ? $nextArrowClass : $prevArrowClass }}" viewBox="0 0 24 24">
                             <polyline points="15 4 7 12 15 20"></polyline>
                         </svg>
                     </span>

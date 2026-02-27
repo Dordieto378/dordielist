@@ -400,29 +400,34 @@
 
         // collection for the current page
         $episodes = $episodesPaginator->getCollection();
-        $rows     = $episodes->chunk(4);
+        $rows     = $episodes->chunk(3);
     @endphp
 
     @auth
         @if($episodesPaginator->total() > 0)
             <div class="space-y-6 mt-8 w-[1278px] mx-auto font-medium relative z-0">
                 @foreach($rows as $chunk)
-                    <div class="grid grid-cols-4 gap-6">
+                    <div class="grid gap-6" style="grid-template-columns: repeat(3, minmax(0, 1fr));">
                         @foreach($chunk as $ep)
-                            @php $url = Storage::url($ep->file_path); @endphp
+                            @php
+                                $thumbUrl = !empty($ep->thumbnail_path)
+                                    ? Storage::url($ep->thumbnail_path)
+                                    : asset('images/no-image.jpg');
+                            @endphp
                             <div class="flex flex-col items-stretch">
                                 <a href="{{ route('episodes.show', ['media' => $item['id'], 'episode' => $ep->episode_number]) }}"
-                                   class="relative group rounded-lg overflow-hidden shadow-lg w-full aspect-[16/9] bg-gray-100">
-                                    <video class="absolute inset-0 w-full h-full object-cover" muted playsinline preload="metadata">
-                                        <source src="{{ $url }}#t=0.1" type="video/mp4" />
-                                    </video>
-                                    <div class="absolute inset-0 bg-black bg-opacity-20 duration-500 ease-in-out group-hover:bg-opacity-40 z-0 flex items-center justify-center"></div>
-                                    <svg class="absolute inset-0 m-auto h-12 w-12 text-white opacity-75 z-10 pointer-events-none" fill="currentColor" viewBox="0 0 84 84">
-                                        <circle cx="42" cy="42" r="42" opacity="0.5"/>
-                                        <polygon points="33,27 59,42 33,57" fill="#fff"/>
-                                    </svg>
+                                   class="relative rounded-lg overflow-hidden shadow-lg w-full aspect-[16/9] bg-gray-100">
+                                    <img
+                                        class="absolute inset-0 w-full h-full object-cover"
+                                        src="{{ $thumbUrl }}"
+                                        alt="Episode {{ $ep->episode_number }} thumbnail"
+                                        loading="lazy"
+                                    >
+                                    <span class="absolute z-10 bg-black/70 text-white text-lg font-semibold px-2 py-0.5 rounded leading-none"
+                                          style="right: 8px; bottom: 8px; top: auto; left: auto;">
+                                        {{ $ep->episode_number }}
+                                    </span>
                                 </a>
-                                <p class="text-center text-sm text-gray-600 mt-2">Episode {{ $ep->episode_number }}</p>
                             </div>
                         @endforeach
                     </div>
@@ -796,34 +801,45 @@ const progressText= document.getElementById('progressText');
 const lockBody   = ()=> document.body.classList.add('overflow-hidden');
 const unlockBody = ()=> {
   // only unlock if both modals are hidden
-  if (addModal.classList.contains('hidden') && createModal.classList.contains('hidden')) {
+  const addHidden = !addModal || addModal.classList.contains('hidden');
+  const createHidden = !createModal || createModal.classList.contains('hidden');
+  if (addHidden && createHidden) {
     document.body.classList.remove('overflow-hidden');
   }
 };
 
-const showAdd    = ()=> { addModal.classList.remove('hidden'); lockBody(); };
-const hideAdd    = ()=> { addModal.classList.add('hidden'); unlockBody(); };
-const showCreate = ()=> { createModal.classList.remove('hidden'); lockBody(); };
-const hideCreate = ()=> { createModal.classList.add('hidden'); unlockBody(); };
+const showAdd    = ()=> { if (!addModal) return; addModal.classList.remove('hidden'); lockBody(); };
+const hideAdd    = ()=> { if (!addModal) return; addModal.classList.add('hidden'); unlockBody(); };
+const showCreate = ()=> { if (!createModal) return; createModal.classList.remove('hidden'); lockBody(); };
+const hideCreate = ()=> { if (!createModal) return; createModal.classList.add('hidden'); unlockBody(); };
 
 // open/close Add→Collection
-openAddBtn.addEventListener('click', showAdd);
-closeAddBtn.addEventListener('click', hideAdd);
-addModal.addEventListener('click', e => { if(e.target===addModal) hideAdd(); });
-document.addEventListener('keyup', e => { if(e.key==='Escape' && !addModal.classList.contains('hidden')) hideAdd(); });
+if (openAddBtn && addModal) {
+  openAddBtn.addEventListener('click', showAdd);
+}
+if (closeAddBtn && addModal) {
+  closeAddBtn.addEventListener('click', hideAdd);
+  addModal.addEventListener('click', e => { if(e.target===addModal) hideAdd(); });
+  document.addEventListener('keyup', e => { if(e.key==='Escape' && !addModal.classList.contains('hidden')) hideAdd(); });
+}
 
 // from inside Add, open Create
-openCreateBtn.addEventListener('click', () => {
-hideAdd();
-showCreate();
-});
+if (openCreateBtn) {
+  openCreateBtn.addEventListener('click', () => {
+  hideAdd();
+  showCreate();
+  });
+}
 
 // close Create modal
-closeCreateBtn.addEventListener('click', hideCreate);
-createModal.addEventListener('click', e => { if(e.target===createModal) hideCreate(); });
-document.addEventListener('keyup', e => { if(e.key==='Escape' && !createModal.classList.contains('hidden')) hideCreate(); });
+if (closeCreateBtn && createModal) {
+  closeCreateBtn.addEventListener('click', hideCreate);
+  createModal.addEventListener('click', e => { if(e.target===createModal) hideCreate(); });
+  document.addEventListener('keyup', e => { if(e.key==='Escape' && !createModal.classList.contains('hidden')) hideCreate(); });
+}
 
 // AJAX create‐collection
+if (createForm && listContainer) {
 createForm.addEventListener('submit', async e => {
 e.preventDefault();
 const token = document.querySelector('meta[name="csrf-token"]').content;
@@ -862,37 +878,36 @@ listContainer.insertAdjacentHTML('beforeend', `
 
 hideCreate();
 });
-['dragenter','dragover'].forEach(e => {
-    dropZone.addEventListener(e, ev => {
-    ev.preventDefault();
-    dropZone.classList.add('ring-2','ring-red-600');
-    });
-});
-['dragleave','drop'].forEach(e => {
-    dropZone.addEventListener(e, ev => {
-    dropZone.classList.remove('ring-2','ring-red-600');
-    });
-});
-
-dropZone.addEventListener('drop', ev => {
-    ev.preventDefault();
-    if (ev.dataTransfer.files.length) {
-    fileInput.files = ev.dataTransfer.files;
-    updateFileInfo();
-    }
-});
-
-fileInput.addEventListener('change', updateFileInfo);
-
-function updateFileInfo() {
-    const names = Array.from(fileInput.files).map(f => f.name).join(', ');
-    fileInfo.textContent = names || 'MP4, WEBM';
 }
-  if (!form || !progressBar || !progressText) {
-    console.error('Upload form or progress elements not found');
-    return;
-  }
+if (dropZone && fileInput) {
+  ['dragenter','dragover'].forEach(e => {
+      dropZone.addEventListener(e, ev => {
+      ev.preventDefault();
+      dropZone.classList.add('ring-2','ring-red-600');
+      });
+  });
+  ['dragleave','drop'].forEach(e => {
+      dropZone.addEventListener(e, ev => {
+      dropZone.classList.remove('ring-2','ring-red-600');
+      });
+  });
 
+  dropZone.addEventListener('drop', ev => {
+      ev.preventDefault();
+      if (ev.dataTransfer.files.length) {
+      fileInput.files = ev.dataTransfer.files;
+      updateFileInfo();
+      }
+  });
+
+  fileInput.addEventListener('change', updateFileInfo);
+
+  function updateFileInfo() {
+      const names = Array.from(fileInput.files).map(f => f.name).join(', ');
+      if (fileInfo) fileInfo.textContent = names || 'MP4, WEBM';
+  }
+}
+  if (form && progressBar && progressText) {
   form.addEventListener('submit', function(e) {
     e.preventDefault();
     const data = new FormData(form);
@@ -927,6 +942,8 @@ function updateFileInfo() {
 
     xhr.send(data);
   });
+  }
+
     Plyr.setup('.plyr', {
       controls: [
         'play-large','play','progress','current-time',

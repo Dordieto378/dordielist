@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Episode;
 use App\Models\Media;
+use App\Support\EpisodeThumbnailer;
 use Illuminate\Support\Facades\Storage;
 
 class EpisodeController extends Controller
@@ -37,16 +38,27 @@ class EpisodeController extends Controller
             return back()->with('status', "No .mp4/.webm files found in {$dir}");
         }
 
-        $existing = Episode::where('media_fk', $mediaId)
-            ->pluck('file_path')
-            ->map(fn($p) => ltrim($p, '/'))
-            ->toArray();
+        $existingByPath = Episode::where('media_fk', $mediaId)
+            ->get(['id', 'episode_number', 'file_path', 'thumbnail_path'])
+            ->keyBy(fn($ep) => ltrim((string) $ep->file_path, '/'));
 
         $nextEp  = (Episode::where('media_fk', $mediaId)->max('episode_number') ?? 0) + 1;
         $created = 0;
 
         foreach ($files as $relPath) {
-            if (in_array($relPath, $existing, true)) {
+            $existingEpisode = $existingByPath->get($relPath);
+            if ($existingEpisode) {
+                if (empty($existingEpisode->thumbnail_path)) {
+                    $thumb = EpisodeThumbnailer::generate(
+                        $mediaId,
+                        (int) $existingEpisode->episode_number,
+                        $relPath
+                    );
+                    if ($thumb) {
+                        $existingEpisode->thumbnail_path = $thumb;
+                        $existingEpisode->save();
+                    }
+                }
                 continue;
             }
 
@@ -60,11 +72,14 @@ class EpisodeController extends Controller
                 $nextEp = max($nextEp, $epNumber + 1);
             }
 
+            $thumb = EpisodeThumbnailer::generate($mediaId, (int) $epNumber, $relPath);
+
             Episode::updateOrCreate(
                 ['media_fk' => $mediaId, 'episode_number' => $epNumber],
                 [
-                    'media_type' => $mediaType,
-                    'file_path'  => $relPath,
+                    'media_type'     => $mediaType,
+                    'file_path'      => $relPath,
+                    'thumbnail_path' => $thumb,
                 ]
             );
 

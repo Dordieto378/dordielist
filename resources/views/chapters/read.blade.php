@@ -19,6 +19,7 @@
         if ($isManwha) {
             $view = 'scroll';
         }
+        $isFixedView = in_array($view, ['one', 'double'], true) && !$isManwha;
 
         // Header link points back to page 1 of the same chapter + current view
         $headerLink = route('chapters.page', [
@@ -71,12 +72,18 @@
         $nextPairLink = $nextPairPage
             ? route('chapters.page', ['media' => $chapter->item_id, 'chapter' => $chapter->chapter_number, 'page' => $nextPairPage, 'view' => 'double'])
             : ($nextLink ?? null);
+
+        $chapterDisplay = rtrim(rtrim((string)$chapter->chapter_number, '0'), '.');
+        $readerTitleWithChapter = $itemTitle.' - Chapter '.$chapterDisplay;
     @endphp
 
     <style>
         body.reader-mode {
             background: #ffffff;
             color: #111827;
+        }
+        body.reader-mode.reader-fixed {
+            overflow: hidden;
         }
         body.reader-mode nav,
         body.reader-mode footer {
@@ -162,13 +169,32 @@
         .reader-title:hover {
             text-decoration: underline;
         }
+        .reader-title-chapter {
+            font-size: 1rem;
+            font-weight: 700;
+            color: #ffffff;
+        }
         .reader-shell {
             min-height: 100vh;
             padding: 0;
         }
+        .reader-shell-fixed {
+            min-height: 100dvh;
+            height: 100dvh;
+            overflow: hidden;
+        }
         .reader-content {
             width: min(1200px, calc(100vw - 24px));
             margin: 0 auto;
+        }
+        .reader-content-fixed {
+            width: 100vw;
+            max-width: none;
+            height: 100dvh;
+            margin: 0;
+        }
+        .reader-content-fixed.space-y-6 > :not([hidden]) ~ :not([hidden]) {
+            margin-top: 0;
         }
         .reader-controls {
             display: flex;
@@ -219,6 +245,10 @@
             justify-content: center;
             padding: 0;
         }
+        .reader-content-fixed .reader-full {
+            min-height: 100dvh;
+            height: 100dvh;
+        }
         .reader-img {
             width: 100%;
             height: auto;
@@ -234,25 +264,10 @@
             max-width: 100%;
             object-fit: contain;
         }
-        .jump-row {
-            display: flex;
-            gap: 0.5rem;
-        }
-        .jump-row.start { justify-content: flex-start; }
-        .jump-row.end   { justify-content: flex-end; }
-        .jump-row.between { justify-content: space-between; }
-        .jump-btn {
-            padding: 0.55rem 1.1rem;
-            border-radius: 8px;
-            background: #ffffff;
-            color: #ab2328;
-            font-weight: 700;
-            transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
-        }
-        .jump-btn:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 8px 22px rgba(0, 0, 0, 0.18);
-            background: #f5f5f5;
+        .reader-content-fixed .reader-full .reader-img {
+            height: 100dvh;
+            max-height: 100dvh;
+            max-width: 100vw;
         }
         .dual-page {
             display: flex;
@@ -265,9 +280,19 @@
             height: 100vh;
             align-items: center;
         }
+        .reader-content-fixed .dual-full {
+            height: 100dvh;
+        }
         .dual-page > div {
             flex: 0 0 50%;
             max-width: 50%;
+        }
+        .reader-content-fixed .dual-page > div {
+            height: 100dvh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
         }
         .dual-page img {
             width: 100%;
@@ -279,15 +304,20 @@
             max-width: 100%;
             object-fit: contain;
         }
+        .reader-content-fixed .dual-full img {
+            height: 100dvh;
+            max-height: 100dvh;
+            max-width: 50vw;
+        }
         .reader-bottom-panel {
             position: fixed;
             left: 50%;
             bottom: 24px;
             transform: translate(-50%, 24px);
-            padding: 0.5rem 0.9rem;
-            background: #ab2328; /* flatRed pill */
-            border-radius: 12px;
-            box-shadow: 0 18px 30px rgba(0, 0, 0, 0.18);
+            padding: 0;
+            background: transparent;
+            border-radius: 0;
+            box-shadow: none;
             opacity: 0;
             transition: opacity 0.18s ease, transform 0.18s ease;
             pointer-events: none;
@@ -297,13 +327,130 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            gap: 0.65rem;
+            gap: 0;
+        }
+        .reader-bottom-dock {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            filter: drop-shadow(0 12px 24px rgba(0, 0, 0, 0.25));
+        }
+        .reader-arrow-square {
+            width: 58px;
+            height: 60px;
+            background: #ab2328;
+            color: #ffffff;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            font-size: 1.55rem;
+            font-weight: 400;
+            line-height: 1;
+            transition: none;
+            border: none;
+            position: relative;
+            z-index: 1;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+        .reader-arrow-icon {
+            width: 33px;
+            height: 33px;
+            stroke: currentColor;
+            fill: none;
+            stroke-width: 2.9;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+        .reader-arrow-icon.is-right {
+            transform: scaleX(-1);
+            transform-origin: center;
+        }
+        .reader-arrow-square.left {
+            border-radius: 10px 0 0 10px;
+            border-right: none;
+        }
+        .reader-arrow-square.right {
+            border-radius: 0 10px 10px 0;
+            border-left: none;
+        }
+        .reader-arrow-square:not(.disabled):hover,
+        .reader-arrow-square:not(.disabled):active,
+        .reader-arrow-square:not(.disabled):focus,
+        .reader-arrow-square:not(.disabled):focus-visible {
+            background: #ab2328;
+            color: #ffffff;
+            text-decoration: none;
+            box-shadow: none;
+            outline: none;
+        }
+        .reader-arrow-square.disabled {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+        .reader-count-square {
+            width: 138px;
+            height: 88px;
+            background: #ab2328;
+            color: #ffffff;
+            border: none;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 0.35rem 0.35rem 0.25rem;
+            line-height: 1;
+            /* Outside side shading to visually separate center block from arrow blocks */
+            box-shadow: -8px 0 10px -8px rgba(0, 0, 0, 0.38),
+                        8px 0 10px -8px rgba(0, 0, 0, 0.38);
+            position: relative;
+            z-index: 2;
+        }
+        .reader-count-label {
+            font-size: 0.64rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            opacity: 0.9;
+            margin-bottom: 0.1rem;
+            transform: translateY(-0.42rem);
+        }
+        .reader-count-value {
+            font-size: 2.35rem;
+            font-weight: 400;
+            letter-spacing: -0.02em;
+        }
+        .reader-count-pair {
+            display: inline-flex;
+            align-items: baseline;
+            gap: 0.92rem;
+            font-size: 2.35rem;
+            font-weight: 400;
+            letter-spacing: -0.02em;
+        }
+        .reader-count-sep {
+            display: inline-block;
+            transform: translateY(-0.14em);
+            font-size: 1em;
+            line-height: 1;
+        }
+        .reader-count-sub {
+            margin-top: 0.2rem;
+            font-size: 0.56rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            opacity: 0.9;
         }
     </style>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             document.body.classList.add('reader-mode');
+            if (@json($isFixedView)) {
+                document.body.classList.add('reader-fixed');
+            }
         });
     </script>
 
@@ -314,9 +461,12 @@
                 <div class="flex items-center space-x-2">
                     <a href="{{ route('home') }}" class="reader-logo uppercase">DORDIELIST</a>
                     <span class="h-5 w-px bg-white/40"></span>
-                    <a href="{{ $itemUrl }}" class="reader-title hover:underline" title="{{ $itemTitle }}">
-                        {{ shortTitle($itemTitle, 40) }}
-                    </a>
+                    <div class="flex items-center gap-1">
+                        <a href="{{ $itemUrl }}" class="reader-title" title="{{ $itemTitle }}">
+                            {{ shortTitle($itemTitle, 40) }}
+                        </a>
+                        <span class="reader-title-chapter"> - Chapter {{ $chapterDisplay }}</span>
+                    </div>
                 </div>
                 <div class="flex items-center space-x-2 text-white text-sm">
                     @if(!$isManwha)
@@ -324,9 +474,8 @@
                            class="control-btn {{ $view === 'scroll' ? 'active' : '' }}"
                            aria-label="Scroll view">
                             <span class="sr-only">Scroll</span>
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <rect x="6" y="4" width="12" height="16" rx="2" />
-                                <path d="M12 8v8m-3-3h6" />
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="butt" stroke-linejoin="miter">
+                                <path d="M7 4v5M7 9h10M17 4v5M7 20v-5M7 15h10M17 20v-5" />
                             </svg>
                         </a>
                         <a href="{{ route('chapters.page', array_merge($baseParams, ['page' => $pageNumber, 'view' => 'one'])) }}"
@@ -341,9 +490,10 @@
                            class="control-btn {{ $view === 'double' ? 'active' : '' }}"
                            aria-label="Double page view">
                             <span class="sr-only">Double</span>
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <rect x="4" y="5" width="7" height="14" rx="2" />
-                                <rect x="13" y="5" width="7" height="14" rx="2" />
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 6v12" />
+                                <path d="M12 7c-2-1.4-4.5-2-7-2v12c2.5 0 5 0.6 7 2" />
+                                <path d="M12 7c2-1.4 4.5-2 7-2v12c-2.5 0-5 0.6-7 2" />
                             </svg>
                         </a>
                     @endif
@@ -352,8 +502,8 @@
         </div>
     </div>
 
-    <div class="reader-shell">
-        <div class="reader-content space-y-6">
+    <div class="reader-shell {{ $isFixedView ? 'reader-shell-fixed' : '' }}">
+        <div class="reader-content space-y-6 {{ $isFixedView ? 'reader-content-fixed' : '' }}">
             {{-- ============== SCROLL MODE ============== --}}
             @if($view === 'scroll')
                 <div class="space-y-6">
@@ -475,8 +625,8 @@
     @php
         $bottomLeftLink = null;
         $bottomRightLink = null;
-        $bottomLeftLabel = null;
-        $bottomRightLabel = null;
+        $bottomLeftAction = null;
+        $bottomRightAction = null;
 
         if ($view === 'scroll') {
             $leftBottom  = $nextChapterLink;
@@ -487,20 +637,34 @@
             }
             $bottomLeftLink  = $leftBottom;
             $bottomRightLink = $rightBottom;
-            $bottomLeftLabel = $isManwha ? 'Prev Chapter' : 'Next Chapter';
-            $bottomRightLabel = $isManwha ? 'Next Chapter' : 'Prev Chapter';
+            $bottomLeftAction = $isManwha ? 'prev' : 'next';
+            $bottomRightAction = $isManwha ? 'next' : 'prev';
         } elseif ($view === 'one' && !$isManwha) {
             $bottomLeftLink  = $nextLink;
             $bottomRightLink = $prevLink;
-            $bottomLeftLabel = 'Next';
-            $bottomRightLabel = 'Prev';
+            $bottomLeftAction = 'next';
+            $bottomRightAction = 'prev';
         } elseif ($view === 'double' && !$isManwha) {
             $doubleNext = $nextPairLink ?? $nextLink ?? null;
             $doublePrev = $prevPairLink ?? $prevLink ?? null;
             $bottomLeftLink  = $doubleNext;
             $bottomRightLink = $doublePrev;
-            $bottomLeftLabel = 'Next';
-            $bottomRightLabel = 'Prev';
+            $bottomLeftAction = 'next';
+            $bottomRightAction = 'prev';
+        }
+
+        if ($view === 'one' && !$isManwha) {
+            $bottomMainLabel = 'Page';
+            $bottomMainValue = (string)$pageNumber;
+            $bottomSub = null;
+        } elseif ($view === 'double' && !$isManwha) {
+            $bottomMainLabel = 'Page';
+            $bottomMainValue = $rightNum ? ($leftNum.' | '.$rightNum) : (string)$leftNum;
+            $bottomSub = null;
+        } else {
+            $bottomMainLabel = 'Chapter';
+            $bottomMainValue = $chapterDisplay;
+            $bottomSub = null;
         }
     @endphp
 
@@ -508,15 +672,51 @@
     <div class="reader-bottom-float">
         <div class="reader-bottom-panel">
             <div class="reader-bottom-inner">
-                @if($bottomLeftLink && $bottomLeftLabel)
-                    <a href="{{ $bottomLeftLink }}" class="jump-btn">{{ $bottomLeftLabel }}</a>
+                <div class="reader-bottom-dock">
+                @if($bottomLeftLink)
+                    <a href="{{ $bottomLeftLink }}" class="reader-arrow-square left" aria-label="{{ $bottomLeftAction === 'next' ? 'Next' : 'Previous' }}">
+                        <svg class="reader-arrow-icon {{ $bottomLeftAction === 'next' ? 'is-left' : 'is-right' }}" viewBox="0 0 24 24" aria-hidden="true">
+                            <polyline points="15 4 7 12 15 20"></polyline>
+                        </svg>
+                    </a>
+                @else
+                    <span class="reader-arrow-square left disabled" aria-hidden="true">
+                        <svg class="reader-arrow-icon {{ $bottomLeftAction === 'next' ? 'is-left' : 'is-right' }}" viewBox="0 0 24 24">
+                            <polyline points="15 4 7 12 15 20"></polyline>
+                        </svg>
+                    </span>
                 @endif
-                <span class="text-white font-bold text-sm px-2">
-                    Ch {{ rtrim(rtrim($chapter->chapter_number, '0'), '.') }}
-                </span>
-                @if($bottomRightLink && $bottomRightLabel)
-                    <a href="{{ $bottomRightLink }}" class="jump-btn">{{ $bottomRightLabel }}</a>
+
+                <div class="reader-count-square">
+                    <span class="reader-count-label">{{ $bottomMainLabel }}</span>
+                    @if($view === 'double' && !$isManwha && $rightNum)
+                        <span class="reader-count-pair">
+                            <span>{{ $leftNum }}</span>
+                            <span class="reader-count-sep">|</span>
+                            <span>{{ $rightNum }}</span>
+                        </span>
+                    @else
+                        <span class="reader-count-value">{{ $bottomMainValue }}</span>
+                    @endif
+                    @if($bottomSub)
+                        <span class="reader-count-sub">{{ $bottomSub }}</span>
+                    @endif
+                </div>
+
+                @if($bottomRightLink)
+                    <a href="{{ $bottomRightLink }}" class="reader-arrow-square right" aria-label="{{ $bottomRightAction === 'next' ? 'Next' : 'Previous' }}">
+                        <svg class="reader-arrow-icon {{ $bottomRightAction === 'next' ? 'is-left' : 'is-right' }}" viewBox="0 0 24 24" aria-hidden="true">
+                            <polyline points="15 4 7 12 15 20"></polyline>
+                        </svg>
+                    </a>
+                @else
+                    <span class="reader-arrow-square right disabled" aria-hidden="true">
+                        <svg class="reader-arrow-icon {{ $bottomRightAction === 'next' ? 'is-left' : 'is-right' }}" viewBox="0 0 24 24">
+                            <polyline points="15 4 7 12 15 20"></polyline>
+                        </svg>
+                    </span>
                 @endif
+                </div>
             </div>
         </div>
     </div>

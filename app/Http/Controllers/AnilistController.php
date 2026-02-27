@@ -13,6 +13,7 @@ use Illuminate\Support\Str;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Schema;
 
 class AnilistController extends Controller
 {
@@ -261,6 +262,7 @@ class AnilistController extends Controller
         }
 
         $seenIds = [];
+        $mediaColumns = array_flip(Schema::getColumnListing('media'));
 
         $created = 0; $updated = 0;
 
@@ -339,7 +341,7 @@ class AnilistController extends Controller
                 $base = $titleRo ?: $titleEn ?: ('media-'.$sourceId);
                 $slug = Str::slug($base.'-al'.$sourceId);
 
-                $values = [
+                $values = array_intersect_key([
                     'type'           => $localType,
                     'title_english'  => $titleEn,
                     'title_romaji'   => $titleRo,
@@ -362,7 +364,7 @@ class AnilistController extends Controller
                     'volumes_cnt'    => ($remoteType === 'MANGA') ? $volumesCnt  : null,
                     'languages'      => null,
                     'progress'       => $progress,
-                ];
+                ], $mediaColumns);
 
                 $model = Media::updateOrCreate(
                     ['source' => 'anilist', 'source_id' => $sourceId],
@@ -415,7 +417,6 @@ class AnilistController extends Controller
             media {
               type
               format
-              isAdult
               id
               title { english romaji }
               coverImage { extraLarge }

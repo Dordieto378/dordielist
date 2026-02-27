@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 use App\Models\Media;
@@ -26,6 +27,7 @@ class ImportAnilist extends Command
             $this->error('Unable to get AniList Viewer ID.');
             return self::FAILURE;
         }
+        $mediaColumns = array_flip(Schema::getColumnListing('media'));
         $this->info("AniList Viewer ID: {$viewerId}");
 
         foreach (['ANIME','MANGA'] as $type) {
@@ -140,32 +142,34 @@ class ImportAnilist extends Command
                 $slug = Str::slug($base.'-al'.$sourceId);
 
                 // ----- upsert -----
+                $values = array_intersect_key([
+                    'type'           => $localType,
+                    'title_english'  => $titleEn,
+                    'title_romaji'   => $titleRo,
+                    'slug'           => $slug,
+                    'cover_url'      => $cover,
+                    'banner_url'     => $banner,
+                    'description'    => $desc,
+                    'genres'         => $genres,
+                    'tags'           => $tags,
+                    'publisher'      => $publishers ?: null,
+                    'origin'         => $origin,
+                    'list_status'    => $lStatus,
+                    'media_status'   => $mStatus,
+                    'user_score'     => $uScore,
+                    'avg_score'      => $avgScore,
+                    'year'           => $y,
+                    'start_date'     => $startDate,
+                    'episodes_cnt'   => $episodesToSave,
+                    'chapters_cnt'   => $chaptersToSave,
+                    'volumes_cnt'    => $volumesToSave,
+                    'languages'      => null,
+                    'progress'       => $progress,
+                ], $mediaColumns);
+
                 Media::updateOrCreate(
                     ['source' => 'anilist', 'source_id' => $sourceId],
-                    [
-                        'type'           => $localType,
-                        'title_english'  => $titleEn,
-                        'title_romaji'   => $titleRo,
-                        'slug'           => $slug,
-                        'cover_url'      => $cover,
-                        'banner_url'     => $banner,
-                        'description'    => $desc,
-                        'genres'         => $genres,
-                        'tags'           => $tags,
-                        'publisher'      => $publishers ?: null,
-                        'origin'         => $origin,
-                        'list_status'    => $lStatus,
-                        'media_status'   => $mStatus,
-                        'user_score'     => $uScore,
-                        'avg_score'      => $avgScore,
-                        'year'           => $y,
-                        'start_date'     => $startDate,
-                        'episodes_cnt'   => $episodesToSave,
-                        'chapters_cnt'   => $chaptersToSave,
-                        'volumes_cnt'    => $volumesToSave,
-                        'languages'      => null,
-                        'progress'       => $progress,
-                    ]
+                    $values
                 );
 
                 $saved++;
@@ -202,7 +206,6 @@ class ImportAnilist extends Command
                 createdAt
                 updatedAt
                 media {
-                  isAdult
                   id
                   title { english romaji }
                   coverImage { extraLarge }

@@ -216,7 +216,8 @@
     pointer-events: none;
   }
   .doujin-reader.fixed-mode .doujin-count-square {
-    width: 138px;
+    min-width: 138px;
+    width: max-content;
     height: 88px;
     background: #ab2328;
     color: #ffffff;
@@ -227,7 +228,8 @@
     align-items: center;
     justify-content: center;
     line-height: 1;
-    padding: 0.35rem;
+    padding: 0.35rem 0.85rem 0.25rem;
+    flex: 0 0 auto;
     box-shadow: -8px 0 10px -8px rgba(0, 0, 0, 0.38),
                 8px 0 10px -8px rgba(0, 0, 0, 0.38);
     position: relative;
@@ -245,6 +247,7 @@
     font-size: 2.35rem;
     font-weight: 400;
     letter-spacing: -0.02em;
+    white-space: nowrap;
   }
   .doujin-reader.fixed-mode .doujin-count-pair {
     display: inline-flex;
@@ -253,6 +256,7 @@
     font-size: 2.35rem;
     font-weight: 400;
     letter-spacing: -0.02em;
+    white-space: nowrap;
   }
   .doujin-reader.fixed-mode .doujin-count-sep {
     display: inline-block;
@@ -426,29 +430,40 @@
         $rightUrl = $isRightImage ? Storage::disk('b2')->url(
                     $doujin->pages->where('page_number', $rightNum)->first()->file_path
                     ) : null;
+        $hasSingleSpreadPage = ($isLeftImage xor $isRightImage);
+        $singleSpreadUrl = $isLeftImage ? $leftUrl : $rightUrl;
+        $singleSpreadNum = $isLeftImage ? $leftNum : $rightNum;
     @endphp
 
     <div class="{{ $isFixedView ? 'doujin-fixed-page' : 'relative w-full overflow-hidden' }}">
-        <div class="{{ $isFixedView ? 'doujin-fixed-double' : 'flex justify-center space-x-2' }}">
-        @if($isLeftImage)
-            <div class="relative overflow-hidden">
-            <img
-                src="{{ $leftUrl }}"
-                alt="Page {{ $leftNum }}"
-                class="{{ $isFixedView ? 'doujin-fixed-img' : 'zoomable h-auto object-contain mx-auto' }}"
-            >
-            </div>
+        @if($hasSingleSpreadPage)
+          <img
+            src="{{ $singleSpreadUrl }}"
+            alt="Page {{ $singleSpreadNum }}"
+            class="{{ $isFixedView ? 'doujin-fixed-img z-10' : 'zoomable w-full h-auto object-contain mx-auto z-10' }}"
+          >
+        @else
+          <div class="{{ $isFixedView ? 'doujin-fixed-double' : 'flex justify-center space-x-2' }}">
+          @if($isLeftImage)
+              <div class="relative overflow-hidden">
+              <img
+                  src="{{ $leftUrl }}"
+                  alt="Page {{ $leftNum }}"
+                  class="{{ $isFixedView ? 'doujin-fixed-img' : 'zoomable h-auto object-contain mx-auto' }}"
+              >
+              </div>
+          @endif
+          @if($isRightImage)
+              <div class="relative overflow-hidden">
+              <img
+                  src="{{ $rightUrl }}"
+                  alt="Page {{ $rightNum }}"
+                  class="{{ $isFixedView ? 'doujin-fixed-img' : 'zoomable h-auto object-contain mx-auto' }}"
+              >
+              </div>
+          @endif
+          </div>
         @endif
-        @if($isRightImage)
-            <div class="relative overflow-hidden">
-            <img
-                src="{{ $rightUrl }}"
-                alt="Page {{ $rightNum }}"
-                class="{{ $isFixedView ? 'doujin-fixed-img' : 'zoomable h-auto object-contain mx-auto' }}"
-            >
-            </div>
-        @endif
-        </div>
         @if($nextPairPage)
         <a
             href="{{ route('media.doujin.page', ['doujin' => $doujin->id, 'page' => $nextPairPage, 'view' => 'double']) }}"

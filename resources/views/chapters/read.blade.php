@@ -402,7 +402,8 @@
             pointer-events: none;
         }
         .reader-count-square {
-            width: 138px;
+            min-width: 138px;
+            width: max-content;
             height: 88px;
             background: #ab2328;
             color: #ffffff;
@@ -412,8 +413,9 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding: 0.35rem 0.35rem 0.25rem;
+            padding: 0.35rem 0.85rem 0.25rem;
             line-height: 1;
+            flex: 0 0 auto;
             /* Outside side shading to visually separate center block from arrow blocks */
             box-shadow: -8px 0 10px -8px rgba(0, 0, 0, 0.38),
                         8px 0 10px -8px rgba(0, 0, 0, 0.38);
@@ -432,6 +434,7 @@
             font-size: 2.35rem;
             font-weight: 400;
             letter-spacing: -0.02em;
+            white-space: nowrap;
         }
         .reader-count-pair {
             display: inline-flex;
@@ -440,6 +443,7 @@
             font-size: 2.35rem;
             font-weight: 400;
             letter-spacing: -0.02em;
+            white-space: nowrap;
         }
         .reader-count-sep {
             display: inline-block;
@@ -583,6 +587,9 @@
 
                     $leftUrl    = $isLeftImg  ? asset('storage/'.$leftObj->file_path)  : null;
                     $rightUrl   = $isRightImg ? asset('storage/'.$rightObj->file_path) : null;
+                    $hasSingleSpreadPage = ($isLeftImg xor $isRightImg);
+                    $singleSpreadUrl = $isLeftImg ? $leftUrl : $rightUrl;
+                    $singleSpreadNum = $isLeftImg ? $leftNum : $rightNum;
 
                     // Pair-aware targets for this view
                     $doubleNext = $nextPairLink ?? $nextLink ?? null;
@@ -594,27 +601,35 @@
                 @endphp
 
                 <div class="reader-page reader-full">
-                    <div class="dual-page dual-full">
-                        @if($isLeftImg)
-                            <div class="relative overflow-hidden">
-                                <img
-                                    src="{{ $leftUrl }}"
-                                    alt="Page {{ $leftNum }}"
-                                    class="zoomable reader-img"
-                                >
-                            </div>
-                        @endif
+                    @if($hasSingleSpreadPage)
+                        <img
+                            src="{{ $singleSpreadUrl }}"
+                            alt="Page {{ $singleSpreadNum }}"
+                            class="zoomable reader-img z-10"
+                        >
+                    @else
+                        <div class="dual-page dual-full">
+                            @if($isLeftImg)
+                                <div class="relative overflow-hidden">
+                                    <img
+                                        src="{{ $leftUrl }}"
+                                        alt="Page {{ $leftNum }}"
+                                        class="zoomable reader-img"
+                                    >
+                                </div>
+                            @endif
 
-                        @if($isRightImg)
-                            <div class="relative overflow-hidden">
-                                <img
-                                    src="{{ $rightUrl }}"
-                                    alt="Page {{ $rightNum }}"
-                                    class="zoomable reader-img"
-                                >
-                            </div>
-                        @endif
-                    </div>
+                            @if($isRightImg)
+                                <div class="relative overflow-hidden">
+                                    <img
+                                        src="{{ $rightUrl }}"
+                                        alt="Page {{ $rightNum }}"
+                                        class="zoomable reader-img"
+                                    >
+                                </div>
+                            @endif
+                        </div>
+                    @endif
 
                     {{-- LEFT = NEXT (pair), RIGHT = PREVIOUS (pair) --}}
                     @if($doubleNext)

@@ -774,8 +774,8 @@
                 rightTarget = tmp;
             }
 
-            if (e.key === 'ArrowLeft'  && leftTarget)  window.location.href = leftTarget;
-            if (e.key === 'ArrowRight' && rightTarget) window.location.href = rightTarget;
+            if (e.key === 'ArrowLeft'  && leftTarget)  window.location.replace(leftTarget);
+            if (e.key === 'ArrowRight' && rightTarget) window.location.replace(rightTarget);
         });
 
         // Show top & bottom bars together when hovering either
@@ -800,6 +800,29 @@
             el.addEventListener('mouseenter', () => updateBars(1));
             el.addEventListener('mouseleave', () => updateBars(-1));
         });
+        document.addEventListener('click', (e) => {
+            const link = e.target.closest('a[href]');
+            if (!link) return;
+            if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+            if (link.target && link.target !== '_self') return;
+
+            let url;
+            try {
+                url = new URL(link.href, window.location.origin);
+            } catch (err) {
+                return;
+            }
+
+            const isSameOrigin = url.origin === window.location.origin;
+            const hasReaderView = url.searchParams.has('view');
+            const isReaderPath = /\/chapters\//.test(url.pathname) || /\/page\/\d+/.test(url.pathname);
+            if (!(isSameOrigin && hasReaderView && isReaderPath)) return;
+
+            e.preventDefault();
+            window.location.replace(url.toString());
+        });
 
     </script>
 @endsection
+
+

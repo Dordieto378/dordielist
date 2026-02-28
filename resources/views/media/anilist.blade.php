@@ -30,6 +30,13 @@
                                ->first();
     }
 
+    $localEpisodeCount = $isEpisodeBased
+        ? Episode::where('media_fk', $item['id'])->count()
+        : null;
+    $localChapterCount = $isChapterBased
+        ? Chapter::where('item_id', $item['id'])->count()
+        : null;
+
     $releaseDate = 'N/A';
     if (isset($item['startDate']['year'])) {
         $day   = $item['startDate']['day'] ?? 1;
@@ -227,16 +234,15 @@
                 @if($isChapterBased)
                     <div>Chapters</div>
                     @php
-                        $chapTotal     = $item['chapters'] ?? null;
+                        $chapTotal = $item['chapters'] ?? (($localChapterCount ?? 0) > 0 ? $localChapterCount : null);
                         $chapProgress  = $item['userProgress'] ?? null;
 
-                        if ($chapProgress !== null) {
+                        if ($chapProgress !== null && $chapProgress > 0) {
                             if ($chapTotal !== null && $chapTotal > 0) {
                                 $chapDisplay = ($chapProgress < $chapTotal)
                                     ? "{$chapProgress} / {$chapTotal}"
                                     : $chapTotal;
                             } else {
-                                // total unknown
                                 $chapDisplay = "{$chapProgress} / N/A";
                             }
                         } else {
@@ -251,10 +257,10 @@
                 @elseif($isEpisodeBased)
                     <div>Episodes</div>
                     @php
-                        $epTotal     = $item['episodes'] ?? null;
+                        $epTotal = $item['episodes'] ?? (($localEpisodeCount ?? 0) > 0 ? $localEpisodeCount : null);
                         $epProgress  = $item['userProgress'] ?? null;
 
-                        if ($epProgress !== null) {
+                        if ($epProgress !== null && $epProgress > 0) {
                             if ($epTotal !== null && $epTotal > 0) {
                                 $epDisplay = ($epProgress < $epTotal)
                                     ? "{$epProgress} / {$epTotal}"
@@ -958,3 +964,5 @@ if (dropZone && fileInput) {
 </script>
 
 @endsection
+
+

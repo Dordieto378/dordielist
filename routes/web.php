@@ -113,6 +113,7 @@ Route::middleware('auth')->group(function () {
 
         // Users
         Route::get('/users', [SettingsController::class, 'users'])->name('users');
+        Route::put('/users/{user}', [SettingsController::class, 'updateManagedUser'])->name('users.update');
 
         // Security / 2FA
         Route::view('/security', 'settings.security')->name('security');

@@ -503,6 +503,7 @@
                 @php
                     $allowedExts = ['jpg','jpeg','png','gif','webp'];
                     $isMangaType = strtoupper($item['type'] ?? '') === 'MANGA';
+                    $isManwhaType = strtoupper($item['type'] ?? '') === 'MANWHA';
                 @endphp
 
                 @foreach($chapters->chunk(4) as $rowIndex => $row)
@@ -537,8 +538,14 @@
 
                         <div onclick="window.location.href='{{ route('chapters.page', ['media' => $chapter->item_id, 'chapter' => $chapterParam, 'page' => 1]) }}'"
                              class="cursor-pointer">
-                            <div class="relative w-full rounded-lg overflow-hidden shadow-lg">
-                                <img src="{{ $thumb }}" alt="{{ $chapter->chapter_title }}" class="w-full h-auto object-contain">
+                            <div class="relative w-full rounded-lg overflow-hidden shadow-lg"
+                                 @if($isManwhaType) style="height: 460px;" @endif>
+                                <img
+                                    src="{{ $thumb }}"
+                                    alt="{{ $chapter->chapter_title }}"
+                                    class="w-full {{ $isManwhaType ? '' : 'h-auto object-contain' }}"
+                                    @if($isManwhaType) style="height: 100%; object-fit: cover; object-position: top;" @endif
+                                >
                                 <span class="absolute z-10 bg-black/70 text-white text-lg font-semibold px-2 py-0.5 rounded leading-none"
                                       style="right: 8px; bottom: 8px; top: auto; left: auto;">
                                     {{ $chapterBadge }}

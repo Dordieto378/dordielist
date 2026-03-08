@@ -161,7 +161,7 @@
             padding-right: 0;
         }
         .reader-title {
-            font-size: 1rem;
+            font-size: 1.125rem;
             font-weight: 700;
             color: #ffffff;
             text-decoration: none;
@@ -172,13 +172,7 @@
         .reader-title-chapter {
             font-size: 1rem;
             font-weight: 700;
-            color: #ffffff;
-        }
-        .reader-title-sep {
-            font-size: 1rem;
-            font-weight: 700;
-            color: #ffffff;
-            margin: 0 0.2rem;
+            margin-left: 0.6rem;
         }
         .reader-shell {
             min-height: 100vh;
@@ -480,8 +474,7 @@
                         <a href="{{ $itemUrl }}" class="reader-title" title="{{ $itemTitle }}">
                             {{ shortTitle($itemTitle, 40) }}
                         </a>
-                        <span class="reader-title-sep"> - </span>
-                        <span class="reader-title-chapter">Chapter {{ $chapterDisplay }}</span>
+                        <span class="reader-title-chapter text-gray-300">Chapter {{ $chapterDisplay }}</span>
                     </div>
                 </div>
                 <div class="flex items-center space-x-2 text-white text-sm">

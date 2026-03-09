@@ -267,4 +267,254 @@
             @endif
         @endauth
     </div>
+
+    @auth
+        <div
+          id="addToCollectionModal"
+          class="fixed inset-0 flex items-start pt-[130px] justify-center bg-black bg-opacity-50 hidden z-50"
+        >
+            <div class="relative bg-white p-4 text-left shadow-2xl w-[800px] rounded-lg">
+                <div class="flex justify-between items-start pb-4 pt-2 border-b ml-4 mr-4 border-gray-200">
+                    <h3 class="text-lg font-bold text-gray-800">Add to Collection</h3>
+                    <button id="closeAddModal" type="button" class="text-gray-400 hover:text-gray-900" aria-label="Close Add Modal">
+                        <span class="sr-only">Close</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none"
+                             viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                  d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="border-b border-gray-200 mr-4 ml-4">
+                    <form method="POST" action="{{ route('collection.attachMedia') }}" class="space-y-4" id="attachCollectionsForm">
+                        @csrf
+                        <input type="hidden" name="item_type" value="{{ $normalizedTypeFromItem }}">
+                        <input type="hidden" name="item_id" value="{{ $media->id }}">
+
+                        <div id="collectionCheckboxList" class="text-gray-800">
+                            @foreach($allCollections as $col)
+                                <label class="flex items-center justify-between w-full space-x-2 px-4 py-[15px] rounded hover:bg-gray-100 transition-colors">
+                                    <div class="flex items-center space-x-2">
+                                        @if($col->is_system)
+                                            <input
+                                              type="checkbox"
+                                              name="add_to_favorites"
+                                              value="1"
+                                              class="sr-only peer"
+                                              {{ isset($isFavorited) && $isFavorited ? 'checked' : '' }}
+                                              onchange="document.getElementById('attachCollectionsForm').submit()"
+                                            />
+                                        @else
+                                            <input
+                                              type="checkbox"
+                                              name="collection_ids[]"
+                                              value="{{ $col->id }}"
+                                              class="sr-only peer"
+                                              {{ in_array($col->id, $attachedIds, true) ? 'checked' : '' }}
+                                              onchange="this.form.submit()"
+                                            />
+                                        @endif
+
+                                        <span class="mr-1 inline-block h-[20px] w-[20px] rounded border border-gray-600 bg-white transition peer-checked:bg-flatRed peer-checked:border-red-600 group-hover:bg-gray-100 flex items-center justify-center">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-white hidden peer-checked:block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                            </svg>
+                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="4" stroke="currentColor" class="size-[14px] text-white">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                                            </svg>
+                                        </span>
+
+                                        <span class="font-medium pl-1">{{ $col->name }}</span>
+                                    </div>
+
+                                    <a href="{{ route('collection.show', $col) }}" class="pr-4 text-sm text-blue-600 hover:underline font-medium">
+                                        View
+                                    </a>
+                                </label>
+                            @endforeach
+                        </div>
+                    </form>
+                </div>
+
+                <div class="mb-2 px-4 flex justify-center">
+                    <button
+                      id="openInlineCreateCollection"
+                      type="button"
+                      class="w-full px-6 py-[15px] hover:bg-gray-100 transition-colors rounded"
+                    >
+                        <span class="font-medium text-gray-800">Create New Collection</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div
+          id="createCollectionModal"
+          class="fixed inset-0 flex items-start pt-[130px] justify-center bg-black bg-opacity-50 hidden z-50"
+        >
+            <div
+                class="relative bg-white p-4 text-left shadow-2xl w-[800px] h-[255px] rounded-lg space-y-6 overflow-auto"
+                role="dialog"
+                aria-modal="true"
+            >
+                <div class="flex justify-between items-start pb-4 pt-2 border-b border-gray-200">
+                    <h2 class="text-lg font-bold text-gray-800 pl-4">Create New Collection</h2>
+                    <button
+                      id="closeCreateModal"
+                      type="button"
+                      class="text-gray-400 hover:text-gray-900 pr-4"
+                      aria-label="Close Create Modal"
+                    >
+                        <span class="sr-only">Close</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none"
+                             viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                  d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="space-y-4">
+                    <form id="collectionCreateForm" class="space-y-4" method="POST" action="{{ route('collection.store') }}">
+                        @csrf
+                        <label class="block relative" for="name">
+                            <span class="block mb-2 label-text text-red-600 font-medium pl-4">Collection Name</span>
+                            <input
+                              type="text"
+                              id="name"
+                              name="name"
+                              class="w-[735px] ml-4 rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
+                              required
+                            />
+
+                            @error('name')
+                                <span class="text-red-600 text-sm mt-1">{{ $message }}</span>
+                            @enderror
+                        </label>
+
+                        <div class="block">
+                            <button type="submit" class="flatGreen transition-200 text-white px-5 py-3 rounded ml-4">
+                                Create Collection
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                const addModal       = document.getElementById('addToCollectionModal');
+                const createModal    = document.getElementById('createCollectionModal');
+                const openAddBtn     = document.getElementById('openAddToCollection');
+                const closeAddBtn    = document.getElementById('closeAddModal');
+                const openCreateBtn  = document.getElementById('openInlineCreateCollection');
+                const closeCreateBtn = document.getElementById('closeCreateModal');
+                const createForm     = document.getElementById('collectionCreateForm');
+                const listContainer  = document.getElementById('collectionCheckboxList');
+
+                const lockBody = () => document.body.classList.add('overflow-hidden');
+                const unlockBody = () => {
+                    const addHidden = !addModal || addModal.classList.contains('hidden');
+                    const createHidden = !createModal || createModal.classList.contains('hidden');
+                    if (addHidden && createHidden) {
+                        document.body.classList.remove('overflow-hidden');
+                    }
+                };
+
+                const showAdd = () => {
+                    if (!addModal) return;
+                    addModal.classList.remove('hidden');
+                    lockBody();
+                };
+                const hideAdd = () => {
+                    if (!addModal) return;
+                    addModal.classList.add('hidden');
+                    unlockBody();
+                };
+                const showCreate = () => {
+                    if (!createModal) return;
+                    createModal.classList.remove('hidden');
+                    lockBody();
+                };
+                const hideCreate = () => {
+                    if (!createModal) return;
+                    createModal.classList.add('hidden');
+                    unlockBody();
+                };
+
+                if (openAddBtn) {
+                    openAddBtn.addEventListener('click', showAdd);
+                }
+                if (closeAddBtn && addModal) {
+                    closeAddBtn.addEventListener('click', hideAdd);
+                    addModal.addEventListener('click', (e) => {
+                        if (e.target === addModal) hideAdd();
+                    });
+                    document.addEventListener('keyup', (e) => {
+                        if (e.key === 'Escape' && !addModal.classList.contains('hidden')) hideAdd();
+                    });
+                }
+
+                if (openCreateBtn) {
+                    openCreateBtn.addEventListener('click', () => {
+                        hideAdd();
+                        showCreate();
+                    });
+                }
+
+                if (closeCreateBtn && createModal) {
+                    closeCreateBtn.addEventListener('click', hideCreate);
+                    createModal.addEventListener('click', (e) => {
+                        if (e.target === createModal) hideCreate();
+                    });
+                    document.addEventListener('keyup', (e) => {
+                        if (e.key === 'Escape' && !createModal.classList.contains('hidden')) hideCreate();
+                    });
+                }
+
+                if (createForm && listContainer) {
+                    createForm.addEventListener('submit', async (e) => {
+                        e.preventDefault();
+                        const token = document.querySelector('meta[name="csrf-token"]').content;
+                        const res = await fetch(createForm.action, {
+                            method: 'POST',
+                            headers: {
+                                'Accept': 'application/json',
+                                'X-CSRF-TOKEN': token,
+                            },
+                            body: new FormData(createForm),
+                        });
+
+                        if (!res.ok) {
+                            const err = await res.json();
+                            return alert(err.errors?.name?.[0] || 'Create failed');
+                        }
+
+                        const newCol = await res.json();
+                        listContainer.insertAdjacentHTML('beforeend', `
+                            <label class="flex items-center justify-between w-full space-x-2 px-4 py-[15px] rounded hover:bg-gray-100 transition-colors">
+                                <div class="flex items-center space-x-2">
+                                    <input type="checkbox" name="collection_ids[]" value="${newCol.id}" class="sr-only peer" onchange="this.form.submit()" />
+                                    <span class="mr-1 inline-block h-[20px] w-[20px] rounded border border-gray-600 bg-white transition peer-checked:bg-flatRed peer-checked:border-red-600 group-hover:bg-gray-100 flex items-center justify-center">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-white hidden peer-checked:block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                        </svg>
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="4" stroke="currentColor" class="size-[14px] text-white">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                                        </svg>
+                                    </span>
+                                    <span class="font-medium pl-1">${newCol.name}</span>
+                                </div>
+                                <a href="/collection/${newCol.id}" class="pr-4 text-sm text-blue-600 hover:underline font-medium">View</a>
+                            </label>
+                        `);
+
+                        hideCreate();
+                    });
+                }
+            });
+        </script>
+    @endauth
 @endsection

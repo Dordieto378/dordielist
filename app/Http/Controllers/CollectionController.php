@@ -8,7 +8,6 @@ use App\Models\CollectionItem;
 use App\Models\Favorite;
 use Illuminate\Support\Facades\Storage;
 use App\Models\Media;
-use App\Models\Doujin;
 use Illuminate\Support\Str;
 
 
@@ -35,9 +34,13 @@ class CollectionController extends Controller
                     break;
 
                 case 'doujins':
-                    $doujin = Doujin::find($id);
+                    $doujin = Media::where('type', 'doujin')->find($id);
                     $favoritesThumbnail = $doujin
-                        ? Storage::url($doujin->cover_url)
+                        ? ($doujin->cover_url
+                            ? (Str::startsWith((string) $doujin->cover_url, ['http://','https://','/'])
+                                ? $doujin->cover_url
+                                : Storage::url((string) $doujin->cover_url))
+                            : asset('images/no-image.jpg'))
                         : asset('images/no-image.jpg');
                     break;
 
@@ -283,15 +286,23 @@ class CollectionController extends Controller
         }
 
         if ($type === 'doujins') {
-            $doujin = Doujin::find($id);
+            $doujin = Media::where('type', 'doujin')->find($id);
             if (! $doujin) return null;
+
+            $cover = $doujin->cover_url
+                ? (Str::startsWith((string) $doujin->cover_url, ['http://','https://','/'])
+                    ? $doujin->cover_url
+                    : Storage::url((string) $doujin->cover_url))
+                : asset('images/no-image.jpg');
+
+            $title = $doujin->title_english ?: ($doujin->title_romaji ?: $doujin->slug);
 
             return [
                 '__type'     => 'doujins',
-                'coverImage' => ['extraLarge' => Storage::url($doujin->cover_url)],
+                'coverImage' => ['extraLarge' => $cover],
                 'title'      => [
-                    'english' => $doujin->doujin_name,
-                    'romaji'  => $doujin->doujin_name,
+                    'english' => $title,
+                    'romaji'  => $title,
                 ],
             ];
         }
@@ -364,7 +375,7 @@ class CollectionController extends Controller
                 $link = route('vn.show', 'v'.$id);
                 break;
             case 'doujins':
-                $link = route('media.doujin', $id);
+                $link = route('doujins.show', ['media' => $id]);
                 break;
             default:
                 $link = route('media.show', $id);

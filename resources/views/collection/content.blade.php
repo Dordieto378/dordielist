@@ -37,7 +37,7 @@
                             $link = route('vn.show', 'v'.$ci->item_id);
                             break;
                         case 'doujins':
-                            $link = route('media.doujin', $ci->item_id);
+                            $link = route('doujins.show', ['media' => $ci->item_id]);
                             break;
                         default:
                             $link = route('media.show', $ci->item_id);

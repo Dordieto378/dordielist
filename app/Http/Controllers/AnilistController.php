@@ -14,6 +14,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Validator;
 
 class AnilistController extends Controller
 {
@@ -137,6 +138,92 @@ class AnilistController extends Controller
             'allCollections' => $allCollections,
             'attachedIds'    => $attachedIds,
         ]);
+    }
+
+    public function updateEntry(Request $request, Media $media)
+    {
+        abort_unless(in_array($media->type, ['anime', 'hentai', 'manga', 'manwha'], true), 404);
+
+        $validator = Validator::make($request->all(), [
+            'progress' => ['nullable', 'integer', 'min:0'],
+            'list_status' => ['required', 'in:CURRENT,PLANNING,COMPLETED,PAUSED,DROPPED,REPEATING'],
+            'user_score' => ['nullable', 'integer', 'min:0', 'max:100'],
+        ]);
+
+        if ($validator->fails()) {
+            return back()
+                ->withInput()
+                ->with('open_edit_entry_modal', true)
+                ->with('entry_update_error', $validator->errors()->first());
+        }
+
+        $token = env('ANILIST_ACCESS_TOKEN');
+        if (!$token) {
+            return back()
+                ->withInput()
+                ->with('open_edit_entry_modal', true)
+                ->with('entry_update_error', 'ANILIST_ACCESS_TOKEN is missing in .env');
+        }
+
+        if (($media->source ?? null) !== 'anilist' || empty($media->source_id)) {
+            return back()
+                ->withInput()
+                ->with('open_edit_entry_modal', true)
+                ->with('entry_update_error', 'This entry is not linked to an AniList media record.');
+        }
+
+        $data = $validator->validated();
+        $progress = $data['progress'] === null || $data['progress'] == ''
+            ? null
+            : (int) $data['progress'];
+        $scoreRaw = $data['user_score'] === null || $data['user_score'] == ''
+            ? null
+            : (int) $data['user_score'];
+        $listStatus = (string) $data['list_status'];
+
+        $query = <<<'GQL'
+mutation ($mediaId: Int, $status: MediaListStatus, $progress: Int, $scoreRaw: Int) {
+  SaveMediaListEntry(mediaId: $mediaId, status: $status, progress: $progress, scoreRaw: $scoreRaw) {
+    id
+    status
+    progress
+  }
+}
+GQL;
+
+        $response = Http::withHeaders([
+            'Authorization' => "Bearer {$token}",
+            'Content-Type' => 'application/json',
+            'Accept' => 'application/json',
+        ])->post('https://graphql.anilist.co', [
+            'query' => $query,
+            'variables' => [
+                'mediaId' => (int) $media->source_id,
+                'status' => $listStatus,
+                'progress' => $progress,
+                'scoreRaw' => $scoreRaw,
+            ],
+        ]);
+
+        $apiError = $response->json('errors.0.message');
+        if (!$response->successful() || $apiError) {
+            return back()
+                ->withInput()
+                ->with('open_edit_entry_modal', true)
+                ->with('entry_update_error', $apiError ?: 'AniList update failed.');
+        }
+
+        $media->progress = $progress;
+        $media->list_status = $listStatus;
+        $media->user_score = $scoreRaw;
+
+        if (Schema::hasColumn('media', 'list_updated_at')) {
+            $media->list_updated_at = now();
+        }
+
+        $media->save();
+
+        return back();
     }
 
     /**

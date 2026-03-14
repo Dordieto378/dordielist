@@ -87,9 +87,45 @@
     // Collections list for the modal
     $allCollections = Collection::orderBy('name')->get();
 
+    $currentProgress = old('progress', $item['userProgress'] ?? null);
+    $currentScore = old('user_score', $item['userScore'] ?? null);
+    $currentListStatus = old('list_status', $item['listStatus'] ?? 'PLANNING');
+
+    $listOptions = [
+        'CURRENT' => $isEpisodeBased ? 'Watching' : 'Reading',
+        'PLANNING' => 'Planning',
+        'COMPLETED' => 'Completed',
+        'PAUSED' => 'Paused',
+        'DROPPED' => 'Dropped',
+        'REPEATING' => $isEpisodeBased ? 'Rewatching' : 'Rereading',
+    ];
+
+    if (!array_key_exists($currentListStatus, $listOptions)) {
+        $currentListStatus = 'PLANNING';
+    }
+
+    $progressFieldLabel = $isEpisodeBased ? 'Episode Progress' : 'Chapter Progress';
+    $progressTotal = $isEpisodeBased
+        ? ($item['episodes'] ?? (($localEpisodeCount ?? 0) > 0 ? $localEpisodeCount : null))
+        : ($item['chapters'] ?? (($localChapterCount ?? 0) > 0 ? $localChapterCount : null));
+    $syncButtonLabel = $isEpisodeBased ? 'Add Episode(s)' : 'Add Chapter(s)';
+    $syncRoute = $isEpisodeBased
+        ? route('episodes.sync', ['media' => $item['id']])
+        : route('chapters.sync', ['media' => $item['id']]);
+
 @endphp
 
 <div class="flex flex-col items-center py-[8.5rem]">
+    @if(session('status'))
+        @php
+            $flashClasses = session('status_color') === 'red'
+                ? 'bg-red-50 text-red-700 border border-red-200'
+                : 'bg-green-50 text-green-700 border border-green-200';
+        @endphp
+        <div class="w-[1280px] mb-4 rounded-md px-5 py-4 text-sm font-medium {{ $flashClasses }}">
+            {{ session('status') }}
+        </div>
+    @endif
     <div class="w-[1280px] h-auto bg-white shadow-sm rounded-md p-6 ml-[0.5rem]">
         <div class="flex flex-col md:flex-row">
             {{-- Left Column: Image & Buttons --}}
@@ -189,41 +225,15 @@
                         </svg>
                         <span class="ml-[0.2rem]">Add to Collection</span>
                     </button>
-                    @if(optional(auth()->user()->role)->role === 'Admin')
-                        @if($isEpisodeBased)
-                            <form method="POST" action="{{ route('episodes.sync', ['media' => $item['id']]) }}">
-                                @csrf
-                                <button type="submit"
-                                        class="flex items-center justify-start w-full text-blue-950 py-2 rounded-sm hover:text-[#08875b]">
-                                    <svg xmlns="http://www.w3.org/2000/svg"
-                                         class="ml-[1.4rem] h-[1.1rem] w-[1.1rem] mr-[0.5rem] mb-[0.1rem]"
-                                         fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                        <path stroke-linecap="round" stroke-linejoin="round"
-                                              d="M15.232 5.232l3.536 3.536M4 21h4.586a1 1
-                      0 00.707-.293l10-10a1 1 0 000-1.414L14.414 4.293a1 1
-                      0 00-1.414 0l-10 10A1 1 0 004 14.586V19a2 2 0 002 2z"/>
-                                    </svg>
-                                    <span class="ml-1">Add Episode(s)</span>
-                                </button>
-                            </form>
-                        @elseif($isChapterBased)
-                            <form method="POST" action="{{ route('chapters.sync', ['media' => $item['id']]) }}">
-                                @csrf
-                                <button type="submit"
-                                        class="flex items-center justify-start w-full text-blue-950 py-2 rounded-sm hover:text-[#08875b]">
-                                    <svg xmlns="http://www.w3.org/2000/svg"
-                                         class="ml-[1.4rem] h-[1.1rem] w-[1.1rem] mr-[0.5rem] mb-[0.1rem]"
-                                         fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                        <path stroke-linecap="round" stroke-linejoin="round"
-                                              d="M15.232 5.232l3.536 3.536M4 21h4.586a1 1
-                      0 00.707-.293l10-10a1 1 0 000-1.414L14.414 4.293a1 1
-                      0 00-1.414 0l-10 10A1 1 0 004 14.586V19a2 2 0 002 2z"/>
-                                    </svg>
-                                    <span class="ml-1">Add Chapter(s)</span>
-                                </button>
-                            </form>
-                        @endif
-                    @endif
+                    <button id="openEditEntryModal" type="button" class="flex items-center justify-start w-full text-blue-950 py-2 rounded-sm hover:text-[#08875b]">
+                        <svg xmlns="http://www.w3.org/2000/svg"
+                             class="ml-[1.4rem] h-[1.1rem] w-[1.1rem] mr-[0.5rem] mb-[0.1rem]"
+                             fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                  d="M15.232 5.232l3.536 3.536M4 21h4.586a1 1 0 00.707-.293l10-10a1 1 0 000-1.414L14.414 4.293a1 1 0 00-1.414 0l-10 10A1 1 0 004 14.586V19a2 2 0 002 2z"/>
+                        </svg>
+                        <span class="ml-1">Edit</span>
+                    </button>
                 </div>
                 @endauth
             </div>
@@ -596,6 +606,101 @@
 
 
 <div
+  id="editEntryModal"
+  class="fixed inset-0 flex items-start pt-[130px] justify-center bg-black bg-opacity-50 hidden z-50"
+>
+  <div class="relative bg-white p-4 text-left shadow-2xl w-[800px] rounded-lg">
+    <div class="flex justify-between items-start pb-4 pt-2 border-b ml-4 mr-4 border-gray-200">
+      <h3 class="text-lg font-bold text-gray-800">Edit Entry</h3>
+      <button id="closeEditModal" type="button" class="text-gray-400 hover:text-gray-900" aria-label="Close Edit Modal">
+        <span class="sr-only">Close</span>
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none"
+             viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+          <path stroke-linecap="round" stroke-linejoin="round"
+                d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="border-b border-gray-200 mr-4 ml-4">
+      <form method="POST" action="{{ route('media.entry.update', ['media' => $item['id']]) }}" class="space-y-4 py-4" id="editEntryForm">
+        @csrf
+        @method('PATCH')
+
+        @if(session('entry_update_error'))
+          <div class="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+            {{ session('entry_update_error') }}
+          </div>
+        @endif
+
+        <div class="grid grid-cols-2 gap-4">
+          <label class="block">
+            <span class="block mb-2 text-red-600 font-medium">{{ $progressFieldLabel }}</span>
+            <input
+              type="number"
+              min="0"
+              name="progress"
+              value="{{ $currentProgress ?? '' }}"
+              class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
+              placeholder="0"
+            />
+          </label>
+
+          <label class="block">
+            <span class="block mb-2 text-red-600 font-medium">Score</span>
+            <input
+              type="number"
+              min="0"
+              max="100"
+              name="user_score"
+              value="{{ $currentScore ?? '' }}"
+              class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
+              placeholder="0 - 100"
+            />
+          </label>
+
+          <label class="block col-span-2">
+            <span class="block mb-2 text-red-600 font-medium">List</span>
+            <select
+              name="list_status"
+              class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
+            >
+              @foreach($listOptions as $value => $label)
+                <option value="{{ $value }}" {{ $currentListStatus === $value ? 'selected' : '' }}>
+                  {{ $label }}
+                </option>
+              @endforeach
+            </select>
+          </label>
+        </div>
+      </form>
+    </div>
+
+    <div class="mb-2 px-4 pt-4 flex items-center justify-between gap-3">
+      <div>
+        @if(optional(auth()->user()->role)->role === 'Admin')
+          <form method="POST" action="{{ $syncRoute }}">
+            @csrf
+            <button type="submit" class="flatGreen transition-200 text-white px-5 py-3 rounded">
+              {{ $syncButtonLabel }}
+            </button>
+          </form>
+        @endif
+      </div>
+
+      <div class="flex items-center gap-3">
+        <button id="cancelEditModal" type="button" class="px-5 py-3 rounded border border-gray-200 text-gray-700 font-medium hover:bg-gray-100 transition-colors">
+          Cancel
+        </button>
+        <button form="editEntryForm" type="submit" class="flatGreen transition-200 text-white px-5 py-3 rounded">
+          Save Changes
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div
   id="addToCollectionModal"
   class="fixed inset-0 flex items-start pt-[130px] justify-center bg-black bg-opacity-50 hidden z-50"
 >
@@ -800,9 +905,13 @@ function chapterUpload () {
 <script>
 document.addEventListener('DOMContentLoaded', () => {
 const addModal       = document.getElementById('addToCollectionModal');
+const editModal      = document.getElementById('editEntryModal');
 const createModal    = document.getElementById('createCollectionModal');
 const openAddBtn     = document.getElementById('openAddToCollection');
+const openEditBtn    = document.getElementById('openEditEntryModal');
 const closeAddBtn    = document.getElementById('closeAddModal');
+const closeEditBtn   = document.getElementById('closeEditModal');
+const cancelEditBtn  = document.getElementById('cancelEditModal');
 const openCreateBtn  = document.getElementById('openInlineCreateCollection');
 const closeCreateBtn = document.getElementById('closeCreateModal');
 const createForm     = document.getElementById('collectionCreateForm');
@@ -815,18 +924,21 @@ const progressBar = document.getElementById('progressBar');
 const progressText= document.getElementById('progressText');
 
 // helpers
+const shouldOpenEditModal = @json(session('open_edit_entry_modal', false));
 const lockBody   = ()=> document.body.classList.add('overflow-hidden');
 const unlockBody = ()=> {
-  // only unlock if both modals are hidden
   const addHidden = !addModal || addModal.classList.contains('hidden');
+  const editHidden = !editModal || editModal.classList.contains('hidden');
   const createHidden = !createModal || createModal.classList.contains('hidden');
-  if (addHidden && createHidden) {
+  if (addHidden && editHidden && createHidden) {
     document.body.classList.remove('overflow-hidden');
   }
 };
 
 const showAdd    = ()=> { if (!addModal) return; addModal.classList.remove('hidden'); lockBody(); };
 const hideAdd    = ()=> { if (!addModal) return; addModal.classList.add('hidden'); unlockBody(); };
+const showEdit   = ()=> { if (!editModal) return; editModal.classList.remove('hidden'); lockBody(); };
+const hideEdit   = ()=> { if (!editModal) return; editModal.classList.add('hidden'); unlockBody(); };
 const showCreate = ()=> { if (!createModal) return; createModal.classList.remove('hidden'); lockBody(); };
 const hideCreate = ()=> { if (!createModal) return; createModal.classList.add('hidden'); unlockBody(); };
 
@@ -838,6 +950,21 @@ if (closeAddBtn && addModal) {
   closeAddBtn.addEventListener('click', hideAdd);
   addModal.addEventListener('click', e => { if(e.target===addModal) hideAdd(); });
   document.addEventListener('keyup', e => { if(e.key==='Escape' && !addModal.classList.contains('hidden')) hideAdd(); });
+}
+
+if (openEditBtn && editModal) {
+  openEditBtn.addEventListener('click', showEdit);
+}
+if (closeEditBtn && editModal) {
+  closeEditBtn.addEventListener('click', hideEdit);
+  editModal.addEventListener('click', e => { if (e.target === editModal) hideEdit(); });
+  document.addEventListener('keyup', e => { if (e.key === 'Escape' && !editModal.classList.contains('hidden')) hideEdit(); });
+}
+if (cancelEditBtn) {
+  cancelEditBtn.addEventListener('click', hideEdit);
+}
+if (shouldOpenEditModal) {
+  showEdit();
 }
 
 // from inside Add, open Create

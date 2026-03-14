@@ -143,6 +143,7 @@ Route::middleware('auth')->group(function () {
             ->name('collection.random');
     });
 
+    Route::patch('/media/{media}/entry', [AnilistController::class, 'updateEntry'])->name('media.entry.update');
     // Episode & Chapter management
     Route::post('/media/{media}/episodes', [EpisodeController::class, 'syncFromDisk'])->name('episodes.sync');
     Route::get('/media/{media}/episodes/{episode}', [EpisodeController::class, 'show'])->name('episodes.show');

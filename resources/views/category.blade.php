@@ -683,7 +683,7 @@ function redirectWithFilters () {
     const qp = new URLSearchParams();
     if (tags)        qp.append('tags',        tags);
     if (languages)   qp.append('language',    languages);
-    if (genres.length) genres.forEach(g => qp.append('genre', g));
+    if (genres.length) genres.forEach(g => qp.append('genre[]', g));
     if (studios)     qp.append('studio',      studios);
     if (authors)     qp.append('author',      authors);
     if (developers)  qp.append('developers',  developers);

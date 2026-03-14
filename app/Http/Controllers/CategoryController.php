@@ -295,9 +295,14 @@ class CategoryController extends Controller
             $q->where('year', $year);
         }
 
-        $genreParams = (array)$request->query('genre', []);
+        $genreParams = $request->query('genre', []);
+        if (!is_array($genreParams)) {
+            $genreParams = array_map('trim', explode(',', (string) $genreParams));
+        }
+        $genreParams = array_values(array_filter($genreParams, fn ($g) => $g !== ''));
+
         foreach ($genreParams as $g) {
-            if ($g !== '') $q->whereJsonContains('genres', $g);
+            $q->whereJsonContains('genres', $g);
         }
 
         if ($tagsCsv = $request->query('tags')) {

@@ -40,6 +40,10 @@ class SettingsController extends Controller
                 'regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{15,}$/',
                 'confirmed',
             ],
+            'anilist_access_token' => ['nullable', 'string'],
+            'vndb_api_token' => ['nullable', 'string'],
+            'vndb_username' => ['nullable', 'string', 'max:255'],
+            'vndb_password' => ['nullable', 'string'],
         ];
 
         $validator = Validator::make($request->all(), $rules);
@@ -48,6 +52,7 @@ class SettingsController extends Controller
             $firstError = $validator->errors()->first();
 
             return back()
+                ->withInput()
                 ->with('status', $firstError)
                 ->with('status_color', 'red');
         }
@@ -56,6 +61,10 @@ class SettingsController extends Controller
 
         $user->username = $data['username'];
         $user->email    = $data['email'];
+        $user->anilist_access_token = $data['anilist_access_token'] ?: null;
+        $user->vndb_api_token = $data['vndb_api_token'] ?: null;
+        $user->vndb_username = $data['vndb_username'] ?: null;
+        $user->vndb_password = $data['vndb_password'] ?: null;
 
         if (!empty($data['password'])) {
             $user->password = $data['password'];
@@ -65,7 +74,7 @@ class SettingsController extends Controller
 
         return redirect()
             ->route('settings.profile.edit')
-            ->with('status', 'Profile updated successfully.')
+            ->with('status', 'Settings updated successfully.')
             ->with('status_color', 'green');
     }
 

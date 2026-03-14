@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Auth;
 
 class AnilistController extends Controller
 {
@@ -157,12 +158,12 @@ class AnilistController extends Controller
                 ->with('entry_update_error', $validator->errors()->first());
         }
 
-        $token = env('ANILIST_ACCESS_TOKEN');
+        $token = Auth::user()?->anilist_access_token;
         if (!$token) {
             return back()
                 ->withInput()
                 ->with('open_edit_entry_modal', true)
-                ->with('entry_update_error', 'ANILIST_ACCESS_TOKEN is missing in .env');
+                ->with('entry_update_error', 'Add your AniList access token in account settings first.');
         }
 
         if (($media->source ?? null) !== 'anilist' || empty($media->source_id)) {
@@ -331,9 +332,9 @@ GQL;
 
     public function syncFromAnilist(Request $request)
     {
-        $token = env('ANILIST_ACCESS_TOKEN');
+        $token = Auth::user()?->anilist_access_token;
         if (!$token) {
-            return back()->with('error', 'ANILIST_ACCESS_TOKEN is missing in .env');
+            return back()->with('error', 'Add your AniList access token in account settings first.');
         }
 
         $viewerId = $this->getViewerId($token);

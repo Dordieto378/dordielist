@@ -46,6 +46,10 @@ class User extends Authenticatable
         'status',
         'role_id',
         'email_verified_at',
+        'anilist_access_token',
+        'vndb_api_token',
+        'vndb_username',
+        'vndb_password',
     ];
 
     /**
@@ -57,6 +61,9 @@ class User extends Authenticatable
         'password',
         'two_factor_secret',
         'two_factor_recovery_codes',
+        'anilist_access_token',
+        'vndb_api_token',
+        'vndb_password',
     ];
 
     /**
@@ -65,8 +72,11 @@ class User extends Authenticatable
      * @var array
      */
     protected $casts = [
-        'email_verified_at'   => 'datetime',
-        'two_factor_confirmed'=> 'boolean',
+        'email_verified_at'    => 'datetime',
+        'two_factor_confirmed' => 'boolean',
+        'anilist_access_token' => 'encrypted',
+        'vndb_api_token'       => 'encrypted',
+        'vndb_password'        => 'encrypted',
     ];
 
     /**

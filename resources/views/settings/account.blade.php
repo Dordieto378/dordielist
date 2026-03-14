@@ -102,13 +102,81 @@
                 </div>
               </div>
 
+              <div class="mt-6">
+                <label for="anilist_access_token" class="block font-medium text-[17px] text-red-600">
+                  AniList Access Token
+                </label>
+                <div class="relative mt-1">
+                  <input
+                    type="text"
+                    id="anilist_access_token"
+                    name="anilist_access_token"
+                    value="{{ old('anilist_access_token', $user->anilist_access_token) }}"
+                    class="w-full rounded-md border border-gray-200 py-2 pl-3 pr-3 text-base
+                           bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600
+                           text-gray-800 font-medium"
+                  />
+                </div>
+              </div>
+
+              <div class="mt-6">
+                <label for="vndb_api_token" class="block font-medium text-[17px] text-red-600">
+                  VNDB API Token
+                </label>
+                <div class="relative mt-1">
+                  <input
+                    type="text"
+                    id="vndb_api_token"
+                    name="vndb_api_token"
+                    value="{{ old('vndb_api_token', $user->vndb_api_token) }}"
+                    class="w-full rounded-md border border-gray-200 py-2 pl-3 pr-3 text-base
+                           bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600
+                           text-gray-800 font-medium"
+                  />
+                </div>
+              </div>
+
+              <div class="mt-6">
+                <label for="vndb_username" class="block font-medium text-[17px] text-red-600">
+                  VNDB Username
+                </label>
+                <div class="relative mt-1">
+                  <input
+                    type="text"
+                    id="vndb_username"
+                    name="vndb_username"
+                    value="{{ old('vndb_username', $user->vndb_username) }}"
+                    class="w-full rounded-md border border-gray-200 py-2 pl-3 pr-3 text-base
+                           bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600
+                           text-gray-800 font-medium"
+                  />
+                </div>
+              </div>
+
+              <div class="mt-6">
+                <label for="vndb_password" class="block font-medium text-[17px] text-red-600">
+                  VNDB Password
+                </label>
+                <div class="relative mt-1">
+                  <input
+                    type="text"
+                    id="vndb_password"
+                    name="vndb_password"
+                    value="{{ old('vndb_password', $user->vndb_password) }}"
+                    class="w-full rounded-md border border-gray-200 py-2 pl-3 pr-3 text-base
+                           bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600
+                           text-gray-800 font-medium"
+                  />
+                </div>
+              </div>
+
               <div class="mt-8">
                 <button
                   type="submit"
                   class="h-12 w-40 mx-auto rounded-md bg-[#08875b] text-white text-lg
                          hover:bg-emerald-700 focus:outline-none"
                 >
-                  Save Profile
+                  Save Settings
                 </button>
               </div>
             </form>

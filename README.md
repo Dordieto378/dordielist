@@ -26,6 +26,7 @@ At a high level, the site solves two problems:
 - Separate category pages for anime, manga, manwha, hentai, doujins, and visual novels.
 - Fast quick-search modal that searches the local database across saved media.
 - Media detail pages for AniList content, VNDB content, and doujin entries.
+- Editable AniList entry popup for anime and manga items that can update progress, score, and list status locally and sync those changes back to AniList.
 - Favorites and custom collections, including a system "Favorites" collection and random item picker.
 - Episode syncing for anime and hentai stored in `storage/app/public`.
 - Chapter/page syncing for manga, manwha, and doujin content stored in `storage/app/public`.
@@ -33,6 +34,7 @@ At a high level, the site solves two problems:
 - Visual novel launcher support that can detect `.exe` files inside a local game folder and launch the selected game directly.
 - Registration flow with manual admin approval.
 - Account settings, user management for admins, and Fortify-based two-factor authentication.
+- Per-account AniList and VNDB credential storage in the profile settings page.
 
 ## How the site works
 
@@ -92,7 +94,7 @@ Because of that, the app can show a title page and also let me immediately read,
 
 ### Important backend areas
 
-- `AnilistController`: home page, AniList media detail pages, and AniList sync.
+- `AnilistController`: home page, AniList media detail pages, AniList sync, and AniList write-back updates.
 - `VndbController`: VN detail pages, VNDB sync, VN list filtering, and VN description rendering.
 - `DoujinController`: doujin page rendering and filesystem sync.
 - `CollectionController`: favorites, collections, attach/remove logic, thumbnails, and random picker.
@@ -100,7 +102,7 @@ Because of that, the app can show a title page and also let me immediately read,
 - `ChapterController`: sync chapter pages from disk and render the reader.
 - `SearchController`: quick-search endpoint backed by the local database.
 - `VnLaunchController`: detect and launch local visual novel executables.
-- `SettingsController`, `RegisterController`, `AdminController`: account management, manual activation, and admin tools.
+- `SettingsController`, `RegisterController`, `AdminController`: account management, credential storage, manual activation, and admin tools.
 
 ## Storage conventions
 
@@ -142,7 +144,7 @@ These are created for episode cards after video sync or by the thumbnail command
 
 ### AniList sync
 
-AniList sync uses the authenticated user's access token and fetches anime and manga list entries through GraphQL. Those entries are then converted into the local media schema.
+AniList sync uses the authenticated user's AniList access token stored on their account settings page and fetches anime and manga list entries through GraphQL. Those entries are then converted into the local media schema.
 
 During sync, the app:
 
@@ -151,10 +153,11 @@ During sync, the app:
 - derives local types like `anime`, `hentai`, `manga`, and `manwha`
 - stores publishers, authors, or studios where possible
 - removes old local AniList-linked media that is no longer present in the remote list
+- lets the user edit progress, score, and list status from the AniList item page and push those updates back to AniList
 
 ### VNDB sync
 
-VNDB sync uses the VNDB API token and username, looks up the VNDB user ID, fetches the user's VN list, and saves visual novel entries into the same `media` table.
+VNDB sync uses the VNDB API token and username stored on the user's account settings page, looks up the VNDB user ID, fetches the user's VN list, and saves visual novel entries into the same `media` table.
 
 During sync, the app:
 
@@ -204,6 +207,7 @@ New users can register, but they are not active immediately. Registration:
 - Two-factor authentication is enabled.
 - Recovery codes are supported.
 - Password rules are strict and require a long, complex password.
+- Sensitive AniList and VNDB credential fields are stored on the user model and encrypted through Eloquent casts.
 
 ### Admin area
 
@@ -222,9 +226,11 @@ The first big design decision was to keep a local database copy of everything in
 
 The second big decision was to treat the filesystem as part of the product. I did not want a site that only tells me what I own or follow. I wanted a library that actually connects the metadata to my local files. That is why the app imports episodes, chapters, pages, and game executables into its own database structures.
 
+A later extension of that idea was letting the AniList detail page act as an editor instead of a read-only mirror. That popup lets me change score, progress, and list status inside Dordielist while still pushing those values back to AniList, so the local dashboard and the external list stay aligned.
+
 I also separated external sync from local sync. AniList and VNDB handle metadata well, but they do not know anything about the files on my machine. By splitting those responsibilities, I kept the code simpler and made each sync step easier to reason about.
 
-For the UI, I stayed with server-rendered Blade views and added lightweight JavaScript only where it improved the experience, like quick search, dropdown behavior, and media playback. That kept the app responsive without turning the project into a heavy frontend application.
+For the UI, I stayed with server-rendered Blade views and added lightweight JavaScript only where it improved the experience, like quick search, dropdown behavior, media playback, and edit modals. That kept the app responsive without turning the project into a heavy frontend application.
 
 ## Why the data model looks like this
 
@@ -295,3 +301,97 @@ DB_DATABASE=dordielist
 DB_USERNAME=root
 DB_PASSWORD=
 
+MAIL_MAILER=smtp
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USERNAME=you@example.com
+MAIL_PASSWORD=your-smtp-password
+MAIL_ENCRYPTION=tls
+MAIL_FROM_ADDRESS=no-reply@dordielist.com
+MAIL_FROM_NAME="DORDIELIST"
+
+FILESYSTEM_DISK=public
+QUEUE_CONNECTION=database
+SESSION_DRIVER=database
+CACHE_STORE=database
+FFMPEG_BIN=ffmpeg
+```
+
+After migrating, fill these fields from the website under account settings:
+
+- AniList Access Token
+- VNDB API Token
+- VNDB Username
+- VNDB Password
+
+Note: the custom console commands in `app/Console/Commands` still read credentials from `.env` because they run without a logged-in user context.
+
+## Running the project
+
+### Development
+
+```bash
+composer run dev
+```
+
+That starts:
+
+- the Laravel dev server
+- the queue listener
+- Laravel Pail for logs
+- the Vite dev server
+
+### Production-style assets
+
+```bash
+npm run build
+```
+
+## Useful commands
+
+### Import external metadata
+
+```bash
+php artisan anilist:import
+php artisan vndb:import
+```
+
+### Import local doujin content
+
+```bash
+php artisan doujin:import --all
+php artisan doujin:import {mediaId}
+```
+
+### Generate missing episode thumbnails
+
+```bash
+php artisan episodes:thumbnails
+php artisan episodes:thumbnails --media=123 --force
+```
+
+## Notes about the current implementation
+
+- The site is strongly optimized around personal/private use rather than public multi-tenant scale.
+- A lot of the UI logic lives directly in Blade templates, which kept development fast.
+- Search is intentionally simple and uses the local database instead of an external search service.
+- The project depends on consistent folder naming and media IDs for local sync features.
+- Visual novel launching assumes the app runs on the same machine that has access to the game files.
+- In-app AniList and VNDB sync now depends on credentials saved in the logged-in user's account settings.
+- The custom Artisan import commands still use `.env` credentials at the moment.
+- Automated test coverage is currently minimal and mostly placeholder-level.
+
+## Future improvements
+
+Some obvious upgrade paths would be:
+
+- stronger automated test coverage
+- background jobs for large sync operations
+- better deduplication and conflict handling during imports
+- richer admin tooling
+- more polished mobile layouts in some pages
+- a clearer separation between presentation logic and Blade templates on very large views
+
+## Summary
+
+Dordielist is a personal all-in-one media library for tracking, browsing, organizing, reading, watching, and launching the content I care about. The project is built around one idea: keep external metadata local, connect it to my filesystem, and make the website useful as a real library instead of just a tracker.

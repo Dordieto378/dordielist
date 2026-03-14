@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
 
 class VndbController extends Controller
 {
@@ -245,11 +246,11 @@ class VndbController extends Controller
 
     public function syncFromVndb(Request $request)
     {
-        $token    = env('VNDB_API_TOKEN');
-        $username = env('VNDB_USERNAME');
+        $token = Auth::user()?->vndb_api_token;
+        $username = Auth::user()?->vndb_username;
 
         if (!$token || !$username) {
-            return back()->with('error', 'VNDB_API_TOKEN or VNDB_USERNAME missing in .env');
+            return back()->with('error', 'Add your VNDB API token and username in account settings first.');
         }
 
         $userId = $this->vndbLookupUserId($token, $username);

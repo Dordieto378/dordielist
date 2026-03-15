@@ -60,7 +60,9 @@ if (!function_exists('shortTitle')) {
                                     <span class="px-3 py-2 rounded-[0.2rem] bg-gray-200 text-gray-900 text-sm flex items-center">
                                         {{ $auth }}
                                         <span
-                                            onclick="removeTag('{{ $auth }}','Author')"
+                                            role="button" tabindex="0"
+                                            data-remove-dropdown-name="{{ $auth }}"
+                                            data-remove-dropdown-type="Author"
                                             class="ml-2 cursor-pointer text-gray-500 hover:text-gray-800 select-none"
                                         >
                                             ×
@@ -82,7 +84,7 @@ if (!function_exists('shortTitle')) {
                             <ul>
                                 @foreach ($allAuthors as $author)
                                     <li class="px-1.5 py-[1px] cursor-pointer text-gray-900 font-medium text-sm bg-white"
-                                        onclick="toggleTag('{{ $author }}', 'Author')">
+                                        data-dropdown-name="{{ $author }}" data-dropdown-type="Author">
                                         <span class="block w-full h-full px-3 py-2 rounded-[0.2rem] hover:bg-red-600 hover:text-white hover:font-semibold">
                                             {{ $author }}
                                         </span>
@@ -174,7 +176,9 @@ if (!function_exists('shortTitle')) {
                             @foreach($selectedTags as $tag)
                             <span class="px-3 py-2 rounded-[0.2rem] bg-gray-200 text-gray-900 text-sm flex items-center transition-all duration-200 ease-in-out">
                                 {{ $tag }}
-                                <span onclick="removeTag('{{ $tag }}', 'Tags')"
+                                <span role="button" tabindex="0"
+                                    data-remove-dropdown-name="{{ $tag }}"
+                                    data-remove-dropdown-type="Tags"
                                     class="ml-2 cursor-pointer text-gray-500 hover:text-gray-800 select-none">
                                     ×
                                 </span>
@@ -193,7 +197,7 @@ if (!function_exists('shortTitle')) {
                         <ul>
                         @foreach($allTags as $tagName)
                             <li class="px-1.5 py-[1px] cursor-pointer text-gray-900 font-medium text-sm transition-all duration-200 ease-in-out bg-white"
-                                onclick="toggleTag('{{ $tagName }}', 'Tags')">
+                                data-dropdown-name="{{ $tagName }}" data-dropdown-type="Tags">
                             <span class="block w-full h-full px-3 py-2 rounded-[0.2rem] transition-all duration-200 ease-in-out hover:bg-red-600 hover:text-white hover:font-semibold">
                                 {{ $tagName }}
                             </span>
@@ -245,7 +249,7 @@ if (!function_exists('shortTitle')) {
                             @foreach($selectedDevelopers as $dev)
                             <span class="px-3 py-2 rounded-[0.2rem] bg-gray-200 text-gray-900 text-sm flex items-center">
                             {{ $dev }}
-                            <span onclick="removeTag('{{ $dev }}', 'Developers')" class="ml-2 text-gray-500 hover:text-gray-800">&times;</span>
+                            <span role="button" tabindex="0" data-remove-dropdown-name="{{ $dev }}" data-remove-dropdown-type="Developers" class="ml-2 cursor-pointer text-gray-500 hover:text-gray-800 select-none">&times;</span>
                             </span>
                             @endforeach
                         @endif
@@ -260,7 +264,7 @@ if (!function_exists('shortTitle')) {
                         <ul>
                         @foreach($allDevelopers as $devName)
                         <li class="px-1.5 py-[1px] cursor-pointer text-gray-900 font-medium text-sm bg-white"
-                            onclick="toggleTag('{{ $devName }}', 'Developers')">
+                            data-dropdown-name="{{ $devName }}" data-dropdown-type="Developers">
                             <span class="block w-full h-full px-3 py-2 rounded-[0.2rem] hover:bg-red-600 hover:text-white">
                             {{ $devName }}
                             </span>
@@ -390,7 +394,7 @@ if (!function_exists('shortTitle')) {
                             <ul>
                                 @foreach($allTags as $tagName)
                                     <li class="px-1.5 py-[1px] cursor-pointer text-gray-900 font-medium text-sm transition-all duration-200 ease-in-out bg-white"
-                                        onclick="toggleTag('{{ $tagName }}', 'Tags')">
+                                        data-dropdown-name="{{ $tagName }}" data-dropdown-type="Tags">
                                         <span class="block w-full h-full px-3 py-2 rounded-[0.2rem] transition-all duration-200 ease-in-out
                                             hover:bg-red-600 hover:text-white hover:font-semibold">
                                             {{ $tagName }}
@@ -443,7 +447,7 @@ if (!function_exists('shortTitle')) {
                                 <ul>
                                     @foreach($allStudios as $studio)
                                         <li class="px-1.5 py-[1px] cursor-pointer text-gray-900 font-medium text-sm transition-all duration-200 ease-in-out bg-white"
-                                            onclick="toggleTag('{{ $studio }}', 'Studio')">
+                                            data-dropdown-name="{{ $studio }}" data-dropdown-type="Studio">
                                             <span class="block w-full h-full px-3 py-2 rounded-[0.2rem] transition-all duration-200 ease-in-out
                                                 hover:bg-red-600 hover:text-white hover:font-semibold">
                                                 {{ $studio }}
@@ -473,7 +477,7 @@ if (!function_exists('shortTitle')) {
                                 <ul>
                                     @foreach($allAuthors as $author)
                                         <li class="px-1.5 py-[1px] cursor-pointer text-gray-900 font-medium text-sm transition-all duration-200 ease-in-out bg-white"
-                                            onclick="toggleTag('{{ $author }}', 'Author')">
+                                            data-dropdown-name="{{ $author }}" data-dropdown-type="Author">
                                             <span class="block w-full h-full px-3 py-2 rounded-[0.2rem] transition-all duration-200 ease-in-out hover:bg-red-600 hover:text-white hover:font-semibold">
                                                 {{ $author }}
                                             </span>
@@ -593,10 +597,24 @@ function updateSelectedDropdown(type) {
         return;
     }
     dropdown.selectedItems.forEach(name => {
-        const tagElement = document.createElement("div");
-        tagElement.className = "flex items-center bg-gray-200 text-gray-700 text-sm font-medium px-2 py-1 rounded-md";
-        tagElement.innerHTML = `<span>${name}</span>
-            <button onclick="removeTag('${name}', '${type}')" class="ml-2 text-gray-500 hover:text-gray-800">&times;</button>`;
+        const tagElement = document.createElement("span");
+        tagElement.className = "px-3 py-2 rounded-[0.2rem] bg-gray-200 text-gray-900 text-sm flex items-center transition-all duration-200 ease-in-out";
+
+        const label = document.createElement("span");
+        label.textContent = name;
+
+        const removeButton = document.createElement("span");
+        removeButton.setAttribute("role", "button");
+        removeButton.tabIndex = 0;
+        removeButton.className = "ml-2 cursor-pointer text-gray-500 hover:text-gray-800 select-none";
+        removeButton.innerHTML = "&times;";
+        removeButton.addEventListener("click", (event) => {
+            event.stopPropagation();
+            removeTag(name, type);
+        });
+
+        tagElement.appendChild(label);
+        tagElement.appendChild(removeButton);
         dropdown.selectedContainer.appendChild(tagElement);
     });
 }
@@ -616,6 +634,22 @@ function updateDropdownMenu(type) {
         }
     });
 }
+
+document.querySelectorAll('[data-dropdown-type][data-dropdown-name]').forEach(item => {
+    item.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        toggleTag(item.dataset.dropdownName, item.dataset.dropdownType);
+    });
+});
+
+document.querySelectorAll('[data-remove-dropdown-type][data-remove-dropdown-name]').forEach(item => {
+    item.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        removeTag(item.dataset.removeDropdownName, item.dataset.removeDropdownType);
+    });
+});
 
 // Toggle tag selection for Tags or Studio, update display, then trigger debounced AJAX update
 function toggleTag(name, type) {

@@ -260,7 +260,7 @@ class CollectionController extends Controller
             );
         }
 
-        return back()->with('status', 'Collections updated');
+        return back();
     }
 
     public function fetchMedia(string $type, int $id)

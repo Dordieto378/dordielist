@@ -106,11 +106,9 @@ class ImportAnilist extends Command
                 $y = $media['startDate']['year']  ?? null;
                 $m = $media['startDate']['month'] ?? null;
                 $d = $media['startDate']['day']   ?? null;
-                $startDate = null;
-                if ($y) {
-                    // if month/day missing, default to 01
-                    $startDate = Carbon::createFromDate($y, $m ?: 1, $d ?: 1)->toDateString();
-                }
+                $startDate = ($y && $m && $d)
+                    ? Carbon::createFromDate($y, $m, $d)->toDateString()
+                    : null;
 
                 // list timestamps (Unix seconds)
                 $listCreatedAt = !empty($entry['createdAt']) ? Carbon::createFromTimestamp($entry['createdAt']) : null;

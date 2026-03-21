@@ -270,9 +270,10 @@ GQL;
 
         $descPlain = $desc;
 
-        $year  = $m->year ?: (optional(\Carbon\Carbon::parse($m->start_date))->year);
-        $month = optional(\Carbon\Carbon::parse($m->start_date))->month;
-        $day   = optional(\Carbon\Carbon::parse($m->start_date))->day;
+        $parsedStartDate = $m->start_date ? Carbon::parse($m->start_date) : null;
+        $year  = optional($parsedStartDate)->year;
+        $month = optional($parsedStartDate)->month;
+        $day   = optional($parsedStartDate)->day;
 
         return [
             'id'          => $m->id,
@@ -407,7 +408,9 @@ GQL;
                 $y = $media['startDate']['year']  ?? null;
                 $m = $media['startDate']['month'] ?? null;
                 $d = $media['startDate']['day']   ?? null;
-                $startDate = $y ? Carbon::createFromDate($y, $m ?: 1, $d ?: 1)->toDateString() : null;
+                $startDate = ($y && $m && $d)
+                    ? Carbon::createFromDate($y, $m, $d)->toDateString()
+                    : null;
 
                 $titleEn = $media['title']['english'] ?? null;
                 $titleRo = $media['title']['romaji']  ?? null;

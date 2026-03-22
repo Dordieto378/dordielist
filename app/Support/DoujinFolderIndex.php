@@ -12,20 +12,16 @@ class DoujinFolderIndex
     {
         $entries = [];
 
-        foreach ($disk->directories($root) as $authorPath) {
-            $author = basename($authorPath);
+        foreach ($disk->directories($root) as $path) {
+            if ($this->looksLikeDoujinFolder($disk, $path)) {
+                $entries[] = $this->makeEntry($path, null);
+                continue;
+            }
 
-            foreach ($disk->directories($authorPath) as $doujinPath) {
-                $folder = basename($doujinPath);
-                $mediaId = ctype_digit($folder) ? (int) $folder : null;
+            $author = basename($path);
 
-                $entries[] = [
-                    'author' => $author,
-                    'folder' => $folder,
-                    'path' => $doujinPath,
-                    'media_id' => $mediaId && $mediaId > 0 ? $mediaId : null,
-                    'legacy_title' => $mediaId ? null : $folder,
-                ];
+            foreach ($disk->directories($path) as $doujinPath) {
+                $entries[] = $this->makeEntry($doujinPath, $author);
             }
         }
 
@@ -102,42 +98,33 @@ class DoujinFolderIndex
 
     public function findEntryForMedia(Media $media, array $entries): ?array
     {
-        foreach ($entries as $entry) {
-            if ((int) ($entry['media_id'] ?? 0) === (int) $media->id) {
-                return $entry;
-            }
-        }
-
-        $titleKeys = $this->titleKeysForMedia($media);
-        $authorKeys = $media->relationLoaded('doujinAuthors')
-            ? $media->doujinAuthors
-            : $media->doujinAuthors()->get(['name']);
-
-        $authorKeys = $authorKeys
-            ->pluck('name')
-            ->map(fn ($name) => $this->normKey((string) $name))
-            ->filter()
-            ->unique()
-            ->values()
-            ->all();
+        $candidates = [];
 
         foreach ($entries as $entry) {
-            $entryTitleKeys = $this->titleKeysForValue((string) ($entry['legacy_title'] ?? ''));
-            if (!$entryTitleKeys || !array_intersect($entryTitleKeys, $titleKeys)) {
+            $entryMediaId = (int) ($entry['media_id'] ?? 0);
+            if ($entryMediaId === (int) $media->id) {
+                $candidates[] = $entry;
                 continue;
             }
 
-            if (!$authorKeys) {
-                return $entry;
-            }
-
-            $entryAuthorKey = $this->normKey((string) ($entry['author'] ?? ''));
-            if ($entryAuthorKey !== '' && in_array($entryAuthorKey, $authorKeys, true)) {
-                return $entry;
+            $entryTitleKeys = $this->titleKeysForValue((string) ($entry['legacy_title'] ?? ''));
+            if ($entryTitleKeys && array_intersect($entryTitleKeys, $this->titleKeysForMedia($media))) {
+                $candidates[] = $entry;
             }
         }
 
-        return null;
+        if (!$candidates) {
+            return null;
+        }
+
+        $best = array_shift($candidates);
+        foreach ($candidates as $candidate) {
+            if ($this->isPreferredEntry($candidate, $best, $media)) {
+                $best = $candidate;
+            }
+        }
+
+        return $best;
     }
 
     public function displayTitle(Media $media): string
@@ -146,6 +133,25 @@ class DoujinFolderIndex
             ?: ($media->title_romaji
                 ?: ($media->title_native
                     ?: ($media->slug ?: 'Untitled')));
+    }
+
+    public function deduplicateEntries(array $entries, array $lookup): array
+    {
+        $unique = [];
+
+        foreach ($entries as $entry) {
+            $mediaId = $this->resolveMediaId($entry, $lookup);
+            $key = $mediaId
+                ? 'media:'.$mediaId
+                : 'path:'.$this->normKey((string) ($entry['path'] ?? ''));
+
+            $media = $mediaId ? ($lookup['by_id'][$mediaId] ?? null) : null;
+            if (!isset($unique[$key]) || $this->isPreferredEntry($entry, $unique[$key], $media)) {
+                $unique[$key] = $entry;
+            }
+        }
+
+        return array_values($unique);
     }
 
     private function titleKeysForMedia(Media $media): array
@@ -177,6 +183,120 @@ class DoujinFolderIndex
             ->unique()
             ->values()
             ->all();
+    }
+
+    private function makeEntry(string $path, ?string $author): array
+    {
+        $folder = basename($path);
+        $mediaId = ctype_digit($folder) ? (int) $folder : null;
+
+        return [
+            'author' => $author,
+            'folder' => $folder,
+            'path' => $path,
+            'media_id' => $mediaId && $mediaId > 0 ? $mediaId : null,
+            'legacy_title' => $mediaId ? null : $folder,
+        ];
+    }
+
+    private function isPreferredEntry(array $candidate, array $current, ?Media $media = null): bool
+    {
+        if ($media) {
+            $candidateScore = $this->entryScoreForMedia($candidate, $media);
+            $currentScore = $this->entryScoreForMedia($current, $media);
+
+            if ($candidateScore !== $currentScore) {
+                return $candidateScore > $currentScore;
+            }
+        }
+
+        $candidateFlat = empty($candidate['author']);
+        $currentFlat = empty($current['author']);
+
+        if ($candidateFlat !== $currentFlat) {
+            return $candidateFlat;
+        }
+
+        return substr_count((string) ($candidate['path'] ?? ''), '/') < substr_count((string) ($current['path'] ?? ''), '/');
+    }
+
+    private function entryScoreForMedia(array $entry, Media $media): int
+    {
+        $score = 0;
+        $entryAuthorKey = $this->normKey((string) ($entry['author'] ?? ''));
+        $authorKeys = $media->relationLoaded('doujinAuthors')
+            ? $media->doujinAuthors
+            : $media->doujinAuthors()->get(['name']);
+
+        $authorKeys = $authorKeys
+            ->pluck('name')
+            ->map(fn ($name) => $this->normKey((string) $name))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($entryAuthorKey !== '' && in_array($entryAuthorKey, $authorKeys, true)) {
+            $score += 100;
+        }
+
+        $entryTitleKeys = $this->titleKeysForValue((string) ($entry['legacy_title'] ?? ''));
+        if ($entryTitleKeys && array_intersect($entryTitleKeys, $this->titleKeysForMedia($media))) {
+            $score += 80;
+        }
+
+        if ((int) ($entry['media_id'] ?? 0) === (int) $media->id) {
+            $score += 20;
+        }
+
+        if (!empty($entry['author']) && !empty($entry['legacy_title'])) {
+            $score += 10;
+        }
+
+        return $score;
+    }
+
+    private function looksLikeDoujinFolder(FilesystemAdapter $disk, string $path): bool
+    {
+        if (ctype_digit(basename($path))) {
+            return true;
+        }
+
+        if ($this->directoryHasImages($disk, $path)) {
+            return true;
+        }
+
+        $childDirs = $disk->directories($path);
+
+        foreach ($childDirs as $childPath) {
+            if (ctype_digit(basename($childPath))) {
+                return false;
+            }
+        }
+
+        foreach ($childDirs as $childPath) {
+            if ($this->directoryHasImages($disk, $childPath)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function directoryHasImages(FilesystemAdapter $disk, string $path): bool
+    {
+        foreach ($disk->files($path) as $file) {
+            if ($this->isImage($file)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function isImage(string $path): bool
+    {
+        return in_array(strtolower(pathinfo($path, PATHINFO_EXTENSION)), ['jpg', 'jpeg', 'png', 'webp', 'gif'], true);
     }
 
     private function normKey(string $value): string

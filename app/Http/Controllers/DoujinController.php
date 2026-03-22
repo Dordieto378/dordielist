@@ -9,10 +9,14 @@ use App\Models\Media;
 use App\Support\DoujinFolderIndex;
 use App\Support\MediaMetadataSyncer;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Symfony\Component\Process\Process;
+use Throwable;
 
 class DoujinController extends Controller
 {
@@ -127,6 +131,102 @@ class DoujinController extends Controller
         return back()->with('status', 'Doujin updated.');
     }
 
+    public function storeUploaded(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'title_english' => ['nullable', 'string', 'max:255'],
+            'title_romaji' => ['nullable', 'string', 'max:255'],
+            'title_native' => ['nullable', 'string', 'max:255'],
+            'existing_author' => ['nullable', 'string', 'max:255'],
+            'new_author' => ['nullable', 'string', 'max:255'],
+            'archive' => ['required', 'file', 'max:1048576'],
+        ]);
+
+        if ($validator->fails()) {
+            return $this->redirectUploadFailure($validator->errors()->first(), $request);
+        }
+
+        /** @var UploadedFile $archive */
+        $archive = $request->file('archive');
+        $titleEnglish = $this->trimToNull($request->input('title_english'));
+        $titleRomaji = $this->trimToNull($request->input('title_romaji'));
+        $titleNative = $this->trimToNull($request->input('title_native'));
+        $author = $this->trimToNull($request->input('new_author'))
+            ?: $this->trimToNull($request->input('existing_author'));
+
+        if (!$titleEnglish && !$titleRomaji && !$titleNative) {
+            return $this->redirectUploadFailure('Add at least one title.', $request);
+        }
+
+        if (!$author) {
+            return $this->redirectUploadFailure('Select an author or add a new author.', $request);
+        }
+
+        if (strtolower((string) $archive->getClientOriginalExtension()) !== 'zip') {
+            return $this->redirectUploadFailure('Upload a ZIP archive.', $request);
+        }
+
+        $media = null;
+        $extractRoot = storage_path('app/tmp/doujin-upload-'.Str::uuid());
+
+        try {
+            File::ensureDirectoryExists($extractRoot);
+            $this->extractDoujinArchive($archive, $extractRoot);
+
+            $importRoot = $this->resolveArchiveImportRoot($extractRoot);
+            if ($importRoot === null) {
+                throw new \RuntimeException('ZIP must contain chapter folders, optionally inside one top-level folder.');
+            }
+
+            $media = new Media();
+            $media->type = 'doujin';
+            $media->title_english = $titleEnglish;
+            $media->title_romaji = $titleRomaji;
+            $media->title_native = $titleNative;
+            $media->slug = $this->makeUniqueMediaSlug(
+                $media,
+                $titleRomaji ?: ($titleEnglish ?: ($titleNative ?: 'doujin'))
+            );
+            $media->cover_url = null;
+            $media->chapters_cnt = 0;
+            $media->save();
+
+            $this->metadataSyncer->syncDoujin($media, [$author]);
+
+            $disk = Storage::disk('public');
+            $targetRel = 'doujin/'.$media->id;
+            $targetAbs = $disk->path($targetRel);
+            File::ensureDirectoryExists($targetAbs);
+
+            $this->stageExtractedDoujin($importRoot, $targetAbs);
+            $this->mirrorDoujin($disk, $targetRel, $media->id);
+
+            return redirect()
+                ->route('doujins.show', ['media' => $media->id]);
+        } catch (Throwable $e) {
+            report($e);
+
+            if ($media?->exists) {
+                $targetRel = 'doujin/'.$media->id;
+                $targetAbs = Storage::disk('public')->path($targetRel);
+                if (File::isDirectory($targetAbs)) {
+                    File::deleteDirectory($targetAbs);
+                }
+                $media->delete();
+            }
+
+            $message = trim($e->getMessage()) !== ''
+                ? $e->getMessage()
+                : 'Upload failed. Check the ZIP structure and try again.';
+
+            return $this->redirectUploadFailure($message, $request);
+        } finally {
+            if (File::isDirectory($extractRoot)) {
+                File::deleteDirectory($extractRoot);
+            }
+        }
+    }
+
     public function syncAll(Request $request)
     {
         $disk = Storage::disk('public');
@@ -141,6 +241,7 @@ class DoujinController extends Controller
         }
 
         $lookup = $this->folderIndex->buildMediaLookup();
+        $entries = $this->folderIndex->deduplicateEntries($entries, $lookup);
 
         $created = 0;
         $updated = 0;
@@ -170,7 +271,7 @@ class DoujinController extends Controller
                     }
 
                     $media->save();
-                    $this->metadataSyncer->syncDoujin($media, [$entry['author']]);
+                    $this->metadataSyncer->syncDoujin($media, $this->authorsForEntry($entry));
 
                     $mediaId = $media->id;
                     $lookup = $this->folderIndex->buildMediaLookup();
@@ -191,7 +292,7 @@ class DoujinController extends Controller
                         $media->save();
                     }
 
-                    $this->metadataSyncer->syncDoujin($media, [$entry['author']]);
+                    $this->metadataSyncer->syncDoujin($media, $this->authorsForEntry($entry));
                     $this->mirrorDoujin($disk, $entry['path'], $mediaId);
                 });
                 $updated++;
@@ -397,6 +498,195 @@ class DoujinController extends Controller
         return number_format($number, 2, '.', '');
     }
 
+    private function redirectUploadFailure(string $message, Request $request)
+    {
+        return back()
+            ->withInput($request->except('archive'))
+            ->with('open_add_doujin_modal', true)
+            ->with('doujin_upload_error', $message);
+    }
+
+    private function extractDoujinArchive(UploadedFile $archive, string $extractRoot): void
+    {
+        $workingZip = $extractRoot.DIRECTORY_SEPARATOR.'upload.zip';
+
+        if (!@copy((string) $archive->getRealPath(), $workingZip)) {
+            throw new \RuntimeException('Could not prepare the uploaded ZIP archive.');
+        }
+
+        if (class_exists(\ZipArchive::class)) {
+            $zip = new \ZipArchive();
+            $opened = $zip->open($workingZip);
+
+            if ($opened !== true) {
+                @unlink($workingZip);
+                throw new \RuntimeException('Could not open the ZIP archive.');
+            }
+
+            if (!$zip->extractTo($extractRoot)) {
+                $zip->close();
+                @unlink($workingZip);
+                throw new \RuntimeException('Could not extract the ZIP archive.');
+            }
+
+            $zip->close();
+            @unlink($workingZip);
+            return;
+        }
+
+        $command = sprintf(
+            "Expand-Archive -LiteralPath '%s' -DestinationPath '%s' -Force",
+            str_replace("'", "''", $workingZip),
+            str_replace("'", "''", $extractRoot)
+        );
+
+        $process = new Process([
+            'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe',
+            '-NoProfile',
+            '-NonInteractive',
+            '-ExecutionPolicy',
+            'Bypass',
+            '-Command',
+            $command,
+        ]);
+        $process->setTimeout(120);
+        $process->run();
+
+        if (!$process->isSuccessful()) {
+            @unlink($workingZip);
+            $errorOutput = trim($process->getErrorOutput().' '.$process->getOutput());
+            throw new \RuntimeException($errorOutput !== '' ? $errorOutput : 'Could not extract the ZIP archive.');
+        }
+
+        @unlink($workingZip);
+    }
+
+    private function resolveArchiveImportRoot(string $extractRoot): ?string
+    {
+        $queue = [realpath($extractRoot) ?: $extractRoot];
+        $visited = [];
+        $depth = 0;
+
+        while ($queue !== [] && $depth < 5) {
+            $nextQueue = [];
+
+            foreach ($queue as $candidate) {
+                $realCandidate = realpath($candidate) ?: $candidate;
+                if (isset($visited[$realCandidate])) {
+                    continue;
+                }
+
+                $visited[$realCandidate] = true;
+
+                if ($this->looksLikeChapterRoot($realCandidate)) {
+                    return $realCandidate;
+                }
+
+                $childDirs = $this->listDirectories($realCandidate);
+                foreach ($childDirs as $childDir) {
+                    if ($this->looksLikeChapterRoot($childDir)) {
+                        return $childDir;
+                    }
+                }
+
+                if (count($childDirs) === 1) {
+                    $nextQueue[] = $childDirs[0];
+                }
+            }
+
+            $queue = $nextQueue;
+            $depth++;
+        }
+
+        return null;
+    }
+
+    private function stageExtractedDoujin(string $importRoot, string $targetAbs): void
+    {
+        $chapterDirs = $this->listDirectories($importRoot);
+        if ($chapterDirs === []) {
+            throw new \RuntimeException('ZIP does not contain any chapter folders.');
+        }
+
+        foreach ($chapterDirs as $chapterDir) {
+            $chapterName = basename($chapterDir);
+            $targetChapterDir = $targetAbs.DIRECTORY_SEPARATOR.$chapterName;
+            File::ensureDirectoryExists($targetChapterDir);
+
+            $images = $this->listImages($chapterDir);
+            if ($images === []) {
+                throw new \RuntimeException("Chapter folder '{$chapterName}' has no images.");
+            }
+
+            foreach ($images as $imagePath) {
+                $targetPath = $targetChapterDir.DIRECTORY_SEPARATOR.basename($imagePath);
+
+                if (file_exists($targetPath)) {
+                    throw new \RuntimeException("Duplicate image name detected in '{$chapterName}'.");
+                }
+
+                if (!@rename($imagePath, $targetPath)) {
+                    if (!@copy($imagePath, $targetPath)) {
+                        throw new \RuntimeException("Could not move extracted image '{$imagePath}'.");
+                    }
+                    @unlink($imagePath);
+                }
+            }
+        }
+    }
+
+    private function looksLikeChapterRoot(string $path): bool
+    {
+        if ($this->listImages($path) !== []) {
+            return false;
+        }
+
+        $chapterDirs = $this->listDirectories($path);
+        if ($chapterDirs === []) {
+            return false;
+        }
+
+        foreach ($chapterDirs as $chapterDir) {
+            if ($this->listDirectories($chapterDir) !== []) {
+                return false;
+            }
+
+            if ($this->listImages($chapterDir) === []) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private function listDirectories(string $path): array
+    {
+        $directories = array_values(array_filter(
+            glob($path.DIRECTORY_SEPARATOR.'*') ?: [],
+            function ($dir) {
+                if (!is_dir($dir)) {
+                    return false;
+                }
+
+                $name = basename($dir);
+
+                return $name !== '__MACOSX' && !str_starts_with($name, '.');
+            }
+        ));
+        natcasesort($directories);
+
+        return array_values($directories);
+    }
+
+    private function listImages(string $path): array
+    {
+        $files = glob($path.DIRECTORY_SEPARATOR.'*') ?: [];
+        $images = array_values(array_filter($files, fn ($file) => is_file($file) && $this->isImage($file)));
+        natcasesort($images);
+
+        return array_values($images);
+    }
+
     private function trimToNull(?string $value): ?string
     {
         if ($value === null) {
@@ -443,6 +733,13 @@ class DoujinController extends Controller
     private function containsNonLatin(string $value): bool
     {
         return preg_match('/[^\p{Latin}\p{Common}\p{Inherited}\p{Nd}\p{Zs}\p{P}\p{S}]/u', $value) === 1;
+    }
+
+    private function authorsForEntry(array $entry): ?array
+    {
+        $author = trim((string) ($entry['author'] ?? ''));
+
+        return $author === '' ? null : [$author];
     }
 
     private function isImage(string $path): bool

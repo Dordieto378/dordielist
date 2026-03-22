@@ -91,9 +91,29 @@ if (!function_exists('shortTitle')) {
                                     </li>
                                 @endforeach
                             </ul>
+                            </div>
                         </div>
-                    </div>
                 </form>
+
+                <div class="mt-6">
+                    @if(session('doujin_upload_error'))
+                        <div class="mb-3 rounded-sm border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                            {{ session('doujin_upload_error') }}
+                        </div>
+                    @endif
+
+                    @if(session('status'))
+                        <div class="mb-3 rounded-sm border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
+                            {{ session('status') }}
+                        </div>
+                    @endif
+
+                    <button type="button"
+                            id="openAddDoujinModal"
+                            class="inline-block w-full px-4 py-2 flatGreen text-white rounded-[0.19rem] mt-2 hover:bg-emerald-700 text-center">
+                        Add Doujin ZIP
+                    </button>
+                </div>
             @elseif(strtoupper($category) === 'VISUAL-NOVEL')
                 <form method="GET"
                     action="{{ route('category', [
@@ -500,6 +520,112 @@ if (!function_exists('shortTitle')) {
     </div>
 </div>
 
+@if(strtoupper($category) === 'DOUJINS')
+    <div
+      id="addDoujinModal"
+      class="fixed inset-0 flex items-start pt-[130px] justify-center bg-black bg-opacity-50 hidden z-50"
+    >
+        <div class="relative bg-white p-4 text-left shadow-2xl w-[800px] rounded-lg">
+            <div class="flex justify-between items-start pb-4 pt-2 border-b ml-4 mr-4 border-gray-200">
+                <div>
+                    <h3 class="text-lg font-bold text-gray-800">Add Doujin</h3>
+                </div>
+                <button id="closeAddDoujinModal" type="button" class="text-gray-400 hover:text-gray-900" aria-label="Close Add Doujin Modal">
+                    <span class="sr-only">Close</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none"
+                         viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                              d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="border-b border-gray-200 mr-4 ml-4">
+                <form method="POST" action="{{ route('doujin.upload') }}" enctype="multipart/form-data" class="space-y-4 py-4" id="addDoujinForm">
+                    @csrf
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <label class="block">
+                            <span class="block mb-2 text-red-600 font-medium">English Title</span>
+                            <input
+                              type="text"
+                              name="title_english"
+                              value="{{ old('title_english') }}"
+                              class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
+                            />
+                        </label>
+
+                        <label class="block">
+                            <span class="block mb-2 text-red-600 font-medium">Romaji Title</span>
+                            <input
+                              type="text"
+                              name="title_romaji"
+                              value="{{ old('title_romaji') }}"
+                              class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
+                            />
+                        </label>
+
+                        <label class="block col-span-2">
+                            <span class="block mb-2 text-red-600 font-medium">Native Title</span>
+                            <input
+                              type="text"
+                              name="title_native"
+                              value="{{ old('title_native') }}"
+                              class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
+                            />
+                        </label>
+
+                        <label class="block">
+                            <span class="block mb-2 text-red-600 font-medium">Author</span>
+                            <select
+                              name="existing_author"
+                              class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
+                            >
+                                <option value="">Select existing author</option>
+                                @foreach($allAuthors as $author)
+                                    <option value="{{ $author }}" {{ old('existing_author') === $author ? 'selected' : '' }}>
+                                        {{ $author }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </label>
+
+                        <label class="block">
+                            <span class="block mb-2 text-red-600 font-medium">New Author</span>
+                            <input
+                              type="text"
+                              name="new_author"
+                              value="{{ old('new_author') }}"
+                              placeholder="Add new author"
+                              class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
+                            />
+                        </label>
+
+                        <label class="block col-span-2">
+                            <span class="block mb-2 text-red-600 font-medium">ZIP File</span>
+                            <input
+                              type="file"
+                              name="archive"
+                              accept=".zip"
+                              class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium file:mr-3 file:rounded-[0.19rem] file:border-0 file:bg-white file:px-3 file:py-2 file:text-sm file:font-medium file:text-gray-800"
+                            />
+                        </label>
+                    </div>
+                </form>
+            </div>
+
+            <div class="mb-2 px-4 pt-4 flex items-center justify-end gap-3">
+                <button id="cancelAddDoujinModal" type="button" class="px-5 py-3 rounded border border-gray-200 text-gray-700 font-medium hover:bg-gray-100 transition-colors">
+                    Cancel
+                </button>
+                <button form="addDoujinForm" type="submit" class="flatGreen transition-200 text-white px-5 py-3 rounded">
+                    Add Doujin
+                </button>
+            </div>
+        </div>
+    </div>
+@endif
+
 <div id="paginationContainer">
     @if($paginatedMedia->lastPage() > 1)
         <div class="flex items-center justify-center space-x-2 ml-[280px] mb-6">
@@ -812,6 +938,33 @@ window.addEventListener('load', function(){
 // Also add event listeners on genre checkboxes:
 document.querySelectorAll('input[name="genre[]"]').forEach(cb => {
     cb.addEventListener('change', debouncedRedirectWithFilters);
+});
+
+const addDoujinModal = document.getElementById('addDoujinModal');
+const openAddDoujinModalButton = document.getElementById('openAddDoujinModal');
+const closeAddDoujinModalButton = document.getElementById('closeAddDoujinModal');
+const cancelAddDoujinModalButton = document.getElementById('cancelAddDoujinModal');
+
+function setAddDoujinModal(open) {
+    if (!addDoujinModal) return;
+    addDoujinModal.classList.toggle('hidden', !open);
+    addDoujinModal.classList.toggle('flex', open);
+}
+
+openAddDoujinModalButton?.addEventListener('click', () => setAddDoujinModal(true));
+closeAddDoujinModalButton?.addEventListener('click', () => setAddDoujinModal(false));
+cancelAddDoujinModalButton?.addEventListener('click', () => setAddDoujinModal(false));
+addDoujinModal?.addEventListener('click', (event) => {
+    if (event.target === addDoujinModal) {
+        setAddDoujinModal(false);
+    }
+});
+
+window.addEventListener('DOMContentLoaded', () => {
+    const shouldOpenAddDoujinModal = @json(session('open_add_doujin_modal', false));
+    if (shouldOpenAddDoujinModal) {
+        setAddDoujinModal(true);
+    }
 });
 </script>
 @endsection

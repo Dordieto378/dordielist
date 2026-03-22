@@ -41,10 +41,25 @@
                                      ->toArray();
 
         $allCollections = Collection::orderBy('name')->get();
+        $authors = $media->doujinAuthors->pluck('name')->filter()->unique()->values();
+        $authorOptions = collect($allAuthors ?? [])
+            ->push($authors->first())
+            ->filter()
+            ->unique()
+            ->values();
+        $currentTitleEnglish = old('title_english', $media->title_english);
+        $currentTitleRomaji = old('title_romaji', $media->title_romaji);
+        $currentTitleNative = old('title_native', $media->title_native);
+        $currentAuthor = old('author', $authors->first());
 
     @endphp
 
     <div class="flex flex-col items-center py-[8.5rem]">
+        @if(session('status'))
+            <div class="w-[1280px] mb-4 rounded-md px-5 py-4 text-sm font-medium bg-green-50 text-green-700 border border-green-200">
+                {{ session('status') }}
+            </div>
+        @endif
         <div class="w-[1280px] h-auto bg-white shadow-sm rounded-md p-6 ml-[0.5rem]">
             <div class="flex flex-col md:flex-row">
                 {{-- Left Column --}}
@@ -127,6 +142,16 @@
                                     </svg>
                                     <span class="ml-[0.2rem]">Add to Collection</span>
                                 </button>
+
+                                <button id="openEditEntryModal" type="button" class="flex items-center justify-start w-full text-blue-950 py-2 rounded-sm hover:text-[#08875b]">
+                                    <svg xmlns="http://www.w3.org/2000/svg"
+                                         class="ml-[1.4rem] h-[1.1rem] w-[1.1rem] mr-[0.5rem] mb-[0.1rem]"
+                                         fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                              d="M15.232 5.232l3.536 3.536M4 21h4.586a1 1 0 00.707-.293l10-10a1 1 0 000-1.414L14.414 4.293a1 1 0 00-1.414 0l-10 10A1 1 0 004 14.586V19a2 2 0 002 2z"/>
+                                    </svg>
+                                    <span class="ml-1">Edit</span>
+                                </button>
                         </div>
                     @endauth
                 </div>
@@ -143,7 +168,6 @@
 
                         <div>Author</div>
                         <div>
-                            @php $authors = $media->doujinAuthors->pluck('name')->filter()->unique()->values(); @endphp
                             @if($authors->isEmpty())
                                 N/A
                             @else
@@ -276,6 +300,94 @@
     </div>
 
     @auth
+        <div
+          id="editEntryModal"
+          class="fixed inset-0 flex items-start pt-[130px] justify-center bg-black bg-opacity-50 hidden z-50"
+        >
+            <div class="relative bg-white p-4 text-left shadow-2xl w-[800px] rounded-lg">
+                <div class="flex justify-between items-start pb-4 pt-2 border-b ml-4 mr-4 border-gray-200">
+                    <h3 class="text-lg font-bold text-gray-800">Edit Doujin</h3>
+                    <button id="closeEditModal" type="button" class="text-gray-400 hover:text-gray-900" aria-label="Close Edit Modal">
+                        <span class="sr-only">Close</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none"
+                             viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                  d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="border-b border-gray-200 mr-4 ml-4">
+                    <form method="POST" action="{{ route('doujin.entry.update', ['media' => $media->id]) }}" class="space-y-4 py-4" id="editEntryForm">
+                        @csrf
+                        @method('PATCH')
+
+                        @if(session('doujin_update_error'))
+                            <div class="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                                {{ session('doujin_update_error') }}
+                            </div>
+                        @endif
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <label class="block">
+                                <span class="block mb-2 text-red-600 font-medium">English Title</span>
+                                <input
+                                  type="text"
+                                  name="title_english"
+                                  value="{{ $currentTitleEnglish ?? '' }}"
+                                  class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
+                                />
+                            </label>
+
+                            <label class="block">
+                                <span class="block mb-2 text-red-600 font-medium">Romaji Title</span>
+                                <input
+                                  type="text"
+                                  name="title_romaji"
+                                  value="{{ $currentTitleRomaji ?? '' }}"
+                                  class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
+                                />
+                            </label>
+
+                            <label class="block">
+                                <span class="block mb-2 text-red-600 font-medium">Native Title</span>
+                                <input
+                                  type="text"
+                                  name="title_native"
+                                  value="{{ $currentTitleNative ?? '' }}"
+                                  class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
+                                />
+                            </label>
+
+                            <label class="block">
+                                <span class="block mb-2 text-red-600 font-medium">Author</span>
+                                <select
+                                  name="author"
+                                  class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
+                                >
+                                    <option value="">No author</option>
+                                    @foreach($authorOptions as $authorName)
+                                        <option value="{{ $authorName }}" {{ ($currentAuthor ?? '') === $authorName ? 'selected' : '' }}>
+                                            {{ $authorName }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </label>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="mb-2 px-4 pt-4 flex items-center justify-end gap-3">
+                    <button id="cancelEditModal" type="button" class="px-5 py-3 rounded border border-gray-200 text-gray-700 font-medium hover:bg-gray-100 transition-colors">
+                        Cancel
+                    </button>
+                    <button form="editEntryForm" type="submit" class="flatGreen transition-200 text-white px-5 py-3 rounded">
+                        Save Changes
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <div
           id="addToCollectionModal"
           class="fixed inset-0 flex items-start pt-[130px] justify-center bg-black bg-opacity-50 hidden z-50"
@@ -412,24 +524,40 @@
 
         <script>
             document.addEventListener('DOMContentLoaded', () => {
+                const editModal      = document.getElementById('editEntryModal');
                 const addModal       = document.getElementById('addToCollectionModal');
                 const createModal    = document.getElementById('createCollectionModal');
+                const openEditBtn    = document.getElementById('openEditEntryModal');
                 const openAddBtn     = document.getElementById('openAddToCollection');
+                const closeEditBtn   = document.getElementById('closeEditModal');
                 const closeAddBtn    = document.getElementById('closeAddModal');
+                const cancelEditBtn  = document.getElementById('cancelEditModal');
                 const openCreateBtn  = document.getElementById('openInlineCreateCollection');
                 const closeCreateBtn = document.getElementById('closeCreateModal');
                 const createForm     = document.getElementById('collectionCreateForm');
                 const listContainer  = document.getElementById('collectionCheckboxList');
+                const shouldOpenEditModal = @json(session('open_edit_doujin_modal', false));
 
                 const lockBody = () => document.body.classList.add('overflow-hidden');
                 const unlockBody = () => {
+                    const editHidden = !editModal || editModal.classList.contains('hidden');
                     const addHidden = !addModal || addModal.classList.contains('hidden');
                     const createHidden = !createModal || createModal.classList.contains('hidden');
-                    if (addHidden && createHidden) {
+                    if (editHidden && addHidden && createHidden) {
                         document.body.classList.remove('overflow-hidden');
                     }
                 };
 
+                const showEdit = () => {
+                    if (!editModal) return;
+                    editModal.classList.remove('hidden');
+                    lockBody();
+                };
+                const hideEdit = () => {
+                    if (!editModal) return;
+                    editModal.classList.add('hidden');
+                    unlockBody();
+                };
                 const showAdd = () => {
                     if (!addModal) return;
                     addModal.classList.remove('hidden');
@@ -450,6 +578,25 @@
                     createModal.classList.add('hidden');
                     unlockBody();
                 };
+
+                if (openEditBtn) {
+                    openEditBtn.addEventListener('click', showEdit);
+                }
+                if (closeEditBtn && editModal) {
+                    closeEditBtn.addEventListener('click', hideEdit);
+                    editModal.addEventListener('click', (e) => {
+                        if (e.target === editModal) hideEdit();
+                    });
+                    document.addEventListener('keyup', (e) => {
+                        if (e.key === 'Escape' && !editModal.classList.contains('hidden')) hideEdit();
+                    });
+                }
+                if (cancelEditBtn) {
+                    cancelEditBtn.addEventListener('click', hideEdit);
+                }
+                if (shouldOpenEditModal) {
+                    showEdit();
+                }
 
                 if (openAddBtn) {
                     openAddBtn.addEventListener('click', showAdd);

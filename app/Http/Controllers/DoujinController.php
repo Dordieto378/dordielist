@@ -4,12 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Models\Chapter;
 use App\Models\ChapterPage;
+use App\Models\DoujinAuthor;
 use App\Models\Media;
 use App\Support\DoujinFolderIndex;
 use App\Support\MediaMetadataSyncer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 
 class DoujinController extends Controller
@@ -60,6 +62,9 @@ class DoujinController extends Controller
         $allCollections = \App\Models\Collection::orderBy('is_system', 'desc')
             ->orderBy('name')
             ->get();
+        $allAuthors = DoujinAuthor::query()
+            ->orderBy('name')
+            ->pluck('name');
 
         $attachedIds = \App\Models\CollectionItem::where('item_type', 'doujins')
             ->where('item_id', $media->id)
@@ -72,8 +77,54 @@ class DoujinController extends Controller
             'chapters' => $chaptersView,
             'isFavorited' => $isFavorited,
             'allCollections' => $allCollections,
+            'allAuthors' => $allAuthors,
             'attachedIds' => $attachedIds,
         ]);
+    }
+
+    public function updateEntry(Request $request, Media $media)
+    {
+        abort_unless($media->type === 'doujin', 404);
+
+        $validator = Validator::make($request->all(), [
+            'title_english' => ['nullable', 'string', 'max:255'],
+            'title_romaji' => ['nullable', 'string', 'max:255'],
+            'title_native' => ['nullable', 'string', 'max:255'],
+            'author' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        if ($validator->fails()) {
+            return back()
+                ->withInput()
+                ->with('open_edit_doujin_modal', true)
+                ->with('doujin_update_error', $validator->errors()->first());
+        }
+
+        $data = $validator->validated();
+        $titleEnglish = $this->trimToNull($data['title_english'] ?? null);
+        $titleRomaji = $this->trimToNull($data['title_romaji'] ?? null);
+        $titleNative = $this->trimToNull($data['title_native'] ?? null);
+        $authors = $this->parseAuthorNames($data['author'] ?? null);
+
+        if (!$titleEnglish && !$titleRomaji && !$titleNative) {
+            return back()
+                ->withInput()
+                ->with('open_edit_doujin_modal', true)
+                ->with('doujin_update_error', 'Add at least one title.');
+        }
+
+        $media->title_english = $titleEnglish;
+        $media->title_romaji = $titleRomaji;
+        $media->title_native = $titleNative;
+        $media->slug = $this->makeUniqueMediaSlug(
+            $media,
+            $titleRomaji ?: ($titleEnglish ?: ($titleNative ?: ($media->slug ?: 'doujin-'.$media->id)))
+        );
+        $media->save();
+
+        $this->metadataSyncer->syncDoujin($media, $authors);
+
+        return back()->with('status', 'Doujin updated.');
     }
 
     public function syncAll(Request $request)
@@ -225,7 +276,8 @@ class DoujinController extends Controller
 
         $media = Media::find($mediaId);
         if ($media) {
-            if (!$media->cover_url && $firstCover) {
+            $coverMissing = !$media->cover_url || !Storage::disk('public')->exists((string) $media->cover_url);
+            if ($coverMissing && $firstCover) {
                 $media->cover_url = $firstCover;
             }
             $media->chapters_cnt = Chapter::where('media_fk', $mediaId)->count();
@@ -343,6 +395,49 @@ class DoujinController extends Controller
     private function normNum(float $number): string
     {
         return number_format($number, 2, '.', '');
+    }
+
+    private function trimToNull(?string $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $value = trim($value);
+
+        return $value === '' ? null : $value;
+    }
+
+    private function parseAuthorNames(?string $value): array
+    {
+        return collect(explode(',', (string) $value))
+            ->map(fn ($author) => trim((string) $author))
+            ->filter()
+            ->unique(fn ($author) => mb_strtolower($author))
+            ->values()
+            ->all();
+    }
+
+    private function makeUniqueMediaSlug(Media $media, string $value): string
+    {
+        $base = Str::slug($value);
+        if ($base === '') {
+            $base = 'doujin-'.$media->id;
+        }
+
+        $slug = $base;
+        $index = 2;
+
+        while (
+            Media::query()
+                ->where('slug', $slug)
+                ->whereKeyNot($media->getKey())
+                ->exists()
+        ) {
+            $slug = $base.'-'.$index++;
+        }
+
+        return $slug;
     }
 
     private function containsNonLatin(string $value): bool

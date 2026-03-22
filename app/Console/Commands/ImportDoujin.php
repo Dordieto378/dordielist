@@ -180,9 +180,12 @@ class ImportDoujin extends Command
                 );
             }
 
-            if ($media && !$media->cover_url) {
-                $media->cover_url = ltrim($images[0], '/');
-                $media->save();
+            if ($media) {
+                $coverMissing = !$media->cover_url || !$disk->exists((string) $media->cover_url);
+                if ($coverMissing) {
+                    $media->cover_url = ltrim($images[0], '/');
+                    $media->save();
+                }
             }
 
             $chapterCount++;

@@ -266,6 +266,46 @@ GQL;
         return back();
     }
 
+    public function destroy(Media $media)
+    {
+        abort_unless(in_array($media->type, ['anime', 'hentai', 'manga', 'manwha'], true), 404);
+
+        $token = Auth::user()?->anilist_access_token;
+        if (!$token) {
+            return back()->with([
+                'status' => 'Add your AniList access token in account settings first.',
+                'status_color' => 'red',
+            ]);
+        }
+
+        if (($media->source ?? null) !== 'anilist' || empty($media->source_id)) {
+            return back()->with([
+                'status' => 'This entry is not linked to an AniList media record.',
+                'status_color' => 'red',
+            ]);
+        }
+
+        try {
+            $entryId = $this->getAniListEntryId($token, (int) $media->source_id);
+
+            if ($entryId !== null) {
+                $this->deleteAniListEntry($token, $entryId);
+            }
+
+            $category = $this->categorySlugForMedia($media);
+            $media->delete();
+
+            return redirect()
+                ->route('category', ['category' => $category])
+                ->with('status', 'Entry deleted.');
+        } catch (\Throwable $e) {
+            return back()->with([
+                'status' => $e->getMessage() !== '' ? $e->getMessage() : 'AniList delete failed.',
+                'status_color' => 'red',
+            ]);
+        }
+    }
+
     private function canonicalType(Media $media): string
     {
         $type = strtoupper($media->type);
@@ -275,6 +315,19 @@ GQL;
         }
 
         return $type;
+    }
+
+    private function categorySlugForMedia(Media $media): string
+    {
+        $canonicalType = strtolower($this->canonicalType($media));
+
+        return match ($canonicalType) {
+            'anime' => 'animes',
+            'hentai' => 'hentais',
+            'manga' => 'mangas',
+            'manwha' => 'manwhas',
+            default => 'animes',
+        };
     }
 
     private function mapMediaRow(Media $media): array
@@ -588,6 +641,64 @@ GQL;
         }
 
         return $resp->json('data.Viewer.id');
+    }
+
+    private function getAniListEntryId(string $token, int $mediaId): ?int
+    {
+        $query = <<<'GQL'
+query ($mediaId: Int) {
+  Media(id: $mediaId) {
+    mediaListEntry {
+      id
+    }
+  }
+}
+GQL;
+
+        $resp = Http::withHeaders([
+            'Authorization' => "Bearer {$token}",
+            'Content-Type' => 'application/json',
+            'Accept' => 'application/json',
+        ])->post('https://graphql.anilist.co', [
+            'query' => $query,
+            'variables' => ['mediaId' => $mediaId],
+        ]);
+
+        $apiError = $resp->json('errors.0.message');
+        if (!$resp->successful() || $apiError) {
+            throw new \RuntimeException($apiError ?: 'AniList lookup failed.');
+        }
+
+        $entryId = $resp->json('data.Media.mediaListEntry.id');
+
+        return is_numeric($entryId) ? (int) $entryId : null;
+    }
+
+    private function deleteAniListEntry(string $token, int $entryId): void
+    {
+        $query = <<<'GQL'
+mutation ($id: Int) {
+  DeleteMediaListEntry(id: $id) {
+    deleted
+  }
+}
+GQL;
+
+        $resp = Http::withHeaders([
+            'Authorization' => "Bearer {$token}",
+            'Content-Type' => 'application/json',
+            'Accept' => 'application/json',
+        ])->post('https://graphql.anilist.co', [
+            'query' => $query,
+            'variables' => ['id' => $entryId],
+        ]);
+
+        $apiError = $resp->json('errors.0.message');
+        $deleted = $resp->json('data.DeleteMediaListEntry.deleted');
+
+        if (!$resp->successful() || $apiError || !$deleted) {
+            throw new \RuntimeException($apiError ?: 'AniList delete failed.');
+        }
     }
 
     private function fetchList(string $token, int $userId, string $type): array

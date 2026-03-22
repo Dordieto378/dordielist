@@ -19,6 +19,8 @@
         $averageScore = isset($item['average']) ? $item['average'].'%' : 'N/A';
         $scoreValue   = $item['score'] ?? request()->query('score');
         $myScore      = (is_numeric($scoreValue) && (int)$scoreValue > 0) ? ((int)$scoreValue).'%' : 'N/A';
+        $romajiTitle = $item['title_romaji'] ?? null;
+        $showRomajiTitle = filled($romajiTitle) && $romajiTitle !== $title;
 
         // use the actual model we passed via fetchVnById()
         $mediaModel = $item['media'] ?? null;
@@ -101,8 +103,10 @@
             <div class="flex flex-col justify-start ml-8 mt-4 md:mt-2 text-gray-900 font-medium">
                 <h1 class="text-2xl font-bold text-red-600 mb-2">{{ $title }}</h1>
                 <div class="grid grid-cols-[7rem,1fr] gap-x-3 gap-y-4 text-sm mt-2 mb-2">
-                    <div>Romaji</div>
-                    <div>{{ $item['title_romaji'] ?? 'N/A' }}</div>
+                    @if($showRomajiTitle)
+                        <div>Romaji</div>
+                        <div>{{ $romajiTitle }}</div>
+                    @endif
 
                     <div>Native</div>
                     <div>{{ $item['title_native'] ?? 'N/A' }}</div>

@@ -96,9 +96,6 @@ class ImportVndb extends Command
                 $titleNative = $this->pickNativeTitle($vn['titles']);
             }
 
-            if (!$titleEn && is_string($mainTitle) && preg_match('/[A-Za-z]/', $mainTitle)) {
-                $titleEn = $mainTitle;
-            }
             if (!$titleRo && $mainTitle) {
                 $titleRo = $mainTitle;
             }

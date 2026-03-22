@@ -7,10 +7,17 @@
     use App\Models\Collection;
     use App\Models\CollectionItem;
     use App\Models\Favorite;
+    $romajiTitle = $item['title']['romaji'] ?? null;
+    $englishTitle = $item['title']['english'] ?? null;
     $title = $item['title']['english']
           ?? $item['title']['romaji']
           ?? $item['title']['native']
           ?? 'No Title';
+    $showRomajiTitle = filled($romajiTitle) && (
+        blank($englishTitle)
+            ? $romajiTitle !== $title
+            : $romajiTitle !== $englishTitle
+    );
 
     $type = strtoupper($item['type'] ?? '');
 
@@ -237,6 +244,23 @@
                         </svg>
                         <span class="ml-1">Edit</span>
                     </button>
+
+                    <form action="{{ route('media.destroy', ['media' => $item['id']]) }}"
+                          method="POST"
+                          class="w-full"
+                          onsubmit="return confirm('Delete this entry? This will remove it locally and from your AniList list.');">
+                        @csrf
+                        @method('DELETE')
+                        <button type="submit" class="flex items-center justify-start w-full text-blue-950 py-2 rounded-sm hover:text-red-600">
+                            <svg xmlns="http://www.w3.org/2000/svg"
+                                 class="ml-[1.4rem] h-[1.1rem] w-[1.1rem] mr-[0.5rem] mb-[0.1rem]"
+                                 fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                      d="M6 7h12M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m-7 0v12m4-12v12m5-12-.867 12.142A2 2 0 0114.138 21H9.862a2 2 0 01-1.995-1.858L7 7m10 0H7"/>
+                            </svg>
+                            <span class="ml-1">Delete</span>
+                        </button>
+                    </form>
                 </div>
                 @endauth
             </div>
@@ -244,8 +268,10 @@
             <div class="flex flex-col justify-start ml-8 mt-4 md:mt-2 text-gray-900 font-medium">
                 <h1 class="text-2xl font-bold text-red-600 mb-2">{{ $title }}</h1>
                 <div class="grid grid-cols-[7rem,1fr] gap-x-3 gap-y-4 text-sm mt-2 mb-2">
-                    <div>Romaji</div>
-                    <div>{{ $item['title']['romaji'] ?? 'N/A' }}</div>
+                    @if($showRomajiTitle)
+                        <div>Romaji</div>
+                        <div>{{ $romajiTitle }}</div>
+                    @endif
 
                     <div>Native</div>
                     <div>{{ $item['title']['native'] ?? 'N/A' }}</div>

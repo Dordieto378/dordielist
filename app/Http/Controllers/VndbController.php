@@ -328,9 +328,6 @@ class VndbController extends Controller
                     $titleNative = $this->pickNativeTitle($vn['titles']);
                 }
 
-                if (!$titleEn && $mainTitle && preg_match('/[A-Za-z]/', $mainTitle)) {
-                    $titleEn = $mainTitle;
-                }
                 if (!$titleRo && $mainTitle) {
                     $titleRo = $mainTitle;
                 }

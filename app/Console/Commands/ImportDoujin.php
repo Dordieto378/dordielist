@@ -8,6 +8,7 @@ use Illuminate\Support\Str;
 use App\Models\Media;
 use App\Models\Chapter;
 use App\Models\ChapterPage;
+use App\Support\DoujinFolderIndex;
 use App\Support\MediaMetadataSyncer;
 
 class ImportDoujin extends Command
@@ -17,9 +18,12 @@ class ImportDoujin extends Command
                             {--all : Import every doujin found on disk}
                             {--force : Delete existing chapters/pages first}';
 
-    protected $description = 'Import doujin chapters/pages from storage. Scans storage/app/public/doujin/<author>/<title>.';
+    protected $description = 'Import doujin chapters/pages from storage. Prefers storage/app/public/doujin/<author>/<media_id>.';
 
-    public function __construct(private readonly MediaMetadataSyncer $metadataSyncer)
+    public function __construct(
+        private readonly MediaMetadataSyncer $metadataSyncer,
+        private readonly DoujinFolderIndex $folderIndex,
+    )
     {
         parent::__construct();
     }
@@ -35,60 +39,67 @@ class ImportDoujin extends Command
 
         $force = (bool) $this->option('force');
 
-        // Build entries once: key => ['author','title','path']
-        $entries = $this->scanDisk($disk, $root);
+        $entries = $this->folderIndex->scanDisk($disk, $root);
         if ($this->option('all')) {
             if (empty($entries)) {
                 $this->warn('No doujin folders found on disk.');
                 return self::SUCCESS;
             }
 
-            // Map existing media by normalized key of any known title/slug
-            [$existingMap, $byId] = $this->buildExistingMap();
+            $lookup = $this->folderIndex->buildMediaLookup();
 
-            // Create Media rows for folders not in DB yet
             $created = 0;
-            foreach ($entries as $key => $e) {
-                if (isset($existingMap[$key])) continue;
+            foreach ($entries as $entry) {
+                $mediaId = $this->folderIndex->resolveMediaId($entry, $lookup);
+                $folderTitle = $entry['legacy_title'] ?? null;
+
+                if ($mediaId || $folderTitle === null) {
+                    continue;
+                }
 
                 $m = new Media();
                 $m->type          = 'doujin';
-                $m->title_romaji  = $e['title'];
+                $m->title_romaji  = $folderTitle;
                 $m->title_english = null;
-                $m->title_native  = $this->containsNonLatin($e['title']) ? $e['title'] : null;
-                $m->slug          = Str::slug($e['title']);
+                $m->title_native  = $this->containsNonLatin($folderTitle) ? $folderTitle : null;
+                $m->slug          = Str::slug($folderTitle);
                 $m->cover_url     = null;
                 $m->chapters_cnt  = 0;
                 $m->save();
-                $this->metadataSyncer->syncDoujin($m, [$e['author']]);
+                $this->metadataSyncer->syncDoujin($m, [$entry['author']]);
 
-                $existingMap[$key] = $m->id;
-                $byId[$m->id]      = $m;
+                $lookup = $this->folderIndex->buildMediaLookup();
                 $created++;
             }
 
-            // Import (or update) chapters/pages for all entries
             $total = 0; $ok = 0; $fail = 0;
-            foreach ($entries as $key => $e) {
+            foreach ($entries as $entry) {
                 $total++;
-                $mediaId = $existingMap[$key] ?? null;
-                if (!$mediaId) { $this->warn("Skip (no media id) {$e['title']}"); continue; }
+                $mediaId = $this->folderIndex->resolveMediaId($entry, $lookup);
+                $label = $entry['legacy_title'] ?? $entry['folder'];
 
-                $media = $byId[$mediaId] ?? Media::find($mediaId);
+                if (!$mediaId) {
+                    $this->warn("Skip (no media id) {$label}");
+                    continue;
+                }
+
+                $media = $lookup['by_id'][$mediaId] ?? Media::find($mediaId);
                 try {
                     if ($media) {
-                        if (!$media->title_native && $this->containsNonLatin($e['title'])) {
-                            $media->title_native = $e['title'];
+                        $folderTitle = $entry['legacy_title'] ?? null;
+                        if ($folderTitle && !$media->title_native && $this->containsNonLatin($folderTitle)) {
+                            $media->title_native = $folderTitle;
                             $media->save();
                         }
-                        $this->metadataSyncer->syncDoujin($media, [$e['author']]);
+
+                        $this->metadataSyncer->syncDoujin($media, [$entry['author']]);
                     }
-                    $count = $this->importOne($disk, $e['path'], $mediaId, $force, $media);
+                    $count = $this->importOne($disk, $entry['path'], $mediaId, $force, $media);
                     $ok++;
-                    $this->info("{$e['title']}: {$count} chapter(s)");
+                    $this->info($this->folderIndex->displayTitle($media ?? Media::findOrFail($mediaId)).": {$count} chapter(s)");
                 } catch (\Throwable $ex) {
                     $fail++;
-                    $this->error("Failed {$e['title']} (id {$mediaId}): ".$ex->getMessage());
+                    $this->error("Failed {$label} (id {$mediaId}): ".$ex->getMessage());
                 }
             }
 
@@ -108,16 +119,16 @@ class ImportDoujin extends Command
             return self::FAILURE;
         }
 
-        $key = $this->normKey($this->displayTitle($media));
-        $entry = $entries[$key] ?? null;
+        $entry = $this->folderIndex->findEntryForMedia($media->loadMissing('doujinAuthors:id,name'), $entries);
         if (!$entry) {
-            $this->error("Folder not found for '{$this->displayTitle($media)}' in {$root}/<author>/.");
+            $this->error("Folder not found for '{$this->folderIndex->displayTitle($media)}' in {$root}/<author>/.");
             return self::FAILURE;
         }
 
         try {
-            if (!$media->title_native && $this->containsNonLatin($entry['title'])) {
-                $media->title_native = $entry['title'];
+            $folderTitle = $entry['legacy_title'] ?? null;
+            if ($folderTitle && !$media->title_native && $this->containsNonLatin($folderTitle)) {
+                $media->title_native = $folderTitle;
                 $media->save();
             }
             $count = $this->importOne($disk, $entry['path'], $media->id, $force, $media);
@@ -127,39 +138,6 @@ class ImportDoujin extends Command
             $this->error('Import failed: '.$ex->getMessage());
             return self::FAILURE;
         }
-    }
-
-    /* ---------- helpers ---------- */
-
-    private function scanDisk($disk, string $root): array
-    {
-        $entries = []; // normTitle => ['author','title','path']
-        foreach ($disk->directories($root) as $authorPath) {
-            $author = basename($authorPath);
-            foreach ($disk->directories($authorPath) as $doujinPath) {
-                $title = basename($doujinPath);
-                $entries[$this->normKey($title)] = [
-                    'author' => $author,
-                    'title'  => $title,
-                    'path'   => $doujinPath,
-                ];
-            }
-        }
-        return $entries;
-    }
-
-    private function buildExistingMap(): array
-    {
-        $map = []; // normTitle => id
-        $byId = [];
-        $rows = Media::where('type','doujin')->get(['id','title_romaji','title_english','title_native','slug','cover_url','chapters_cnt']);
-        foreach ($rows as $m) {
-            $byId[$m->id] = $m;
-            foreach ([$m->title_romaji, $m->title_english, $m->title_native, $m->slug] as $t) {
-                if ($t) $map[$this->normKey($t)] = $m->id;
-            }
-        }
-        return [$map, $byId];
     }
 
     private function importOne($disk, string $targetPath, int $mediaId, bool $force, ?Media $media = null): int
@@ -214,11 +192,6 @@ class ImportDoujin extends Command
         return $chapterCount;
     }
 
-    private function displayTitle(Media $m): string
-    {
-        return $m->title_romaji ?: ($m->title_english ?: ($m->title_native ?: ($m->slug ?: '')));
-    }
-
     private function parseChapterNumber(string $name): ?float
     {
         if (preg_match('/(\d+(?:[\._]\d+)?)/', strtolower($name), $m)) {
@@ -243,11 +216,6 @@ class ImportDoujin extends Command
             if (!$row || trim($row->chapter_title) === trim($title)) return $cand;
         }
         return $norm($base + mt_rand(1,999)/100.0);
-    }
-
-    private function normKey(string $s): string
-    {
-        return trim(mb_strtolower($s));
     }
 
     private function containsNonLatin(string $value): bool

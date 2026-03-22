@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Chapter;
 use App\Models\ChapterPage;
 use App\Models\Media;
+use App\Support\DoujinFolderIndex;
 use App\Support\MediaMetadataSyncer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -13,7 +14,10 @@ use Illuminate\Support\Str;
 
 class DoujinController extends Controller
 {
-    public function __construct(private readonly MediaMetadataSyncer $metadataSyncer)
+    public function __construct(
+        private readonly MediaMetadataSyncer $metadataSyncer,
+        private readonly DoujinFolderIndex $folderIndex,
+    )
     {
     }
 
@@ -80,43 +84,33 @@ class DoujinController extends Controller
             return back()->with('error', "Folder not found: storage/app/public/{$root}");
         }
 
-        $entries = [];
-        foreach ($disk->directories($root) as $authorPath) {
-            $author = basename($authorPath);
-            foreach ($disk->directories($authorPath) as $doujinPath) {
-                $entries[] = ['author' => $author, 'title' => basename($doujinPath), 'path' => $doujinPath];
-            }
-        }
+        $entries = $this->folderIndex->scanDisk($disk, $root);
         if (!$entries) {
             return back()->with('status', 'No doujin folders found.');
         }
 
-        $mediaByTitle = [];
-        Media::where('type', 'doujin')
-            ->get(['id', 'title_romaji', 'title_english', 'title_native', 'slug'])
-            ->each(function ($media) use (&$mediaByTitle) {
-                foreach ([$media->title_romaji, $media->title_english, $media->title_native, $media->slug] as $title) {
-                    if ($title) {
-                        $mediaByTitle[$this->normKey($title)] = $media->id;
-                    }
-                }
-            });
+        $lookup = $this->folderIndex->buildMediaLookup();
 
         $created = 0;
         $updated = 0;
         $failed = 0;
 
         foreach ($entries as $entry) {
-            $key = $this->normKey($entry['title']);
-            $mediaId = $mediaByTitle[$key] ?? null;
+            $mediaId = $this->folderIndex->resolveMediaId($entry, $lookup);
+            $folderTitle = $entry['legacy_title'] ?? null;
 
             if (!$mediaId) {
+                if ($folderTitle === null) {
+                    $failed++;
+                    continue;
+                }
+
                 try {
                     $media = new Media();
                     $media->type = 'doujin';
-                    $media->title_romaji = $entry['title'];
-                    $media->title_native = $this->containsNonLatin($entry['title']) ? $entry['title'] : null;
-                    $media->slug = Str::slug($entry['title']);
+                    $media->title_romaji = $folderTitle;
+                    $media->title_native = $this->containsNonLatin($folderTitle) ? $folderTitle : null;
+                    $media->slug = Str::slug($folderTitle);
                     $media->cover_url = null;
                     $media->chapters_cnt = 0;
 
@@ -128,7 +122,7 @@ class DoujinController extends Controller
                     $this->metadataSyncer->syncDoujin($media, [$entry['author']]);
 
                     $mediaId = $media->id;
-                    $mediaByTitle[$key] = $mediaId;
+                    $lookup = $this->folderIndex->buildMediaLookup();
                     $created++;
                 } catch (\Throwable $ex) {
                     $failed++;
@@ -139,10 +133,13 @@ class DoujinController extends Controller
             try {
                 DB::transaction(function () use ($disk, $entry, $mediaId) {
                     $media = Media::findOrFail($mediaId);
-                    if (!$media->title_native && $this->containsNonLatin($entry['title'])) {
-                        $media->title_native = $entry['title'];
+                    $folderTitle = $entry['legacy_title'] ?? null;
+
+                    if ($folderTitle && !$media->title_native && $this->containsNonLatin($folderTitle)) {
+                        $media->title_native = $folderTitle;
                         $media->save();
                     }
+
                     $this->metadataSyncer->syncDoujin($media, [$entry['author']]);
                     $this->mirrorDoujin($disk, $entry['path'], $mediaId);
                 });
@@ -346,11 +343,6 @@ class DoujinController extends Controller
     private function normNum(float $number): string
     {
         return number_format($number, 2, '.', '');
-    }
-
-    private function normKey(string $value): string
-    {
-        return trim(mb_strtolower($value));
     }
 
     private function containsNonLatin(string $value): bool

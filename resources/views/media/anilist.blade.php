@@ -90,6 +90,8 @@
     $currentProgress = old('progress', $item['userProgress'] ?? null);
     $currentScore = old('user_score', $item['userScore'] ?? null);
     $currentListStatus = old('list_status', $item['listStatus'] ?? 'PLANNING');
+    $currentListStartDate = old('list_start_date', $item['listStartDate'] ?? null);
+    $currentListEndDate = old('list_end_date', $item['listEndDate'] ?? null);
 
     $listOptions = [
         'CURRENT' => $isEpisodeBased ? 'Watching' : 'Reading',
@@ -659,6 +661,26 @@
             />
           </label>
 
+          <label class="block">
+            <span class="block mb-2 text-red-600 font-medium">Start Date</span>
+            <input
+              type="date"
+              name="list_start_date"
+              value="{{ $currentListStartDate ?? '' }}"
+              class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
+            />
+          </label>
+
+          <label class="block">
+            <span class="block mb-2 text-red-600 font-medium">End Date</span>
+            <input
+              type="date"
+              name="list_end_date"
+              value="{{ $currentListEndDate ?? '' }}"
+              class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
+            />
+          </label>
+
           <label class="block col-span-2">
             <span class="block mb-2 text-red-600 font-medium">List</span>
             <select
@@ -1098,5 +1120,4 @@ if (dropZone && fileInput) {
 </script>
 
 @endsection
-
 

@@ -243,20 +243,20 @@
                 }
 
                 const list = document.createElement("div");
-                list.className = "pt-1 pb-4";
+                list.className = "px-3 py-2 space-y-1";
 
                 items.slice(0, 10).forEach(item => {
                     const title = item.title.english || item.title.romaji || "No Title";
 
                     const row = document.createElement("div");
-                    row.className = "flex items-center px-4 py-3 cursor-pointer rounded-lg group";
+                    row.className = "flex min-h-[80px] items-center gap-3 px-3 py-2 cursor-pointer rounded-lg group";
 
                     row.innerHTML = `
-        <span class="relative inline-block w-12 h-12 flex-shrink-0 mr-3">
+        <span class="relative inline-flex h-16 w-12 flex-shrink-0 items-center justify-center overflow-hidden rounded">
           <img src="${item.coverImage?.extraLarge ?? '/images/no-image.jpg'}"
-               alt="Cover" class="w-full h-auto max-h-16 rounded object-contain">
+               alt="Cover" class="h-full w-full object-cover">
         </span>
-        <div>
+        <div class="min-w-0">
           <p class="font-semibold text-black group-hover:text-red-600">
             ${highlightMatch(title, query)}
           </p>

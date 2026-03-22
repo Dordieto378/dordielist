@@ -178,6 +178,8 @@ class AnilistController extends Controller
             'progress' => ['nullable', 'integer', 'min:0'],
             'list_status' => ['required', 'in:CURRENT,PLANNING,COMPLETED,PAUSED,DROPPED,REPEATING'],
             'user_score' => ['nullable', 'integer', 'min:0', 'max:100'],
+            'list_start_date' => ['nullable', 'date_format:Y-m-d'],
+            'list_end_date' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:list_start_date'],
         ]);
 
         if ($validator->fails()) {
@@ -210,13 +212,17 @@ class AnilistController extends Controller
             ? null
             : (int) $data['user_score'];
         $listStatus = (string) $data['list_status'];
+        $listStartDate = $this->parseSubmittedDate($data['list_start_date'] ?? null);
+        $listEndDate = $this->parseSubmittedDate($data['list_end_date'] ?? null);
 
         $query = <<<'GQL'
-mutation ($mediaId: Int, $status: MediaListStatus, $progress: Int, $scoreRaw: Int) {
-  SaveMediaListEntry(mediaId: $mediaId, status: $status, progress: $progress, scoreRaw: $scoreRaw) {
+mutation ($mediaId: Int, $status: MediaListStatus, $progress: Int, $scoreRaw: Int, $startedAt: FuzzyDateInput, $completedAt: FuzzyDateInput) {
+  SaveMediaListEntry(mediaId: $mediaId, status: $status, progress: $progress, scoreRaw: $scoreRaw, startedAt: $startedAt, completedAt: $completedAt) {
     id
     status
     progress
+    startedAt { year month day }
+    completedAt { year month day }
   }
 }
 GQL;
@@ -232,6 +238,8 @@ GQL;
                 'status' => $listStatus,
                 'progress' => $progress,
                 'scoreRaw' => $scoreRaw,
+                'startedAt' => $listStartDate['fuzzy'],
+                'completedAt' => $listEndDate['fuzzy'],
             ],
         ]);
 
@@ -246,6 +254,8 @@ GQL;
         $media->progress = $progress;
         $media->list_status = $listStatus;
         $media->user_score = $scoreRaw;
+        $media->list_start_date = $listStartDate['date'];
+        $media->list_end_date = $listEndDate['date'];
 
         if (Schema::hasColumn('media', 'list_updated_at')) {
             $media->list_updated_at = now();
@@ -334,10 +344,14 @@ GQL;
                 'score' => $media->user_score,
                 'progress' => $media->progress,
                 'status' => $media->list_status,
+                'startedAt' => $media->list_start_date,
+                'completedAt' => $media->list_end_date,
             ],
             'userScore' => $media->user_score,
             'userProgress' => $media->progress,
             'listStatus' => $media->list_status,
+            'listStartDate' => $media->list_start_date,
+            'listEndDate' => $media->list_end_date,
             'languages' => $languages,
         ];
     }
@@ -408,6 +422,8 @@ GQL;
                 $listStatus = $entry['status'] ?? null;
                 $userScore = isset($entry['score']) ? (int) $entry['score'] : null;
                 $progress = isset($entry['progress']) ? (int) $entry['progress'] : null;
+                $listStartDate = $this->fuzzyDateToString($entry['startedAt'] ?? null);
+                $listEndDate = $this->fuzzyDateToString($entry['completedAt'] ?? null);
 
                 $studioRecords = [];
                 if (!empty($media['studios']['edges'])) {
@@ -512,6 +528,8 @@ GQL;
                     'avg_score' => $avgScore,
                     'year' => $year,
                     'start_date' => $startDate,
+                    'list_start_date' => $listStartDate,
+                    'list_end_date' => $listEndDate,
                     'episodes_cnt' => $remoteType === 'ANIME' ? $episodesCnt : null,
                     'chapters_cnt' => $remoteType === 'MANGA' ? $chaptersCnt : null,
                     'volumes_cnt' => $remoteType === 'MANGA' ? $volumesCnt : null,
@@ -581,6 +599,8 @@ GQL;
             progress
             createdAt
             updatedAt
+            startedAt { year month day }
+            completedAt { year month day }
             media {
               type
               format
@@ -651,5 +671,40 @@ GQL;
         }
 
         return 'ANIME';
+    }
+
+    private function parseSubmittedDate(?string $value): array
+    {
+        if ($value === null || trim($value) === '') {
+            return ['date' => null, 'fuzzy' => null];
+        }
+
+        $date = Carbon::createFromFormat('Y-m-d', trim($value))->startOfDay();
+
+        return [
+            'date' => $date->toDateString(),
+            'fuzzy' => [
+                'year' => (int) $date->year,
+                'month' => (int) $date->month,
+                'day' => (int) $date->day,
+            ],
+        ];
+    }
+
+    private function fuzzyDateToString(?array $value): ?string
+    {
+        if (!is_array($value)) {
+            return null;
+        }
+
+        $year = isset($value['year']) ? (int) $value['year'] : null;
+        $month = isset($value['month']) ? (int) $value['month'] : null;
+        $day = isset($value['day']) ? (int) $value['day'] : null;
+
+        if (!$year || !$month || !$day) {
+            return null;
+        }
+
+        return sprintf('%04d-%02d-%02d', $year, $month, $day);
     }
 }

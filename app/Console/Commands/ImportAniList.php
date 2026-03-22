@@ -65,6 +65,8 @@ class ImportAnilist extends Command
                 $lStatus   = $entry['status'] ?? null;
                 $uScore    = isset($entry['score']) ? (int)$entry['score'] : null;
                 $progress  = isset($entry['progress']) ? (int)$entry['progress'] : null;
+                $listStartDate = $this->fuzzyDateToString($entry['startedAt'] ?? null);
+                $listEndDate = $this->fuzzyDateToString($entry['completedAt'] ?? null);
 
 
                 $studios = [];
@@ -185,6 +187,8 @@ class ImportAnilist extends Command
                     'avg_score'      => $avgScore,
                     'year'           => $y,
                     'start_date'     => $startDate,
+                    'list_start_date'=> $listStartDate,
+                    'list_end_date'  => $listEndDate,
                     'episodes_cnt'   => $episodesToSave,
                     'chapters_cnt'   => $chaptersToSave,
                     'volumes_cnt'    => $volumesToSave,
@@ -237,6 +241,8 @@ class ImportAnilist extends Command
                 progress
                 createdAt
                 updatedAt
+                startedAt { year month day }
+                completedAt { year month day }
                 media {
                   id
                   title { english romaji }
@@ -295,5 +301,18 @@ class ImportAnilist extends Command
             foreach ($list['entries'] as $entry) $out[] = $entry;
         }
         return $out;
+    }
+
+    private function fuzzyDateToString(?array $value): ?string
+    {
+        if (!is_array($value)) return null;
+
+        $year = isset($value['year']) ? (int) $value['year'] : null;
+        $month = isset($value['month']) ? (int) $value['month'] : null;
+        $day = isset($value['day']) ? (int) $value['day'] : null;
+
+        if (!$year || !$month || !$day) return null;
+
+        return sprintf('%04d-%02d-%02d', $year, $month, $day);
     }
 }

@@ -151,7 +151,7 @@ class ChapterController extends Controller
 
         $mediaRow = DB::table('media')
             ->where('id', $chapter->media_fk)
-            ->select('id','title_english','title_romaji','slug','type','origin','publisher')
+            ->select('id','title_english','title_romaji','slug','type','origin')
             ->first();
 
         $itemTitle = $mediaRow->title_english ?? $mediaRow->title_romaji ?? 'Unknown Item';

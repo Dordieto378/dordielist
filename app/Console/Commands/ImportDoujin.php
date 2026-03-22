@@ -8,6 +8,7 @@ use Illuminate\Support\Str;
 use App\Models\Media;
 use App\Models\Chapter;
 use App\Models\ChapterPage;
+use App\Support\MediaMetadataSyncer;
 
 class ImportDoujin extends Command
 {
@@ -17,6 +18,11 @@ class ImportDoujin extends Command
                             {--force : Delete existing chapters/pages first}';
 
     protected $description = 'Import doujin chapters/pages from storage. Scans storage/app/public/doujin/<author>/<title>.';
+
+    public function __construct(private readonly MediaMetadataSyncer $metadataSyncer)
+    {
+        parent::__construct();
+    }
 
     public function handle(): int
     {
@@ -50,11 +56,10 @@ class ImportDoujin extends Command
                 $m->title_romaji  = $e['title'];
                 $m->title_english = null;
                 $m->slug          = Str::slug($e['title']);
-                // assumes Media::$casts['publisher'] = 'array'
-                $m->publisher     = [$e['author']];
                 $m->cover_url     = null;
                 $m->chapters_cnt  = 0;
                 $m->save();
+                $this->metadataSyncer->syncDoujin($m, [$e['author']]);
 
                 $existingMap[$key] = $m->id;
                 $byId[$m->id]      = $m;
@@ -70,6 +75,9 @@ class ImportDoujin extends Command
 
                 $media = $byId[$mediaId] ?? Media::find($mediaId);
                 try {
+                    if ($media) {
+                        $this->metadataSyncer->syncDoujin($media, [$e['author']]);
+                    }
                     $count = $this->importOne($disk, $e['path'], $mediaId, $force, $media);
                     $ok++;
                     $this->info("{$e['title']}: {$count} chapter(s)");
@@ -135,7 +143,7 @@ class ImportDoujin extends Command
     {
         $map = []; // normTitle => id
         $byId = [];
-        $rows = Media::where('type','doujin')->get(['id','title_romaji','title_english','slug','publisher','cover_url','chapters_cnt']);
+        $rows = Media::where('type','doujin')->get(['id','title_romaji','title_english','slug','cover_url','chapters_cnt']);
         foreach ($rows as $m) {
             $byId[$m->id] = $m;
             foreach ([$m->title_romaji, $m->title_english, $m->slug] as $t) {

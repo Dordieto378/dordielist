@@ -6,6 +6,8 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use App\Models\Media;
+use App\Support\MediaMetadataSyncer;
 use GuzzleHttp\Client;
 
 class ImportVndb extends Command
@@ -23,7 +25,7 @@ class ImportVndb extends Command
 
     private Client $client;
 
-    public function __construct()
+    public function __construct(private readonly MediaMetadataSyncer $metadataSyncer)
     {
         parent::__construct();
 
@@ -126,8 +128,6 @@ class ImportVndb extends Command
                 'cover_url'     => $cover,
                 'banner_url'    => null,
                 'description'   => $desc,
-                'genres'        => null,
-                'tags'          => $tags ? json_encode($tags, JSON_UNESCAPED_UNICODE) : null,
                 'origin'        => null,
                 'episodes_cnt'  => null,
                 'chapters_cnt'  => null,
@@ -138,8 +138,6 @@ class ImportVndb extends Command
             if (Schema::hasColumn('media', 'avg_score'))      $vals['avg_score']   = $avg;
             if (Schema::hasColumn('media', 'user_score'))     $vals['user_score']  = $vote;
             if (Schema::hasColumn('media', 'list_status'))    $vals['list_status'] = $label ? strtoupper($label) : null;
-            if (Schema::hasColumn('media', 'languages'))      $vals['languages']   = $langs ? json_encode($langs, JSON_UNESCAPED_UNICODE) : null;
-            if (Schema::hasColumn('media', 'publisher'))     $vals['publisher']  = $devs ? json_encode($devs, JSON_UNESCAPED_UNICODE)  : null;
             if (Schema::hasColumn('media', 'year'))           $vals['year']        = $year;
             if (Schema::hasColumn('media', 'release_date'))   $vals['release_date']= $released;
 
@@ -161,6 +159,14 @@ class ImportVndb extends Command
                     'source_id'  => $vidNum,
                 ], $vals));
                 $inserted++;
+            }
+
+            $model = Media::where('source', 'vndb')
+                ->where('source_id', $vidNum)
+                ->first();
+
+            if ($model) {
+                $this->metadataSyncer->syncVn($model, $tags, $langs, $devs);
             }
 
             $bar->advance();

@@ -21,7 +21,6 @@ use App\Http\Controllers\AdminController;
 use App\Http\Controllers\EpisodeController;
 use App\Http\Controllers\ChapterController;
 use App\Http\Controllers\SearchController;
-use App\Http\Controllers\VnLaunchController;
 use App\Http\Controllers\ConfirmTwoFactorAuthenticationController;
 
 // -----------------------------
@@ -152,8 +151,6 @@ Route::middleware('auth')->group(function () {
     Route::get('/media/{media}/chapters/{chapter}/{page?}', [ChapterController::class, 'readPage'])->name('chapters.page');
 
     // VN tools + NSFW mark
-    Route::post('/vn/{media}/detect', [VnLaunchController::class, 'detect'])->name('vn.detect');
-    Route::post('/vn/{media}/launch', [VnLaunchController::class, 'launch'])->name('vn.launch');
     Route::post('/vn/{media}/nsfw',   [VndbController::class,     'markNsfw'])->name('vn.markNsfw');
 
     //sync with API

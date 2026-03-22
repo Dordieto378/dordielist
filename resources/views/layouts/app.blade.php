@@ -178,7 +178,7 @@
             </svg>
 
             <!-- Search Results Dropdown -->
-            <div id="searchResults" class="absolute top-full left-0 w-full bg-white shadow-lg rounded-lg mt-4 pb-4 hidden">
+            <div id="searchResults" class="absolute top-full left-0 w-full bg-white shadow-lg rounded-lg mt-4 overflow-hidden hidden">
                 <!-- Results will be injected here -->
             </div>
         </div>
@@ -226,19 +226,30 @@
                 return text.replace(rx, `<span class="text-red-600 underline">$1</span>`);
             }
 
+            function renderSearchState(message) {
+                searchResults.innerHTML = `
+                    <div class="min-h-[72px] px-4 py-4 flex items-center text-gray-500">
+                        ${message}
+                    </div>
+                `;
+                searchResults.classList.remove("hidden");
+            }
+
             function renderResults(items, query) {
                 searchResults.innerHTML = "";
                 if (!items.length) {
-                    searchResults.innerHTML = `<div class="p-4 text-gray-500">No results found</div>`;
-                    searchResults.classList.remove("hidden");
+                    renderSearchState("No results found");
                     return;
                 }
+
+                const list = document.createElement("div");
+                list.className = "pt-1 pb-4";
 
                 items.slice(0, 10).forEach(item => {
                     const title = item.title.english || item.title.romaji || "No Title";
 
                     const row = document.createElement("div");
-                    row.className = "flex items-center p-3 cursor-pointer rounded-lg group";
+                    row.className = "flex items-center px-4 py-3 cursor-pointer rounded-lg group";
 
                     row.innerHTML = `
         <span class="relative inline-block w-12 h-12 flex-shrink-0 mr-3">
@@ -265,9 +276,10 @@
                         }
                     });
 
-                    searchResults.appendChild(row);
+                    list.appendChild(row);
                 });
 
+                searchResults.appendChild(list);
                 searchResults.classList.remove("hidden");
             }
 
@@ -275,8 +287,7 @@
                 if (aborter) aborter.abort();
                 aborter = new AbortController();
 
-                searchResults.classList.remove("hidden");
-                searchResults.innerHTML = `<div class="p-4 text-gray-500">Loading...</div>`;
+                renderSearchState("Loading...");
 
                 try {
                     const res = await fetch(`/search?q=${encodeURIComponent(q)}&limit=20`, {
@@ -287,8 +298,7 @@
                 } catch (e) {
                     if (e.name === 'AbortError') return;
                     console.error(e);
-                    searchResults.innerHTML = `<div class="p-4 text-gray-500">Error loading results</div>`;
-                    searchResults.classList.remove("hidden");
+                    renderSearchState("Error loading results");
                 }
             }
 

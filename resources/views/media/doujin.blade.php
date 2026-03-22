@@ -136,7 +136,7 @@
                     <div class="grid grid-cols-[7rem,1fr] gap-x-3 gap-y-4 text-sm mt-2 mb-2">
                         <div>Author</div>
                         <div>
-                            @php $authors = collect($media->publisher ?? [])->filter()->unique()->values(); @endphp
+                            @php $authors = $media->doujinAuthors->pluck('name')->filter()->unique()->values(); @endphp
                             @if($authors->isEmpty())
                                 N/A
                             @else

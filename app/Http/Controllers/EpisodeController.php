@@ -12,10 +12,10 @@ class EpisodeController extends Controller
 {
     public function syncFromDisk(Request $request, int $mediaId)
     {
-        $media = Media::findOrFail($mediaId);
+        $media = Media::with(['anilistGenres:id,name'])->findOrFail($mediaId);
 
         $type   = strtoupper($media->type ?? 'ANIME');
-        $genres = is_array($media->genres) ? $media->genres : (json_decode($media->genres ?? '[]', true) ?: []);
+        $genres = $media->metadataNamesFrom('anilistGenres');
         $hasH   = in_array('Hentai', $genres, true);
 
         $isHentai   = ($type === 'HENTAI') || ($type === 'ANIME' && $hasH);
@@ -107,7 +107,7 @@ class EpisodeController extends Controller
 
     public function show($mediaId, $episodeNumber)
     {
-        $media   = Media::findOrFail($mediaId);
+        $media   = Media::with(['anilistGenres:id,name', 'anilistTags:id,name'])->findOrFail($mediaId);
         $episode = Episode::where('media_fk', $mediaId)
             ->where('episode_number', $episodeNumber)
             ->firstOrFail();
@@ -121,8 +121,8 @@ class EpisodeController extends Controller
             ],
             'coverImage'  => ['extraLarge' => $media->cover_url ?: asset('images/no-image.jpg')],
             'description' => $media->description,
-            'genres'      => is_array($media->genres) ? $media->genres : (json_decode($media->genres ?? '[]', true) ?: []),
-            'tags'        => is_array($media->tags)   ? $media->tags   : (json_decode($media->tags   ?? '[]', true) ?: []),
+            'genres'      => $media->metadataNamesFrom('anilistGenres'),
+            'tags'        => $media->metadataNamesFrom('anilistTags'),
             'averageScore'=> $media->avg_score,
             'episodes'    => null,
             'chapters'    => null,

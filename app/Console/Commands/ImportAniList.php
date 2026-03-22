@@ -8,11 +8,17 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 use App\Models\Media;
+use App\Support\MediaMetadataSyncer;
 
 class ImportAnilist extends Command
 {
     protected $signature = 'anilist:import';
     protected $description = 'Import your AniList entries into local media table';
+
+    public function __construct(private readonly MediaMetadataSyncer $metadataSyncer)
+    {
+        parent::__construct();
+    }
 
     public function handle(): int
     {
@@ -43,8 +49,16 @@ class ImportAnilist extends Command
                 // ----- derive fields -----
                 $sourceId  = $media['id'];
                 $genres    = $media['genres'] ?? [];
-                $tags      = array_values(array_filter(array_map(fn($t) => $t['name'] ?? null, $media['tags'] ?? [])));
-                $genresLower = array_map('mb_strtolower', $genres);
+                $tagRecords = collect($media['tags'] ?? [])
+                    ->map(fn (array $tag) => [
+                        'name' => trim((string) ($tag['name'] ?? '')),
+                        'source_id' => isset($tag['id']) && is_numeric($tag['id']) ? (int) $tag['id'] : null,
+                    ])
+                    ->filter(fn (array $tag) => $tag['name'] !== '')
+                    ->unique(fn (array $tag) => mb_strtolower($tag['name']))
+                    ->values()
+                    ->all();
+                $tags      = $this->metadataSyncer->normalizedNames($tagRecords) ?? [];
                 $origin    = $media['countryOfOrigin'] ?? null;
                 $avgScore  = $media['averageScore'] ?? null;
                 $mStatus   = $media['status'] ?? null;
@@ -53,21 +67,29 @@ class ImportAnilist extends Command
                 $progress  = isset($entry['progress']) ? (int)$entry['progress'] : null;
 
 
-                $publishers = [];
+                $studios = [];
+                $authors = [];
 
                 if ($type === 'ANIME' && !empty($media['studios']['edges'])) {
-                    $mainStudios = [];
-                    $producers   = [];
-                    foreach ($media['studios']['edges'] as $edge) {
-                        $name   = $edge['node']['name'] ?? null;
-                        $isMain = !empty($edge['isMain']);
-                        $isAnim = $edge['node']['name'] ?? null; // false => producer
-                        if (!$name) continue;
+                    $studios = collect($media['studios']['edges'])
+                        ->map(function (array $edge) {
+                            $node = $edge['node'] ?? [];
+                            $name = trim((string) ($node['name'] ?? ''));
 
-                        if ($isMain)           $mainStudios[] = $name;   // keep main animation studios
-                        if ($isAnim === false) $producers[]   = $name;   // also keep producers
-                    }
-                    $publishers = array_merge($mainStudios, $producers);
+                            return [
+                                'name' => $name,
+                                'source_id' => isset($node['id']) && is_numeric($node['id']) ? (int) $node['id'] : null,
+                                'is_main' => !empty($edge['isMain']),
+                            ];
+                        })
+                        ->filter(fn (array $studio) => $studio['name'] !== '' && $studio['is_main'])
+                        ->unique(fn (array $studio) => mb_strtolower($studio['name']))
+                        ->map(fn (array $studio) => [
+                            'name' => $studio['name'],
+                            'source_id' => $studio['source_id'],
+                        ])
+                        ->values()
+                        ->all();
 
                 } elseif (in_array($type, ['MANGA'], true) && !empty($media['staff']['edges'])) {
                     $allow = [
@@ -95,12 +117,20 @@ class ImportAnilist extends Command
                         $role = trim(preg_replace('/\s+/', ' ', $role));        // collapse spaces
 
                         if (in_array($role, $allow, true)) {
-                            $publishers[] = $name;
+                            $authors[] = [
+                                'name' => trim((string) $name),
+                                'source_id' => isset($edge['node']['id']) && is_numeric($edge['node']['id']) ? (int) $edge['node']['id'] : null,
+                            ];
                         }
                     }
                 }
 
-                $publishers = array_values(array_unique(array_filter($publishers)));
+                $authors = collect($authors)
+                    ->filter(fn (array $author) => $author['name'] !== '')
+                    ->unique(fn (array $author) => mb_strtolower($author['name']))
+                    ->values()
+                    ->all();
+                $publishers = $this->metadataSyncer->normalizedNames($type === 'ANIME' ? $studios : $authors) ?? [];
 
                 // start/release date
                 $y = $media['startDate']['year']  ?? null;
@@ -148,9 +178,6 @@ class ImportAnilist extends Command
                     'cover_url'      => $cover,
                     'banner_url'     => $banner,
                     'description'    => $desc,
-                    'genres'         => $genres,
-                    'tags'           => $tags,
-                    'publisher'      => $publishers ?: null,
                     'origin'         => $origin,
                     'list_status'    => $lStatus,
                     'media_status'   => $mStatus,
@@ -161,13 +188,20 @@ class ImportAnilist extends Command
                     'episodes_cnt'   => $episodesToSave,
                     'chapters_cnt'   => $chaptersToSave,
                     'volumes_cnt'    => $volumesToSave,
-                    'languages'      => null,
                     'progress'       => $progress,
                 ], $mediaColumns);
 
-                Media::updateOrCreate(
+                $model = Media::updateOrCreate(
                     ['source' => 'anilist', 'source_id' => $sourceId],
                     $values
+                );
+
+                $this->metadataSyncer->syncAnilist(
+                    $model,
+                    $genres,
+                    $tagRecords,
+                    $type === 'ANIME' ? $studios : [],
+                    $type === 'MANGA' ? $authors : []
                 );
 
                 $saved++;
@@ -214,11 +248,12 @@ class ImportAnilist extends Command
                   countryOfOrigin
                   status
                   averageScore
-                  tags { name }
+                  tags { id name }
                   studios {
                        edges {
                            isMain
                            node {
+                               id
                                name
                            }
                        }
@@ -226,6 +261,7 @@ class ImportAnilist extends Command
                    staff {
                        edges {
                            node {
+                               id
                                name {
                                    full
                                }

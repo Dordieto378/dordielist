@@ -2,48 +2,59 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use Illuminate\Pagination\LengthAwarePaginator;
-use Illuminate\Support\Facades\Storage;
-use App\Models\Media;
 use App\Models\Collection;
 use App\Models\CollectionItem;
 use App\Models\Favorite;
-use Illuminate\Support\Str;
+use App\Models\Media;
+use App\Support\MediaMetadataSyncer;
 use Carbon\Carbon;
+use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 
 class AnilistController extends Controller
 {
+    public function __construct(private readonly MediaMetadataSyncer $metadataSyncer)
+    {
+    }
+
     public function home(Request $request)
     {
-        $all = Media::query()->get()->map(fn ($m) => $this->mapMediaRow($m))->all();
+        $all = Media::query()
+            ->with(Media::METADATA_RELATIONS)
+            ->get()
+            ->map(fn (Media $media) => $this->mapMediaRow($media))
+            ->all();
 
-        usort($all, fn($a,$b) =>
+        usort($all, fn ($a, $b) =>
             (sprintf('%04d%02d%02d', $b['startDate']['year'] ?? 0, $b['startDate']['month'] ?? 0, $b['startDate']['day'] ?? 0))
             <=>
             (sprintf('%04d%02d%02d', $a['startDate']['year'] ?? 0, $a['startDate']['month'] ?? 0, $a['startDate']['day'] ?? 0))
         );
 
-        $dropped = array_values(array_filter($all, fn($m) => ($m['listStatus'] ?? '') === 'DROPPED'));
-        usort($dropped, fn($a,$b) => ($b['averageScore'] ?? 0) <=> ($a['averageScore'] ?? 0));
+        $dropped = array_values(array_filter($all, fn ($media) => ($media['listStatus'] ?? '') === 'DROPPED'));
+        usort($dropped, fn ($a, $b) => ($b['averageScore'] ?? 0) <=> ($a['averageScore'] ?? 0));
         $dropped = array_slice($dropped, 0, 12);
 
-        $scored = array_values(array_filter($all, fn($m) => ($m['userScore'] ?? 0) > 0));
-        usort($scored, fn($a,$b) => ($b['userScore'] ?? 0) <=> ($a['userScore'] ?? 0));
+        $scored = array_values(array_filter($all, fn ($media) => ($media['userScore'] ?? 0) > 0));
+        usort($scored, fn ($a, $b) => ($b['userScore'] ?? 0) <=> ($a['userScore'] ?? 0));
 
         $wishlikeStatuses = ['WISHLIST', 'PLANNING', 'PLAN TO WATCH', 'PLAN TO READ'];
 
-        $wish = array_values(array_filter($all, function ($m) use ($wishlikeStatuses) {
-            $status = strtoupper($m['listStatus'] ?? '');
-            $avg    = $m['averageScore'] ?? null;
+        $wish = array_values(array_filter($all, function ($media) use ($wishlikeStatuses) {
+            $status = strtoupper($media['listStatus'] ?? '');
+            $avg = $media['averageScore'] ?? null;
 
             return in_array($status, $wishlikeStatuses, true)
-                && $avg !== null && $avg !== '' && is_numeric($avg);
+                && $avg !== null
+                && $avg !== ''
+                && is_numeric($avg);
         }));
 
         usort($wish, function ($a, $b) {
@@ -51,93 +62,111 @@ class AnilistController extends Controller
             $avgB = (float) ($b['averageScore'] ?? -1);
 
             if ($avgB === $avgA) {
-                $cmp = ((int)($b['userScore'] ?? 0)) <=> ((int)($a['userScore'] ?? 0));
-                if ($cmp !== 0) return $cmp;
+                $cmp = ((int) ($b['userScore'] ?? 0)) <=> ((int) ($a['userScore'] ?? 0));
+                if ($cmp !== 0) {
+                    return $cmp;
+                }
 
                 $dateA = sprintf('%04d%02d%02d', $a['startDate']['year'] ?? 0, $a['startDate']['month'] ?? 0, $a['startDate']['day'] ?? 0);
                 $dateB = sprintf('%04d%02d%02d', $b['startDate']['year'] ?? 0, $b['startDate']['month'] ?? 0, $b['startDate']['day'] ?? 0);
+
                 return $dateB <=> $dateA;
             }
+
             return $avgB <=> $avgA;
         });
 
         $highestRated4 = array_slice($wish, 0, 4);
 
-        $page    = (int) $request->input('page', 1);
+        $page = (int) $request->input('page', 1);
         $perPage = 24;
-        $offset  = ($page - 1) * $perPage;
-        $slice   = array_slice($all, $offset, $perPage);
+        $offset = ($page - 1) * $perPage;
+        $slice = array_slice($all, $offset, $perPage);
 
         $paginator = new LengthAwarePaginator(
-            $slice, count($all), $perPage, $page,
+            $slice,
+            count($all),
+            $perPage,
+            $page,
             ['path' => $request->url(), 'query' => $request->query()]
         );
 
         return view('home', [
-            'dropped'        => $dropped,
-            'highestRated4'  => $highestRated4,
+            'dropped' => $dropped,
+            'highestRated4' => $highestRated4,
             'paginatedMedia' => $paginator,
-            'selectedView'   => $request->input('view', 'grid'),
+            'selectedView' => $request->input('view', 'grid'),
         ]);
     }
 
     public function getAllMedia()
     {
-        $all = Media::query()->get()->map(function (Media $m) {
-            $publisher = $this->toArray($m->publisher);
-            $studios   = in_array($m->type, ['anime','hentai'], true) ? $publisher : [];
-            $authors   = in_array($m->type, ['manga','manwha'], true) ? $publisher : [];
+        $all = Media::query()
+            ->with(Media::METADATA_RELATIONS)
+            ->get()
+            ->map(function (Media $media) {
+                $canonicalType = strtolower($this->canonicalType($media));
 
-            return [
-                'id'         => $m->id,
-                'type'       => strtoupper($m->type),
-                'title'      => ['english' => $m->title_english, 'romaji' => $m->title_romaji],
-                'coverImage' => ['extraLarge' => $this->externalOrStorage($m->cover_url)],
-                'genres'     => $this->toArray($m->genres),
-                'countryOfOrigin' => $m->origin,
-                'studios'    => $studios,
-                'authors'    => $authors,
-            ];
-        })->values()->all();
+                return [
+                    'id' => $media->id,
+                    'type' => strtoupper($media->type),
+                    'title' => ['english' => $media->title_english, 'romaji' => $media->title_romaji],
+                    'coverImage' => ['extraLarge' => $this->externalOrStorage($media->cover_url, $canonicalType === 'doujin')],
+                    'genres' => in_array($canonicalType, ['anime', 'hentai', 'manga', 'manwha'], true)
+                        ? $media->metadataNamesFrom('anilistGenres')
+                        : [],
+                    'countryOfOrigin' => $media->origin,
+                    'studios' => in_array($canonicalType, ['anime', 'hentai'], true)
+                        ? $media->metadataNamesFrom('anilistStudios')
+                        : [],
+                    'authors' => in_array($canonicalType, ['manga', 'manwha'], true)
+                        ? $media->metadataNamesFrom('anilistAuthors')
+                        : [],
+                ];
+            })
+            ->values()
+            ->all();
 
         return response()->json($all);
     }
 
     public function show($id)
     {
-        $m = Media::findOrFail($id);
-        $item = $this->mapMediaRow($m);
+        $media = Media::with(Media::METADATA_RELATIONS)->findOrFail($id);
+        $item = $this->mapMediaRow($media);
 
         $genres = $item['genres'] ?? [];
-        $type   = strtoupper($item['type'] ?? '');
+        $type = strtoupper($item['type'] ?? '');
         $origin = strtoupper($item['countryOfOrigin'] ?? '');
+
         if ($type === 'ANIME' && in_array('Hentai', $genres, true)) {
             $category = 'hentais';
         } elseif ($type === 'ANIME') {
             $category = 'animes';
         } elseif ($type === 'MANGA') {
-            $category = ($origin === 'KR') ? 'manwhas' : 'mangas';
+            $category = $origin === 'KR' ? 'manwhas' : 'mangas';
         } else {
             $category = 'animes';
         }
 
         $isFavorited = Favorite::where([
             ['favoritable_type', $category],
-            ['favoritable_id',   $m->id],
+            ['favoritable_id', $media->id],
         ])->exists();
 
-        $allCollections = Collection::orderBy('is_system','desc')->orderBy('name')->get();
+        $allCollections = Collection::orderBy('is_system', 'desc')->orderBy('name')->get();
         $attachedIds = CollectionItem::where('item_type', $category)
-            ->where('item_id',   $m->id)
-            ->pluck('collection_id')->toArray();
+            ->where('item_id', $media->id)
+            ->pluck('collection_id')
+            ->toArray();
 
         return view('media.anilist', [
-            'item'           => $item,
-            'id'             => $m->id,
-            'category'       => $category,
-            'isFavorited'    => $isFavorited,
+            'item' => $item,
+            'id' => $media->id,
+            'category' => $category,
+            'isFavorited' => $isFavorited,
             'allCollections' => $allCollections,
-            'attachedIds'    => $attachedIds,
+            'attachedIds' => $attachedIds,
         ]);
     }
 
@@ -174,10 +203,10 @@ class AnilistController extends Controller
         }
 
         $data = $validator->validated();
-        $progress = $data['progress'] === null || $data['progress'] == ''
+        $progress = $data['progress'] === null || $data['progress'] === ''
             ? null
             : (int) $data['progress'];
-        $scoreRaw = $data['user_score'] === null || $data['user_score'] == ''
+        $scoreRaw = $data['user_score'] === null || $data['user_score'] === ''
             ? null
             : (int) $data['user_score'];
         $listStatus = (string) $data['list_status'];
@@ -227,108 +256,105 @@ GQL;
         return back();
     }
 
-    /**
-     * Derive a canonical type so unreleased AniList anime without episode counts
-     * aren't mislabeled as manga/manwha locally.
-     */
-    private function canonicalType(Media $m): string
+    private function canonicalType(Media $media): string
     {
-        $t = strtoupper($m->type);
+        $type = strtoupper($media->type);
 
-        // Normalize Korean-origin manga to MANWHA; otherwise trust stored type.
-        if ($t === 'MANGA' && strtoupper((string)$m->origin) === 'KR') {
+        if ($type === 'MANGA' && strtoupper((string) $media->origin) === 'KR') {
             return 'MANWHA';
         }
 
-        return $t;
+        return $type;
     }
 
-    private function mapMediaRow(Media $m): array
+    private function mapMediaRow(Media $media): array
     {
-        $genres   = $this->toArray($m->genres);
-        $tags     = $this->toArray($m->tags);
-        $publisher = $this->toArray($m->publisher);
-        $languages= $this->toArray($m->languages);
+        $canonicalType = strtolower($this->canonicalType($media));
 
-        $canonicalType = $this->canonicalType($m);
+        $genres = in_array($canonicalType, ['anime', 'hentai', 'manga', 'manwha'], true)
+            ? $media->metadataNamesFrom('anilistGenres')
+            : [];
+        $tags = $canonicalType === 'vn'
+            ? $media->metadataNamesFrom('vnTags')
+            : (in_array($canonicalType, ['anime', 'hentai', 'manga', 'manwha'], true)
+                ? $media->metadataNamesFrom('anilistTags')
+                : []);
+        $studios = in_array($canonicalType, ['anime', 'hentai'], true)
+            ? $media->metadataNamesFrom('anilistStudios')
+            : [];
+        $authors = match ($canonicalType) {
+            'manga', 'manwha' => $media->metadataNamesFrom('anilistAuthors'),
+            'doujin' => $media->metadataNamesFrom('doujinAuthors'),
+            default => [],
+        };
+        $languages = $canonicalType === 'vn'
+            ? $media->metadataNamesFrom('vnLanguages')
+            : [];
 
-        $studios = in_array(strtolower($canonicalType), ['anime','hentai'], true) ? $publisher : [];
-        $authors = in_array(strtolower($canonicalType), ['manga','manwha'], true) ? $publisher : [];
-
-        $descHtml = $m->description ?? '';
-
+        $descHtml = $media->description ?? '';
         $desc = preg_replace('/<\s*br\s*\/?>/i', "\n", $descHtml);
         $desc = preg_replace('/<\/p>\s*<p>/i', "\n\n", $desc);
-
         $desc = strip_tags($desc);
         $desc = html_entity_decode($desc, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-
         $desc = preg_replace("/\r\n?/", "\n", $desc);
-        $desc = preg_replace("/[ \t]+$/m", "", $desc);
+        $desc = preg_replace("/[ \t]+$/m", '', $desc);
         $desc = preg_replace("/\n{3,}/", "\n\n", $desc);
         $desc = trim($desc);
 
-        $descPlain = $desc;
-
-        $parsedStartDate = $m->start_date ? Carbon::parse($m->start_date) : null;
-        $year  = optional($parsedStartDate)->year;
+        $parsedStartDate = $media->start_date ? Carbon::parse($media->start_date) : null;
+        $year = optional($parsedStartDate)->year;
         $month = optional($parsedStartDate)->month;
-        $day   = optional($parsedStartDate)->day;
+        $day = optional($parsedStartDate)->day;
 
         return [
-            'id'          => $m->id,
-            'type'        => $canonicalType,
-            'title'       => [
-                'english' => $m->title_english,
-                'romaji'  => $m->title_romaji,
+            'id' => $media->id,
+            'type' => strtoupper($canonicalType),
+            'title' => [
+                'english' => $media->title_english,
+                'romaji' => $media->title_romaji,
             ],
-            'coverImage'  => [
-                'extraLarge' => $m->cover_url
-                    ? (strtoupper($m->type) === 'DOUJIN'
-                        ? Storage::url(ltrim($m->cover_url, '/'))
-                        : asset($m->cover_url))
-                    : asset('images/no-image.jpg'),
+            'coverImage' => [
+                'extraLarge' => $this->externalOrStorage($media->cover_url, $canonicalType === 'doujin'),
             ],
-            'bannerImage' => $m->banner_url,
-            'description' => $descPlain,
-            'genres'      => $genres,
-            'tags'        => $tags,
-            'averageScore'=> $m->avg_score,
-            'episodes'    => $m->episodes_cnt ?: null,
-            'chapters'    => $m->chapters_cnt ?: null,
-            'volumes'     => $m->volumes_cnt ?: null,
-            'format'      => null,
-            'status'      => $m->media_status,
-            'startDate'   => ['year' => $year, 'month' => $month, 'day' => $day],
-            'countryOfOrigin' => $m->origin,
-            'studios'     => $studios,
-            'authors'     => $authors,
+            'bannerImage' => $media->banner_url,
+            'description' => $desc,
+            'genres' => $genres,
+            'tags' => $tags,
+            'averageScore' => $media->avg_score,
+            'episodes' => $media->episodes_cnt ?: null,
+            'chapters' => $media->chapters_cnt ?: null,
+            'volumes' => $media->volumes_cnt ?: null,
+            'format' => null,
+            'status' => $media->media_status,
+            'startDate' => ['year' => $year, 'month' => $month, 'day' => $day],
+            'countryOfOrigin' => $media->origin,
+            'studios' => $studios,
+            'authors' => $authors,
             'mediaListEntry' => [
-                'score'    => $m->user_score,
-                'progress' => $m->progress,
-                'status'   => $m->list_status,
+                'score' => $media->user_score,
+                'progress' => $media->progress,
+                'status' => $media->list_status,
             ],
-            'userScore'   => $m->user_score,
-            'userProgress'=> $m->progress,
-            'listStatus'  => $m->list_status,
-            'languages'   => $languages,
+            'userScore' => $media->user_score,
+            'userProgress' => $media->progress,
+            'listStatus' => $media->list_status,
+            'languages' => $languages,
         ];
     }
 
-    private function toArray($maybeJson): array
+    private function externalOrStorage(?string $path, bool $storagePath = false): string
     {
-        if (is_array($maybeJson)) return $maybeJson;
-        if (is_string($maybeJson) && $maybeJson !== '') {
-            $decoded = json_decode($maybeJson, true);
-            return is_array($decoded) ? $decoded : [];
+        if (!$path) {
+            return asset('images/no-image.jpg');
         }
-        return [];
-    }
 
-    private function coverUrl(?string $path): string
-    {
-        if (!$path) return asset('images/no-image.jpg');
-        return Storage::url($path);
+        if (Str::startsWith($path, ['http://', 'https://', '/'])) {
+            return $path;
+        }
+
+        return $storagePath
+            ? Storage::url(ltrim($path, '/'))
+            : asset($path);
     }
 
     public function syncFromAnilist(Request $request)
@@ -343,125 +369,173 @@ GQL;
             return back()->with('error', 'Unable to get AniList Viewer ID');
         }
 
-        $types = ['ANIME','MANGA'];
         $allEntries = [];
-        foreach ($types as $type) {
-            $entries = $this->fetchList($token, $viewerId, $type);
-            $allEntries = array_merge($allEntries, $entries);
+        foreach (['ANIME', 'MANGA'] as $type) {
+            $allEntries = array_merge($allEntries, $this->fetchList($token, $viewerId, $type));
         }
 
         $seenIds = [];
         $mediaColumns = array_flip(Schema::getColumnListing('media'));
-
-        $created = 0; $updated = 0;
+        $created = 0;
+        $updated = 0;
 
         DB::beginTransaction();
         try {
             foreach ($allEntries as $entry) {
                 $media = $entry['media'] ?? null;
-                if (!$media) continue;
+                if (!$media) {
+                    continue;
+                }
 
-                $sourceId  = $media['id'];
+                $sourceId = (int) $media['id'];
                 $seenIds[] = $sourceId;
 
-                $genres      = $media['genres'] ?? [];
-                $tags        = array_values(array_filter(array_map(fn($t) => $t['name'] ?? null, $media['tags'] ?? [])));
-                $genresLower = array_map('mb_strtolower', $genres);
+                $genres = array_values(array_filter(array_map(fn ($genre) => trim((string) $genre), $media['genres'] ?? [])));
+                $tagRecords = collect($media['tags'] ?? [])
+                    ->map(fn (array $tag) => [
+                        'name' => trim((string) ($tag['name'] ?? '')),
+                        'source_id' => isset($tag['id']) && is_numeric($tag['id']) ? (int) $tag['id'] : null,
+                    ])
+                    ->filter(fn (array $tag) => $tag['name'] !== '')
+                    ->unique(fn (array $tag) => mb_strtolower($tag['name']))
+                    ->values()
+                    ->all();
+                $tags = $this->metadataSyncer->normalizedNames($tagRecords) ?? [];
 
-                $origin   = $media['countryOfOrigin'] ?? null;
-                $avgScore = $media['averageScore']     ?? null;
-                $mStatus  = $media['status']           ?? null;
-                $lStatus  = $entry['status']           ?? null;
-                $uScore   = isset($entry['score']) ? (int)$entry['score'] : null;
-                $progress = isset($entry['progress']) ? (int)$entry['progress'] : null;
+                $origin = $media['countryOfOrigin'] ?? null;
+                $avgScore = $media['averageScore'] ?? null;
+                $mediaStatus = $media['status'] ?? null;
+                $listStatus = $entry['status'] ?? null;
+                $userScore = isset($entry['score']) ? (int) $entry['score'] : null;
+                $progress = isset($entry['progress']) ? (int) $entry['progress'] : null;
 
-                $publishers = [];
+                $studioRecords = [];
                 if (!empty($media['studios']['edges'])) {
-                    $mainStudios = [];
-                    $producers   = [];
-                    foreach ($media['studios']['edges'] as $edge) {
-                        $name   = $edge['node']['name'] ?? null;
-                        $isMain = !empty($edge['isMain']);
-                        if (!$name) continue;
-                        if ($isMain) $mainStudios[] = $name;
-                    }
-                    $publishers = array_merge($mainStudios, $producers);
-                }
-                if (!empty($media['staff']['edges'])) {
-                    $allow = ['story','art','story & art'];
-                    $denySubstrings = ['assistant','letter','touch','editor','translation','translator','publisher'];
-                    foreach ($media['staff']['edges'] as $edge) {
-                        $rawRole = strtolower($edge['role'] ?? '');
-                        $name    = $edge['node']['name']['full'] ?? null;
-                        if (!$name || $rawRole === '') continue;
-                        $isDenied = false;
-                        foreach ($denySubstrings as $bad) { if (str_contains($rawRole, $bad)) { $isDenied = true; break; } }
-                        if ($isDenied) continue;
-                        $role = preg_replace('/\s*\(.*?\)\s*/', ' ', $rawRole);
-                        $role = str_replace([' and ', ',', '/', '・'], ' & ', $role);
-                        $role = trim(preg_replace('/\s+/', ' ', $role));
-                        if (in_array($role, $allow, true)) $publishers[] = $name;
-                    }
-                }
-                $publishers = array_values(array_unique(array_filter($publishers)));
+                    $studioRecords = collect($media['studios']['edges'])
+                        ->map(function (array $edge) {
+                            $node = $edge['node'] ?? [];
+                            $name = trim((string) ($node['name'] ?? ''));
 
-                $y = $media['startDate']['year']  ?? null;
-                $m = $media['startDate']['month'] ?? null;
-                $d = $media['startDate']['day']   ?? null;
-                $startDate = ($y && $m && $d)
-                    ? Carbon::createFromDate($y, $m, $d)->toDateString()
+                            return [
+                                'name' => $name,
+                                'source_id' => isset($node['id']) && is_numeric($node['id']) ? (int) $node['id'] : null,
+                                'is_main' => !empty($edge['isMain']),
+                            ];
+                        })
+                        ->filter(fn (array $studio) => $studio['name'] !== '' && $studio['is_main'])
+                        ->unique(fn (array $studio) => mb_strtolower($studio['name']))
+                        ->map(fn (array $studio) => [
+                            'name' => $studio['name'],
+                            'source_id' => $studio['source_id'],
+                        ])
+                        ->values()
+                        ->all();
+                }
+
+                $authorRecords = [];
+                if (!empty($media['staff']['edges'])) {
+                    $allow = ['story', 'art', 'story & art'];
+                    $denySubstrings = ['assistant', 'letter', 'touch', 'editor', 'translation', 'translator', 'publisher'];
+
+                    $authorRecords = collect($media['staff']['edges'])
+                        ->map(function (array $edge) use ($allow, $denySubstrings) {
+                            $rawRole = strtolower((string) ($edge['role'] ?? ''));
+                            $name = trim((string) ($edge['node']['name']['full'] ?? ''));
+
+                            if ($name === '' || $rawRole === '') {
+                                return null;
+                            }
+
+                            foreach ($denySubstrings as $substring) {
+                                if (str_contains($rawRole, $substring)) {
+                                    return null;
+                                }
+                            }
+
+                            $role = preg_replace('/\s*\(.*?\)\s*/', ' ', $rawRole);
+                            $role = str_replace([' and ', ',', '/', 'ãƒ»'], ' & ', $role);
+                            $role = trim((string) preg_replace('/\s+/', ' ', $role));
+
+                            if (!in_array($role, $allow, true)) {
+                                return null;
+                            }
+
+                            return [
+                                'name' => $name,
+                                'source_id' => isset($edge['node']['id']) && is_numeric($edge['node']['id']) ? (int) $edge['node']['id'] : null,
+                            ];
+                        })
+                        ->filter()
+                        ->unique(fn (array $author) => mb_strtolower($author['name']))
+                        ->values()
+                        ->all();
+                }
+
+                $year = $media['startDate']['year'] ?? null;
+                $month = $media['startDate']['month'] ?? null;
+                $day = $media['startDate']['day'] ?? null;
+                $startDate = ($year && $month && $day)
+                    ? Carbon::createFromDate($year, $month, $day)->toDateString()
                     : null;
 
                 $titleEn = $media['title']['english'] ?? null;
-                $titleRo = $media['title']['romaji']  ?? null;
-                $cover   = $media['coverImage']['extraLarge'] ?? null;
-                $banner  = $media['bannerImage'] ?? null;
-                $desc    = $media['description'] ?? null;
-
+                $titleRo = $media['title']['romaji'] ?? null;
+                $cover = $media['coverImage']['extraLarge'] ?? null;
+                $banner = $media['bannerImage'] ?? null;
+                $desc = $media['description'] ?? null;
                 $episodesCnt = $media['episodes'] ?? null;
                 $chaptersCnt = $media['chapters'] ?? null;
-                $volumesCnt  = $media['volumes']  ?? null;
+                $volumesCnt = $media['volumes'] ?? null;
 
                 $remoteType = $this->guessRemoteType($media, $genres);
                 if ($remoteType === 'ANIME') {
                     $localType = in_array('Hentai', $genres, true) ? 'hentai' : 'anime';
                 } else {
-                    $localType = strtoupper((string)$origin) === 'KR' ? 'manwha' : 'manga';
+                    $localType = strtoupper((string) $origin) === 'KR' ? 'manwha' : 'manga';
                 }
 
                 $base = $titleRo ?: $titleEn ?: ('media-'.$sourceId);
                 $slug = Str::slug($base.'-al'.$sourceId);
 
                 $values = array_intersect_key([
-                    'type'           => $localType,
-                    'title_english'  => $titleEn,
-                    'title_romaji'   => $titleRo,
-                    'slug'           => $slug,
-                    'cover_url'      => $cover,
-                    'banner_url'     => $banner,
-                    'description'    => $desc,
-                    'genres'         => $genres,
-                    'tags'           => $tags,
-                    'publisher'      => $publishers ?: null,
-                    'origin'         => $origin,
-                    'list_status'    => $lStatus,
-                    'media_status'   => $mStatus,
-                    'user_score'     => $uScore,
-                    'avg_score'      => $avgScore,
-                    'year'           => $y,
-                    'start_date'     => $startDate,
-                    'episodes_cnt'   => ($remoteType === 'ANIME') ? $episodesCnt : null,
-                    'chapters_cnt'   => ($remoteType === 'MANGA') ? $chaptersCnt : null,
-                    'volumes_cnt'    => ($remoteType === 'MANGA') ? $volumesCnt  : null,
-                    'languages'      => null,
-                    'progress'       => $progress,
+                    'type' => $localType,
+                    'title_english' => $titleEn,
+                    'title_romaji' => $titleRo,
+                    'slug' => $slug,
+                    'cover_url' => $cover,
+                    'banner_url' => $banner,
+                    'description' => $desc,
+                    'origin' => $origin,
+                    'list_status' => $listStatus,
+                    'media_status' => $mediaStatus,
+                    'user_score' => $userScore,
+                    'avg_score' => $avgScore,
+                    'year' => $year,
+                    'start_date' => $startDate,
+                    'episodes_cnt' => $remoteType === 'ANIME' ? $episodesCnt : null,
+                    'chapters_cnt' => $remoteType === 'MANGA' ? $chaptersCnt : null,
+                    'volumes_cnt' => $remoteType === 'MANGA' ? $volumesCnt : null,
+                    'progress' => $progress,
                 ], $mediaColumns);
 
                 $model = Media::updateOrCreate(
                     ['source' => 'anilist', 'source_id' => $sourceId],
                     $values
                 );
-                if ($model->wasRecentlyCreated) $created++; else $updated++;
+
+                $this->metadataSyncer->syncAnilist(
+                    $model,
+                    $genres,
+                    $tagRecords,
+                    in_array($localType, ['anime', 'hentai'], true) ? $studioRecords : [],
+                    in_array($localType, ['manga', 'manwha'], true) ? $authorRecords : []
+                );
+
+                if ($model->wasRecentlyCreated) {
+                    $created++;
+                } else {
+                    $updated++;
+                }
             }
 
             $seenIds = array_values(array_unique($seenIds));
@@ -469,7 +543,6 @@ GQL;
                 Media::where('source', 'anilist')
                     ->whereNotIn('source_id', $seenIds)
                     ->delete();
-            } else {
             }
 
             DB::commit();
@@ -486,10 +559,13 @@ GQL;
         $query = '{ Viewer { id } }';
         $resp = Http::withHeaders([
             'Authorization' => "Bearer {$token}",
-            'Content-Type'  => 'application/json',
+            'Content-Type' => 'application/json',
         ])->post('https://graphql.anilist.co', ['query' => $query]);
 
-        if (!$resp->successful()) return null;
+        if (!$resp->successful()) {
+            return null;
+        }
+
         return $resp->json('data.Viewer.id');
     }
 
@@ -518,9 +594,9 @@ GQL;
               countryOfOrigin
               status
               averageScore
-              tags { name }
-              studios { edges { isMain node { name } } }
-              staff   { edges { node { name { full } } role } }
+              tags { id name }
+              studios { edges { isMain node { id name } } }
+              staff { edges { node { id name { full } } role } }
               episodes
               chapters
               volumes
@@ -533,37 +609,40 @@ GQL;
 
         $resp = Http::withHeaders([
             'Authorization' => "Bearer {$token}",
-            'Content-Type'  => 'application/json',
+            'Content-Type' => 'application/json',
         ])->post('https://graphql.anilist.co', [
-            'query'     => $query,
+            'query' => $query,
             'variables' => ['userId' => $userId, 'type' => $type],
         ]);
 
-        if (!$resp->successful()) return [];
+        if (!$resp->successful()) {
+            return [];
+        }
+
         $lists = $resp->json('data.MediaListCollection.lists') ?? [];
         $out = [];
         foreach ($lists as $list) {
-            foreach ($list['entries'] as $entry) $out[] = $entry;
+            foreach ($list['entries'] as $entry) {
+                $out[] = $entry;
+            }
         }
+
         return $out;
     }
 
     private function guessRemoteType(array $media, array $genres): string
     {
-        // Prefer the explicit AniList media type when present.
         $type = strtoupper($media['type'] ?? '');
         if (in_array($type, ['ANIME', 'MANGA'], true)) {
             return $type;
         }
 
-        // Fall back to format hints (AniList formats like TV, OVA, MOVIE, etc.).
         $format = strtoupper($media['format'] ?? '');
         $animeFormats = ['TV', 'TV_SHORT', 'MOVIE', 'SPECIAL', 'OVA', 'ONA', 'MUSIC'];
         if ($format && in_array($format, $animeFormats, true)) {
             return 'ANIME';
         }
 
-        // Use available counts as a last resort.
         if (array_key_exists('episodes', $media) && $media['episodes'] !== null) {
             return 'ANIME';
         }
@@ -571,8 +650,6 @@ GQL;
             return 'MANGA';
         }
 
-        // Default to ANIME when unsure (prevents unreleased shows from being mis-filed as manga).
         return 'ANIME';
     }
-
 }

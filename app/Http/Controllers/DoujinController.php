@@ -2,39 +2,46 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Support\Facades\Storage;
-use App\Models\Media;
 use App\Models\Chapter;
 use App\Models\ChapterPage;
+use App\Models\Media;
+use App\Support\MediaMetadataSyncer;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class DoujinController extends Controller
 {
+    public function __construct(private readonly MediaMetadataSyncer $metadataSyncer)
+    {
+    }
+
     public function show(int $mediaId)
     {
-        $media = Media::where('type', 'doujin')->findOrFail($mediaId);
+        $media = Media::with('doujinAuthors:id,name')
+            ->where('type', 'doujin')
+            ->findOrFail($mediaId);
 
         $chapters = Chapter::where('item_type', 'doujin')
             ->where('media_fk', $media->id)
             ->orderBy('chapter_number')
-            ->get(['id','chapter_number','chapter_title']);
+            ->get(['id', 'chapter_number', 'chapter_title']);
 
-        $chaptersView = $chapters->map(function (Chapter $ch) {
-            $pages = ChapterPage::where('chapter_id', $ch->id)
+        $chaptersView = $chapters->map(function (Chapter $chapter) {
+            $pages = ChapterPage::where('chapter_id', $chapter->id)
                 ->orderBy('page_number')
-                ->get(['id','page_number','file_path']);
+                ->get(['id', 'page_number', 'file_path']);
 
             return [
-                'id'     => $ch->id,
-                'number' => $ch->chapter_number,
-                'title'  => $ch->chapter_title,
-                'pages'  => $pages->map(fn ($p) => [
-                    'id'   => $p->id,
-                    'num'  => $p->page_number,
-                    'url'  => Storage::url($p->file_path),
-                    'path' => $p->file_path,
+                'id' => $chapter->id,
+                'number' => $chapter->chapter_number,
+                'title' => $chapter->chapter_title,
+                'pages' => $pages->map(fn ($page) => [
+                    'id' => $page->id,
+                    'num' => $page->page_number,
+                    'url' => Storage::url($page->file_path),
+                    'path' => $page->file_path,
                 ])->values()->all(),
             ];
         });
@@ -43,24 +50,25 @@ class DoujinController extends Controller
 
         $isFavorited = \App\Models\Favorite::where([
             ['favoritable_type', 'doujins'],
-            ['favoritable_id',   $media->id],
+            ['favoritable_id', $media->id],
         ])->exists();
 
-        $allCollections = \App\Models\Collection::orderBy('is_system','desc')
-            ->orderBy('name')->get();
+        $allCollections = \App\Models\Collection::orderBy('is_system', 'desc')
+            ->orderBy('name')
+            ->get();
 
         $attachedIds = \App\Models\CollectionItem::where('item_type', 'doujins')
-            ->where('item_id',   $media->id)
+            ->where('item_id', $media->id)
             ->pluck('collection_id')
             ->toArray();
 
         return view('media.doujin', [
-            'media'         => $media,
-            'coverUrl'      => $coverUrl,
-            'chapters'      => $chaptersView,
-            'isFavorited'   => $isFavorited,
-            'allCollections'=> $allCollections,
-            'attachedIds'   => $attachedIds,
+            'media' => $media,
+            'coverUrl' => $coverUrl,
+            'chapters' => $chaptersView,
+            'isFavorited' => $isFavorited,
+            'allCollections' => $allCollections,
+            'attachedIds' => $attachedIds,
         ]);
     }
 
@@ -76,102 +84,122 @@ class DoujinController extends Controller
         foreach ($disk->directories($root) as $authorPath) {
             $author = basename($authorPath);
             foreach ($disk->directories($authorPath) as $doujinPath) {
-                $entries[] = ['author'=>$author, 'title'=>basename($doujinPath), 'path'=>$doujinPath];
+                $entries[] = ['author' => $author, 'title' => basename($doujinPath), 'path' => $doujinPath];
             }
         }
-        if (!$entries) return back()->with('status', 'No doujin folders found.');
+        if (!$entries) {
+            return back()->with('status', 'No doujin folders found.');
+        }
 
         $mediaByTitle = [];
-        Media::where('type','doujin')->get(['id','title_romaji','title_english','slug'])->each(function ($m) use (&$mediaByTitle) {
-            foreach ([$m->title_romaji, $m->title_english, $m->slug] as $t) {
-                if ($t) $mediaByTitle[$this->normKey($t)] = $m->id;
-            }
-        });
+        Media::where('type', 'doujin')
+            ->get(['id', 'title_romaji', 'title_english', 'slug'])
+            ->each(function ($media) use (&$mediaByTitle) {
+                foreach ([$media->title_romaji, $media->title_english, $media->slug] as $title) {
+                    if ($title) {
+                        $mediaByTitle[$this->normKey($title)] = $media->id;
+                    }
+                }
+            });
 
-        $created=0; $updated=0; $failed=0;
+        $created = 0;
+        $updated = 0;
+        $failed = 0;
 
-        foreach ($entries as $e) {
-            $key = $this->normKey($e['title']);
+        foreach ($entries as $entry) {
+            $key = $this->normKey($entry['title']);
             $mediaId = $mediaByTitle[$key] ?? null;
 
             if (!$mediaId) {
                 try {
-                    $m = new Media();
-                    $m->type          = 'doujin';
-                    $m->title_romaji  = $e['title'];
-                    $m->slug          = Str::slug($e['title']);
-                    $m->publisher     = [$e['author']];
-                    $m->cover_url     = null;
-                    $m->chapters_cnt  = 0;
+                    $media = new Media();
+                    $media->type = 'doujin';
+                    $media->title_romaji = $entry['title'];
+                    $media->slug = Str::slug($entry['title']);
+                    $media->cover_url = null;
+                    $media->chapters_cnt = 0;
 
                     if (\Schema::hasColumn('media', 'isNsfw')) {
-                        $m->isNsfw = 1;
+                        $media->isNsfw = 1;
                     }
 
-                    $m->save();
-                    $mediaId = $m->id;
+                    $media->save();
+                    $this->metadataSyncer->syncDoujin($media, [$entry['author']]);
+
+                    $mediaId = $media->id;
                     $mediaByTitle[$key] = $mediaId;
                     $created++;
-                } catch (\Throwable $ex) { $failed++; continue; }
+                } catch (\Throwable $ex) {
+                    $failed++;
+                    continue;
+                }
             }
 
             try {
-                DB::transaction(function () use ($disk, $e, $mediaId) {
-                    $this->mirrorDoujin($disk, $e['path'], $mediaId);
+                DB::transaction(function () use ($disk, $entry, $mediaId) {
+                    $media = Media::findOrFail($mediaId);
+                    $this->metadataSyncer->syncDoujin($media, [$entry['author']]);
+                    $this->mirrorDoujin($disk, $entry['path'], $mediaId);
                 });
                 $updated++;
-            } catch (\Throwable $ex) { $failed++; }
+            } catch (\Throwable $ex) {
+                $failed++;
+            }
         }
 
-        $msg = "Sync complete — created: {$created}, updated: {$updated}" . ($failed ? ", failed: {$failed}" : '');
+        $msg = "Sync complete - created: {$created}, updated: {$updated}".($failed ? ", failed: {$failed}" : '');
         return back()->with($failed ? 'error' : 'status', $msg);
     }
 
     private function mirrorDoujin($disk, string $doujinPath, int $mediaId): void
     {
         $chapterDirs = $disk->directories($doujinPath);
-        if (!$chapterDirs) $chapterDirs = [$doujinPath];
+        if (!$chapterDirs) {
+            $chapterDirs = [$doujinPath];
+        }
         usort($chapterDirs, 'strnatcasecmp');
 
         $desired = [];
-        foreach ($chapterDirs as $idx => $chPath) {
-            $title  = basename($chPath);
-            $num    = $this->parseChapterNumber($title) ?? (float)($idx + 1);
-            $numKey = $this->normNum($num);
+        foreach ($chapterDirs as $idx => $chapterPath) {
+            $title = basename($chapterPath);
+            $number = $this->parseChapterNumber($title) ?? (float) ($idx + 1);
+            $numberKey = $this->normNum($number);
 
-            $files  = $disk->files($chPath);
-            $images = array_values(array_filter($files, fn($f) => $this->isImage($f)));
+            $files = $disk->files($chapterPath);
+            $images = array_values(array_filter($files, fn ($file) => $this->isImage($file)));
             usort($images, 'strnatcasecmp');
 
-            $desired[$numKey] = ['title'=>$title, 'images'=>$images];
+            $desired[$numberKey] = ['title' => $title, 'images' => $images];
         }
 
         $existing = Chapter::where('media_fk', $mediaId)
-            ->get(['id','chapter_number','chapter_title'])
-            ->keyBy(fn($c) => $this->normNum((float)$c->chapter_number));
+            ->get(['id', 'chapter_number', 'chapter_title'])
+            ->keyBy(fn ($chapter) => $this->normNum((float) $chapter->chapter_number));
 
         $toDropKeys = array_diff(array_keys($existing->all()), array_keys($desired));
         if ($toDropKeys) {
             $dropIds = $existing->only($toDropKeys)->pluck('id')->all();
             ChapterPage::whereIn('chapter_id', $dropIds)->delete();
             Chapter::whereIn('id', $dropIds)->delete();
-            foreach ($toDropKeys as $k) unset($existing[$k]);
+            foreach ($toDropKeys as $dropKey) {
+                unset($existing[$dropKey]);
+            }
         }
 
         $firstCover = null;
 
-        foreach ($desired as $numKey => $info) {
-            if (!isset($existing[$numKey])) {
+        foreach ($desired as $numberKey => $info) {
+            if (!isset($existing[$numberKey])) {
                 $chapter = Chapter::create([
-                    'media_fk'       => $mediaId,
-                    'item_type'      => 'doujin',
-                    'item_id'        => $mediaId,
-                    'chapter_number' => $numKey,
-                    'chapter_title'  => $info['title'],
+                    'media_fk' => $mediaId,
+                    'item_type' => 'doujin',
+                    'item_id' => $mediaId,
+                    'chapter_number' => $numberKey,
+                    'chapter_title' => $info['title'],
                 ]);
-                $existing[$numKey] = $chapter;
+                $existing[$numberKey] = $chapter;
             } else {
-                $chapter = $existing[$numKey];
+                $chapter = $existing[$numberKey];
                 if (trim($chapter->chapter_title) !== trim($info['title'])) {
                     $chapter->chapter_title = $info['title'];
                     $chapter->save();
@@ -195,45 +223,52 @@ class DoujinController extends Controller
 
         $media = Media::find($mediaId);
         if ($media) {
-            if (!$media->cover_url && $firstCover) $media->cover_url = $firstCover;
+            if (!$media->cover_url && $firstCover) {
+                $media->cover_url = $firstCover;
+            }
             $media->chapters_cnt = Chapter::where('media_fk', $mediaId)->count();
             $media->save();
         }
 
-        $chapters = Chapter::where('media_fk', $mediaId)->get(['id','chapter_title']);
-        foreach ($chapters as $ch) {
-            $pages = ChapterPage::where('chapter_id', $ch->id)->get(['id','file_path']);
+        $chapters = Chapter::where('media_fk', $mediaId)->get(['id', 'chapter_title']);
+        foreach ($chapters as $chapter) {
+            $pages = ChapterPage::where('chapter_id', $chapter->id)->get(['id', 'file_path']);
             if ($pages->isEmpty()) {
-                Chapter::where('id', $ch->id)->delete();
+                Chapter::where('id', $chapter->id)->delete();
                 continue;
             }
 
             $allMissing = true;
-            foreach ($pages as $p) {
-                if (Storage::disk('public')->exists($p->file_path)) { $allMissing = false; break; }
+            foreach ($pages as $page) {
+                if (Storage::disk('public')->exists($page->file_path)) {
+                    $allMissing = false;
+                    break;
+                }
             }
             if ($allMissing) {
-                ChapterPage::where('chapter_id', $ch->id)->delete();
-                Chapter::where('id', $ch->id)->delete();
+                ChapterPage::where('chapter_id', $chapter->id)->delete();
+                Chapter::where('id', $chapter->id)->delete();
                 continue;
             }
 
             $first = $pages->first()->file_path;
-            $dir   = preg_replace('#/[^/]+$#', '', $first) ?: '';
+            $dir = preg_replace('#/[^/]+$#', '', $first) ?: '';
             if ($dir !== '' && !Storage::disk('public')->exists($dir)) {
-                ChapterPage::where('chapter_id', $ch->id)->delete();
-                Chapter::where('id', $ch->id)->delete();
+                ChapterPage::where('chapter_id', $chapter->id)->delete();
+                Chapter::where('id', $chapter->id)->delete();
                 continue;
             }
 
             $danglingIds = [];
-            foreach ($pages as $p) {
-                if (!Storage::disk('public')->exists($p->file_path)) $danglingIds[] = $p->id;
+            foreach ($pages as $page) {
+                if (!Storage::disk('public')->exists($page->file_path)) {
+                    $danglingIds[] = $page->id;
+                }
             }
             if ($danglingIds) {
                 ChapterPage::whereIn('id', $danglingIds)->delete();
-                if (!ChapterPage::where('chapter_id', $ch->id)->exists()) {
-                    Chapter::where('id', $ch->id)->delete();
+                if (!ChapterPage::where('chapter_id', $chapter->id)->exists()) {
+                    Chapter::where('id', $chapter->id)->delete();
                 }
             }
         }
@@ -242,23 +277,27 @@ class DoujinController extends Controller
     private function mirrorPages($disk, int $chapterId, array $images): void
     {
         $desired = [];
-        foreach ($images as $i => $rel) $desired[$i+1] = ltrim($rel, '/');
+        foreach ($images as $index => $rel) {
+            $desired[$index + 1] = ltrim($rel, '/');
+        }
 
         $existing = ChapterPage::where('chapter_id', $chapterId)
-            ->get(['id','page_number','file_path'])
+            ->get(['id', 'page_number', 'file_path'])
             ->keyBy('page_number');
 
         $toDeleteNums = array_diff(array_keys($existing->all()), array_keys($desired));
         if ($toDeleteNums) {
             ChapterPage::where('chapter_id', $chapterId)->whereIn('page_number', $toDeleteNums)->delete();
-            foreach ($toDeleteNums as $n) unset($existing[$n]);
+            foreach ($toDeleteNums as $number) {
+                unset($existing[$number]);
+            }
         }
 
         $danglingIds = [];
-        foreach ($existing as $num => $row) {
+        foreach ($existing as $number => $row) {
             if (!$disk->exists($row->file_path)) {
                 $danglingIds[] = $row->id;
-                unset($existing[$num]);
+                unset($existing[$number]);
             }
         }
         if ($danglingIds) {
@@ -266,22 +305,24 @@ class DoujinController extends Controller
         }
 
         $insert = [];
-        foreach ($desired as $num => $path) {
-            if (!isset($existing[$num])) {
+        foreach ($desired as $number => $path) {
+            if (!isset($existing[$number])) {
                 $insert[] = [
-                    'chapter_id'  => $chapterId,
-                    'page_number' => $num,
-                    'file_path'   => $path,
-                    'created_at'  => now(),
-                    'updated_at'  => now(),
+                    'chapter_id' => $chapterId,
+                    'page_number' => $number,
+                    'file_path' => $path,
+                    'created_at' => now(),
+                    'updated_at' => now(),
                 ];
             }
         }
-        if ($insert) ChapterPage::insert($insert);
+        if ($insert) {
+            ChapterPage::insert($insert);
+        }
 
-        foreach ($desired as $num => $path) {
-            if (isset($existing[$num]) && $existing[$num]->file_path !== $path) {
-                ChapterPage::where('id', $existing[$num]->id)
+        foreach ($desired as $number => $path) {
+            if (isset($existing[$number]) && $existing[$number]->file_path !== $path) {
+                ChapterPage::where('id', $existing[$number]->id)
                     ->update(['file_path' => $path, 'updated_at' => now()]);
             }
         }
@@ -289,22 +330,27 @@ class DoujinController extends Controller
 
     private function parseChapterNumber(string $name): ?float
     {
-        if (preg_match('/(\d+(?:[\._]\d+)?)/', strtolower($name), $m)) {
-            $n = strtr($m[1], ['_' => '.', ',' => '.']);
-            return (float)$n;
+        if (preg_match('/(\d+(?:[\._]\d+)?)/', strtolower($name), $matches)) {
+            $number = strtr($matches[1], ['_' => '.', ',' => '.']);
+            return (float) $number;
         }
+
         return null;
     }
-    private function normNum(float $n): string { return number_format($n, 2, '.', ''); }
-    private function normKey(string $s): string { return trim(mb_strtolower($s)); }
 
-    public function pages()
+    private function normNum(float $number): string
     {
-        return $this->hasMany(ChapterPage::class, 'chapter_id');
+        return number_format($number, 2, '.', '');
     }
+
+    private function normKey(string $value): string
+    {
+        return trim(mb_strtolower($value));
+    }
+
     private function isImage(string $path): bool
     {
         $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
-        return in_array($ext, ['jpg','jpeg','png','webp','gif'], true);
+        return in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif'], true);
     }
 }

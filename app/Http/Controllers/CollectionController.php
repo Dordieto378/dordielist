@@ -197,6 +197,7 @@ class CollectionController extends Controller
 
             $title = $media['title']['english']
                 ?? $media['title']['romaji']
+                ?? $media['title']['native']
                 ?? (is_string($media['title'] ?? null) ? $media['title'] : null)
                 ?? 'Untitled';
 
@@ -243,6 +244,8 @@ class CollectionController extends Controller
                 $title = $media['title']['english'];
             } elseif (isset($media['title']['romaji'])) {
                 $title = $media['title']['romaji'];
+            } elseif (isset($media['title']['native'])) {
+                $title = $media['title']['native'];
             } elseif (is_string($media['title'] ?? null)) {
                 $title = $media['title'];
             }
@@ -281,6 +284,7 @@ class CollectionController extends Controller
                 'title'      => [
                     'english' => $m->title_english,
                     'romaji'  => $m->title_romaji,
+                    'native'  => $m->title_native,
                 ],
             ];
         }
@@ -295,14 +299,13 @@ class CollectionController extends Controller
                     : Storage::url((string) $doujin->cover_url))
                 : asset('images/no-image.jpg');
 
-            $title = $doujin->title_english ?: ($doujin->title_romaji ?: $doujin->slug);
-
             return [
                 '__type'     => 'doujins',
                 'coverImage' => ['extraLarge' => $cover],
                 'title'      => [
-                    'english' => $title,
-                    'romaji'  => $title,
+                    'english' => $doujin->title_english,
+                    'romaji'  => $doujin->title_romaji,
+                    'native'  => $doujin->title_native,
                 ],
             ];
         }

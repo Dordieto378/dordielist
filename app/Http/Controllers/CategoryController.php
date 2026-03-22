@@ -22,7 +22,7 @@ class CategoryController extends Controller
         }
 
         if ($row->type === 'doujin') {
-            $title = $row->title_english ?: ($row->title_romaji ?: 'No Title');
+            $title = $row->title_english ?: ($row->title_romaji ?: ($row->title_native ?: 'No Title'));
 
             $cover = $row->cover_url ?: null;
             if ($cover && !preg_match('#^https?://#i', $cover)) {
@@ -50,7 +50,7 @@ class CategoryController extends Controller
                     ? route('vn.show', ['id' => $row->id])
                     : route('media.show', ['id' => $row->id]),
                 'cover' => $row->cover_url ?: asset('images/no-image.jpg'),
-                'title' => $row->title_english ?: ($row->title_romaji ?: 'No Title'),
+                'title' => $row->title_english ?: ($row->title_romaji ?: ($row->title_native ?: 'No Title')),
                 'nsfw' => (int) ($row->isNsfw ?? 0) === 1,
             ];
         }
@@ -85,7 +85,7 @@ class CategoryController extends Controller
                 $q->whereHas('doujinAuthors', fn ($query) => $query->where('name', $author));
             }
 
-            $titleExpr = 'COALESCE(NULLIF(title_romaji,""), NULLIF(title_english,""), slug)';
+            $titleExpr = 'COALESCE(NULLIF(title_romaji,""), NULLIF(title_english,""), NULLIF(title_native,""), slug)';
             if ($nameOrder === 'az') {
                 $q->orderByRaw("$titleExpr ASC");
             } elseif ($nameOrder === 'za') {
@@ -164,7 +164,7 @@ class CategoryController extends Controller
                 $q->where('year', (int) $year);
             }
 
-            $titleExpr = 'COALESCE(title_english, title_romaji)';
+            $titleExpr = 'COALESCE(NULLIF(title_english,""), NULLIF(title_romaji,""), NULLIF(title_native,""))';
 
             if ($scoreOrder !== 'none') {
                 $q->orderBy(
@@ -312,7 +312,7 @@ class CategoryController extends Controller
             $q->where('media_status', $mediaStatus);
         }
 
-        $titleExpr = 'COALESCE(title_english, title_romaji)';
+        $titleExpr = 'COALESCE(NULLIF(title_english,""), NULLIF(title_romaji,""), NULLIF(title_native,""))';
 
         if ($scoreOrder !== 'none') {
             $q->orderBy(

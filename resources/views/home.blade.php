@@ -82,6 +82,7 @@
                                     // Title logic:
                                     $fullTitle = $item['title']['english']
                                                 ?? $item['title']['romaji']
+                                                ?? $item['title']['native']
                                                 ?? 'No Title';
 
                                     // Click target per type
@@ -152,6 +153,7 @@
                     @php
                         $fullTitle = $item['title']['english']
                                   ?? $item['title']['romaji']
+                                  ?? $item['title']['native']
                                   ?? 'No Title';
 
                         $href = $item['type'] === 'DOUJIN'
@@ -257,6 +259,7 @@
                 @php
                     $fullTitle = $item['title']['english']
                                 ?? $item['title']['romaji']
+                                ?? $item['title']['native']
                                 ?? 'No Title';
 
                     // Click target per type

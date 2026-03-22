@@ -60,9 +60,9 @@ class VndbController extends Controller
         $yearOrder = $req->query('year_order', 'none');
 
         if ($titleOrder === 'az') {
-            $q->orderByRaw('COALESCE(NULLIF(title_english,""), NULLIF(title_romaji,""), slug) asc');
+            $q->orderByRaw('COALESCE(NULLIF(title_english,""), NULLIF(title_romaji,""), NULLIF(title_native,""), slug) asc');
         } elseif ($titleOrder === 'za') {
-            $q->orderByRaw('COALESCE(NULLIF(title_english,""), NULLIF(title_romaji,""), slug) desc');
+            $q->orderByRaw('COALESCE(NULLIF(title_english,""), NULLIF(title_romaji,""), NULLIF(title_native,""), slug) desc');
         }
 
         if ($scoreOrder === 'avg_desc') {
@@ -86,7 +86,7 @@ class VndbController extends Controller
         $paginator = $q->paginate(24)->appends($req->query());
 
         $media = $paginator->getCollection()->map(function (Media $media) {
-            $title = $media->title_english ?: ($media->title_romaji ?: 'No Title');
+            $title = $media->title_english ?: ($media->title_romaji ?: ($media->title_native ?: 'No Title'));
             $tags = array_map(fn ($tag) => ['name' => $tag], $media->metadataNamesFrom('vnTags'));
             $developers = array_map(fn ($developer) => ['name' => $developer], $media->metadataNamesFrom('vnDevelopers'));
             $languages = $media->metadataNamesFrom('vnLanguages');
@@ -169,7 +169,7 @@ class VndbController extends Controller
             return null;
         }
 
-        $title = $media->title_english ?: ($media->title_romaji ?: 'No Title');
+        $title = $media->title_english ?: ($media->title_romaji ?: ($media->title_native ?: 'No Title'));
         $tags = array_map(fn ($tag) => ['name' => $tag], $media->metadataNamesFrom('vnTags'));
         $developers = array_map(fn ($developer) => ['name' => $developer], $media->metadataNamesFrom('vnDevelopers'));
         $descHtml = $this->renderVnDescription($media->description ?? '');
@@ -186,6 +186,8 @@ class VndbController extends Controller
         return [
             'id' => (int) $media->id,
             'title' => $title,
+            'title_romaji' => $media->title_romaji,
+            'title_native' => $media->title_native,
             'description_html' => $descHtml,
             'image' => ['url' => $media->cover_url],
             'tags' => $tags,
@@ -306,6 +308,7 @@ class VndbController extends Controller
 
                 $titleEn = null;
                 $titleRo = null;
+                $titleNative = null;
                 $mainTitle = $vn['title'] ?? null;
 
                 if (!empty($vn['titles']) && is_array($vn['titles'])) {
@@ -321,6 +324,8 @@ class VndbController extends Controller
                             $titleRo = $title['title'];
                         }
                     }
+
+                    $titleNative = $this->pickNativeTitle($vn['titles']);
                 }
 
                 if (!$titleEn && $mainTitle && preg_match('/[A-Za-z]/', $mainTitle)) {
@@ -328,6 +333,9 @@ class VndbController extends Controller
                 }
                 if (!$titleRo && $mainTitle) {
                     $titleRo = $mainTitle;
+                }
+                if (!$titleNative && is_string($mainTitle) && $this->containsNonLatin($mainTitle)) {
+                    $titleNative = $mainTitle;
                 }
 
                 $titleForSlug = $titleEn ?: $titleRo ?: 'vn';
@@ -368,6 +376,9 @@ class VndbController extends Controller
                 }
                 if (\Schema::hasColumn('media', 'title_romaji')) {
                     $values['title_romaji'] = $titleRo;
+                }
+                if (\Schema::hasColumn('media', 'title_native')) {
+                    $values['title_native'] = $titleNative;
                 }
                 if (\Schema::hasColumn('media', 'slug')) {
                     $values['slug'] = $slugBase;
@@ -528,6 +539,23 @@ class VndbController extends Controller
         } while ($more);
 
         return $all;
+    }
+
+    private function pickNativeTitle(array $titles): ?string
+    {
+        foreach ($titles as $title) {
+            $value = trim((string) ($title['title'] ?? ''));
+            if ($value !== '' && $this->containsNonLatin($value)) {
+                return $value;
+            }
+        }
+
+        return null;
+    }
+
+    private function containsNonLatin(string $value): bool
+    {
+        return preg_match('/[^\p{Latin}\p{Common}\p{Inherited}\p{Nd}\p{Zs}\p{P}\p{S}]/u', $value) === 1;
     }
 
     public function markNsfw($mediaId)

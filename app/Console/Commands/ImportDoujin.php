@@ -55,6 +55,7 @@ class ImportDoujin extends Command
                 $m->type          = 'doujin';
                 $m->title_romaji  = $e['title'];
                 $m->title_english = null;
+                $m->title_native  = $this->containsNonLatin($e['title']) ? $e['title'] : null;
                 $m->slug          = Str::slug($e['title']);
                 $m->cover_url     = null;
                 $m->chapters_cnt  = 0;
@@ -76,6 +77,10 @@ class ImportDoujin extends Command
                 $media = $byId[$mediaId] ?? Media::find($mediaId);
                 try {
                     if ($media) {
+                        if (!$media->title_native && $this->containsNonLatin($e['title'])) {
+                            $media->title_native = $e['title'];
+                            $media->save();
+                        }
                         $this->metadataSyncer->syncDoujin($media, [$e['author']]);
                     }
                     $count = $this->importOne($disk, $e['path'], $mediaId, $force, $media);
@@ -111,6 +116,10 @@ class ImportDoujin extends Command
         }
 
         try {
+            if (!$media->title_native && $this->containsNonLatin($entry['title'])) {
+                $media->title_native = $entry['title'];
+                $media->save();
+            }
             $count = $this->importOne($disk, $entry['path'], $media->id, $force, $media);
             $this->info("Imported {$count} chapter(s) for id {$mediaId}");
             return self::SUCCESS;
@@ -143,10 +152,10 @@ class ImportDoujin extends Command
     {
         $map = []; // normTitle => id
         $byId = [];
-        $rows = Media::where('type','doujin')->get(['id','title_romaji','title_english','slug','cover_url','chapters_cnt']);
+        $rows = Media::where('type','doujin')->get(['id','title_romaji','title_english','title_native','slug','cover_url','chapters_cnt']);
         foreach ($rows as $m) {
             $byId[$m->id] = $m;
-            foreach ([$m->title_romaji, $m->title_english, $m->slug] as $t) {
+            foreach ([$m->title_romaji, $m->title_english, $m->title_native, $m->slug] as $t) {
                 if ($t) $map[$this->normKey($t)] = $m->id;
             }
         }
@@ -207,7 +216,7 @@ class ImportDoujin extends Command
 
     private function displayTitle(Media $m): string
     {
-        return $m->title_romaji ?: ($m->title_english ?: ($m->slug ?: ''));
+        return $m->title_romaji ?: ($m->title_english ?: ($m->title_native ?: ($m->slug ?: '')));
     }
 
     private function parseChapterNumber(string $name): ?float
@@ -239,5 +248,10 @@ class ImportDoujin extends Command
     private function normKey(string $s): string
     {
         return trim(mb_strtolower($s));
+    }
+
+    private function containsNonLatin(string $value): bool
+    {
+        return preg_match('/[^\p{Latin}\p{Common}\p{Inherited}\p{Nd}\p{Zs}\p{P}\p{S}]/u', $value) === 1;
     }
 }

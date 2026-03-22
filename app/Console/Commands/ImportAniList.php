@@ -149,6 +149,7 @@ class ImportAnilist extends Command
                 // title, cover, banner, description
                 $titleEn = $media['title']['english'] ?? null;
                 $titleRo = $media['title']['romaji']  ?? null;
+                $titleNative = $media['title']['native'] ?? null;
                 $cover   = $media['coverImage']['extraLarge'] ?? null;
                 $banner  = $media['bannerImage'] ?? null;
                 $desc    = $media['description'] ?? null;
@@ -176,6 +177,7 @@ class ImportAnilist extends Command
                     'type'           => $localType,
                     'title_english'  => $titleEn,
                     'title_romaji'   => $titleRo,
+                    'title_native'   => $titleNative,
                     'slug'           => $slug,
                     'cover_url'      => $cover,
                     'banner_url'     => $banner,
@@ -245,7 +247,7 @@ class ImportAnilist extends Command
                 completedAt { year month day }
                 media {
                   id
-                  title { english romaji }
+                  title { english romaji native }
                   coverImage { extraLarge }
                   bannerImage
                   description

@@ -81,13 +81,29 @@ class ImportVndb extends Command
             if ($vidNum <= 0) { $bar->advance(); continue; }
 
             // title
-            $titleRaw = $vn['title'] ?? null;
-            if (is_array($titleRaw)) {
-                $titleEn = $titleRaw['english'] ?? null;
-                $titleRo = $titleRaw['romaji']  ?? null;
-            } else {
-                $titleEn = $titleRaw;
-                $titleRo = null;
+            $titleEn = null;
+            $titleRo = null;
+            $titleNative = null;
+            $mainTitle = $vn['title'] ?? null;
+
+            if (!empty($vn['titles']) && is_array($vn['titles'])) {
+                foreach ($vn['titles'] as $title) {
+                    if (!isset($title['lang'], $title['title'])) continue;
+                    if ($title['lang'] === 'en') $titleEn = $title['title'];
+                    if ($title['lang'] === 'ja-latn') $titleRo = $title['title'];
+                }
+
+                $titleNative = $this->pickNativeTitle($vn['titles']);
+            }
+
+            if (!$titleEn && is_string($mainTitle) && preg_match('/[A-Za-z]/', $mainTitle)) {
+                $titleEn = $mainTitle;
+            }
+            if (!$titleRo && $mainTitle) {
+                $titleRo = $mainTitle;
+            }
+            if (!$titleNative && is_string($mainTitle) && $this->containsNonLatin($mainTitle)) {
+                $titleNative = $mainTitle;
             }
             $titleForSlug = $titleEn ?: $titleRo ?: 'vn';
 
@@ -124,6 +140,7 @@ class ImportVndb extends Command
                 'type'          => 'vn',
                 'title_english' => $titleEn,
                 'title_romaji'  => $titleRo,
+                'title_native'  => $titleNative,
                 'slug'          => $slug,
                 'cover_url'     => $cover,
                 'banner_url'    => null,
@@ -194,6 +211,8 @@ class ImportVndb extends Command
         $fields = implode(',', [
             'vn.id',
             'vn.title',
+            'vn.titles.lang',
+            'vn.titles.title',
             'vn.description',
             'vn.image.url',
             'vn.tags.name',
@@ -229,5 +248,22 @@ class ImportVndb extends Command
         } while ($more);
 
         return $all;
+    }
+
+    private function pickNativeTitle(array $titles): ?string
+    {
+        foreach ($titles as $title) {
+            $value = trim((string) ($title['title'] ?? ''));
+            if ($value !== '' && $this->containsNonLatin($value)) {
+                return $value;
+            }
+        }
+
+        return null;
+    }
+
+    private function containsNonLatin(string $value): bool
+    {
+        return preg_match('/[^\p{Latin}\p{Common}\p{Inherited}\p{Nd}\p{Zs}\p{P}\p{S}]/u', $value) === 1;
     }
 }

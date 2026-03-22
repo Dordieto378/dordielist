@@ -118,6 +118,7 @@ class EpisodeController extends Controller
             'title'       => [
                 'english' => $media->title_english,
                 'romaji'  => $media->title_romaji,
+                'native'  => $media->title_native,
             ],
             'coverImage'  => ['extraLarge' => $media->cover_url ?: asset('images/no-image.jpg')],
             'description' => $media->description,

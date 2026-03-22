@@ -5,7 +5,7 @@
     @php
         use App\Models\Episode;
 
-        $title         = $item['title']['english'] ?? $item['title']['romaji'] ?? 'No Title';
+        $title         = $item['title']['english'] ?? $item['title']['romaji'] ?? $item['title']['native'] ?? 'No Title';
         $episodeNumber = $episode->episode_number;
         $totalEps      = $item['episodes'] ?? Episode::where('media_fk', $item['id'])->count();
         $mediaUrl      = route('media.show', $item['id']);

@@ -151,10 +151,10 @@ class ChapterController extends Controller
 
         $mediaRow = DB::table('media')
             ->where('id', $chapter->media_fk)
-            ->select('id','title_english','title_romaji','slug','type','origin')
+            ->select('id','title_english','title_romaji','title_native','slug','type','origin')
             ->first();
 
-        $itemTitle = $mediaRow->title_english ?? $mediaRow->title_romaji ?? 'Unknown Item';
+        $itemTitle = $mediaRow->title_english ?? $mediaRow->title_romaji ?? $mediaRow->title_native ?? 'Unknown Item';
 
         $isManwha = strtoupper($mediaRow->type ?? '') === 'MANWHA'
             || strtoupper($mediaRow->origin ?? '') === 'KR';

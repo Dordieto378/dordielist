@@ -20,7 +20,8 @@ class SearchController extends Controller
         $items = Media::query()
             ->where(function ($w) use ($q) {
                 $w->where('title_english', 'like', "%{$q}%")
-                    ->orWhere('title_romaji',  'like', "%{$q}%");
+                    ->orWhere('title_romaji',  'like', "%{$q}%")
+                    ->orWhere('title_native',  'like', "%{$q}%");
             })
             ->orderByDesc('id')
             ->limit($limit)
@@ -47,6 +48,7 @@ class SearchController extends Controller
                 'title' => [
                     'english' => $m->title_english ?: null,
                     'romaji'  => $m->title_romaji  ?: null,
+                    'native'  => $m->title_native  ?: null,
                 ],
                 'cover' => $cover,
                 'coverImage' => ['extraLarge' => $cover],

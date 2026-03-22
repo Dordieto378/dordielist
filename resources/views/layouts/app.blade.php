@@ -246,7 +246,7 @@
                 list.className = "px-3 py-2 space-y-1";
 
                 items.slice(0, 10).forEach(item => {
-                    const title = item.title.english || item.title.romaji || "No Title";
+                    const title = item.title.english || item.title.romaji || item.title.native || "No Title";
 
                     const row = document.createElement("div");
                     row.className = "flex min-h-[80px] items-center gap-3 px-3 py-2 cursor-pointer rounded-lg group";

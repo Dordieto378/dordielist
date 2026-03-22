@@ -93,9 +93,9 @@ class DoujinController extends Controller
 
         $mediaByTitle = [];
         Media::where('type', 'doujin')
-            ->get(['id', 'title_romaji', 'title_english', 'slug'])
+            ->get(['id', 'title_romaji', 'title_english', 'title_native', 'slug'])
             ->each(function ($media) use (&$mediaByTitle) {
-                foreach ([$media->title_romaji, $media->title_english, $media->slug] as $title) {
+                foreach ([$media->title_romaji, $media->title_english, $media->title_native, $media->slug] as $title) {
                     if ($title) {
                         $mediaByTitle[$this->normKey($title)] = $media->id;
                     }
@@ -115,6 +115,7 @@ class DoujinController extends Controller
                     $media = new Media();
                     $media->type = 'doujin';
                     $media->title_romaji = $entry['title'];
+                    $media->title_native = $this->containsNonLatin($entry['title']) ? $entry['title'] : null;
                     $media->slug = Str::slug($entry['title']);
                     $media->cover_url = null;
                     $media->chapters_cnt = 0;
@@ -138,6 +139,10 @@ class DoujinController extends Controller
             try {
                 DB::transaction(function () use ($disk, $entry, $mediaId) {
                     $media = Media::findOrFail($mediaId);
+                    if (!$media->title_native && $this->containsNonLatin($entry['title'])) {
+                        $media->title_native = $entry['title'];
+                        $media->save();
+                    }
                     $this->metadataSyncer->syncDoujin($media, [$entry['author']]);
                     $this->mirrorDoujin($disk, $entry['path'], $mediaId);
                 });
@@ -346,6 +351,11 @@ class DoujinController extends Controller
     private function normKey(string $value): string
     {
         return trim(mb_strtolower($value));
+    }
+
+    private function containsNonLatin(string $value): bool
+    {
+        return preg_match('/[^\p{Latin}\p{Common}\p{Inherited}\p{Nd}\p{Zs}\p{P}\p{S}]/u', $value) === 1;
     }
 
     private function isImage(string $path): bool

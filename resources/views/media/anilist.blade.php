@@ -9,6 +9,7 @@
     use App\Models\Favorite;
     $title = $item['title']['english']
           ?? $item['title']['romaji']
+          ?? $item['title']['native']
           ?? 'No Title';
 
     $type = strtoupper($item['type'] ?? '');
@@ -243,6 +244,12 @@
             <div class="flex flex-col justify-start ml-8 mt-4 md:mt-2 text-gray-900 font-medium">
                 <h1 class="text-2xl font-bold text-red-600 mb-2">{{ $title }}</h1>
                 <div class="grid grid-cols-[7rem,1fr] gap-x-3 gap-y-4 text-sm mt-2 mb-2">
+                    <div>Romaji</div>
+                    <div>{{ $item['title']['romaji'] ?? 'N/A' }}</div>
+
+                    <div>Native</div>
+                    <div>{{ $item['title']['native'] ?? 'N/A' }}</div>
+
                 @if($isChapterBased)
                     <div>Chapters</div>
                     @php
@@ -1120,4 +1127,3 @@ if (dropZone && fileInput) {
 </script>
 
 @endsection
-

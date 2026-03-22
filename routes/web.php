@@ -144,6 +144,7 @@ Route::middleware('auth')->group(function () {
 
     Route::patch('/media/{media}/entry', [AnilistController::class, 'updateEntry'])->name('media.entry.update');
     Route::patch('/doujin/{media}/entry', [DoujinController::class, 'updateEntry'])->name('doujin.entry.update');
+    Route::delete('/doujin/{media}', [DoujinController::class, 'destroy'])->name('doujin.destroy');
     Route::post('/doujin/upload', [DoujinController::class, 'storeUploaded'])->name('doujin.upload');
     // Episode & Chapter management
     Route::post('/media/{media}/episodes', [EpisodeController::class, 'syncFromDisk'])->name('episodes.sync');

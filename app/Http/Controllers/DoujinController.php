@@ -131,6 +131,48 @@ class DoujinController extends Controller
         return back()->with('status', 'Doujin updated.');
     }
 
+    public function destroy(Media $media)
+    {
+        abort_unless($media->type === 'doujin', 404);
+
+        $disk = Storage::disk('public');
+        $pathsToDelete = [];
+
+        $media->loadMissing('doujinAuthors:id,name');
+        $entries = $this->folderIndex->scanDisk($disk, 'doujin');
+        $entry = $this->folderIndex->findEntryForMedia($media, $entries);
+
+        if ($entry && !empty($entry['path'])) {
+            $pathsToDelete[] = trim((string) $entry['path'], '/');
+        }
+
+        $pathsToDelete[] = 'doujin/'.$media->id;
+        $pathsToDelete = array_values(array_unique(array_filter($pathsToDelete)));
+
+        $authorPath = null;
+        if ($entry && !empty($entry['author'])) {
+            $authorPath = 'doujin/'.trim((string) $entry['author'], '/');
+        }
+
+        $media->delete();
+
+        foreach ($pathsToDelete as $path) {
+            if ($disk->exists($path)) {
+                File::deleteDirectory($disk->path($path));
+            }
+        }
+
+        if ($authorPath && $disk->exists($authorPath)) {
+            if ($disk->directories($authorPath) === [] && $disk->files($authorPath) === []) {
+                File::deleteDirectory($disk->path($authorPath));
+            }
+        }
+
+        return redirect()
+            ->route('category', ['category' => 'doujins'])
+            ->with('status', 'Doujin deleted.');
+    }
+
     public function storeUploaded(Request $request)
     {
         $validator = Validator::make($request->all(), [

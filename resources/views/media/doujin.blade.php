@@ -152,6 +152,23 @@
                                     </svg>
                                     <span class="ml-1">Edit</span>
                                 </button>
+
+                                <form action="{{ route('doujin.destroy', ['media' => $media->id]) }}"
+                                      method="POST"
+                                      class="w-full"
+                                      onsubmit="return confirm('Delete this doujin? This will remove its chapters and pages too.');">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="flex items-center justify-start w-full text-blue-950 py-2 rounded-sm hover:text-red-600">
+                                        <svg xmlns="http://www.w3.org/2000/svg"
+                                             class="ml-[1.4rem] h-[1.1rem] w-[1.1rem] mr-[0.5rem] mb-[0.1rem]"
+                                             fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                            <path stroke-linecap="round" stroke-linejoin="round"
+                                                  d="M6 7h12M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m-7 0v12m4-12v12m5-12-.867 12.142A2 2 0 0114.138 21H9.862a2 2 0 01-1.995-1.858L7 7m10 0H7"/>
+                                        </svg>
+                                        <span class="ml-1">Delete</span>
+                                    </button>
+                                </form>
                         </div>
                     @endauth
                 </div>

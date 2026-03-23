@@ -296,8 +296,7 @@ GQL;
             $media->delete();
 
             return redirect()
-                ->route('category', ['category' => $category])
-                ->with('status', 'Entry deleted.');
+                ->route('category', ['category' => $category]);
         } catch (\Throwable $e) {
             return back()->with([
                 'status' => $e->getMessage() !== '' ? $e->getMessage() : 'AniList delete failed.',
@@ -625,7 +624,7 @@ GQL;
             return back()->with('error', 'AniList sync failed: '.$e->getMessage());
         }
 
-        return back()->with('status', "AniList sync done. created={$created}, updated={$updated}.");
+        return back();
     }
 
     private function getViewerId(string $token): ?int

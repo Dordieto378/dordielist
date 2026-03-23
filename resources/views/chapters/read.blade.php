@@ -67,11 +67,11 @@
         // Pair links (fallback to controller links if needed)
         $prevPairLink = $prevPairPage
             ? route('chapters.page', ['media' => $chapter->item_id, 'chapter' => $chapter->chapter_number, 'page' => $prevPairPage, 'view' => 'double'])
-            : ($prevLink ?? null);
+            : ($prevChapterLink ?? null);
 
         $nextPairLink = $nextPairPage
             ? route('chapters.page', ['media' => $chapter->item_id, 'chapter' => $chapter->chapter_number, 'page' => $nextPairPage, 'view' => 'double'])
-            : ($nextLink ?? null);
+            : ($nextChapterLink ?? null);
 
         $chapterDisplay = rtrim(rtrim((string)$chapter->chapter_number, '0'), '.');
         $readerTitleWithChapter = $itemTitle.' - Chapter '.$chapterDisplay;
@@ -585,8 +585,8 @@
                     $singleSpreadNum = $isLeftImg ? $leftNum : $rightNum;
 
                     // Pair-aware targets for this view
-                    $doubleNext = $nextPairLink ?? $nextLink ?? null;
-                    $doublePrev = $prevPairLink ?? $prevLink ?? null;
+                    $doubleNext = $nextPairLink ?? null;
+                    $doublePrev = $prevPairLink ?? null;
 
                     $hasDoubleNext = !empty($doubleNext);
                     $hasDoublePrev = !empty($doublePrev);
@@ -665,8 +665,8 @@
             $bottomLeftAction = 'next';
             $bottomRightAction = 'prev';
         } elseif ($view === 'double' && !$isManwha) {
-            $doubleNext = $nextPairLink ?? $nextLink ?? null;
-            $doublePrev = $prevPairLink ?? $prevLink ?? null;
+            $doubleNext = $nextPairLink ?? null;
+            $doublePrev = $prevPairLink ?? null;
             $bottomLeftLink  = $doubleNext;
             $bottomRightLink = $doublePrev;
             $bottomLeftAction = 'next';
@@ -674,6 +674,7 @@
         }
         $nextArrowClass = $isManwha ? 'is-right' : 'is-left';
         $prevArrowClass = $isManwha ? 'is-left' : 'is-right';
+        $bottomInfoLink = route('media.show', ['id' => $chapter->item_id]);
 
         if ($view === 'one' && !$isManwha) {
             $bottomMainLabel = 'Page';
@@ -709,21 +710,29 @@
                     </span>
                 @endif
 
-                <div class="reader-count-square">
-                    <span class="reader-count-label">{{ $bottomMainLabel }}</span>
-                    @if($view === 'double' && !$isManwha && $rightNum)
-                        <span class="reader-count-pair">
-                            <span>{{ $leftNum }}</span>
-                            <span class="reader-count-sep">|</span>
-                            <span>{{ $rightNum }}</span>
-                        </span>
-                    @else
-                        <span class="reader-count-value">{{ $bottomMainValue }}</span>
-                    @endif
-                    @if($bottomSub)
-                        <span class="reader-count-sub">{{ $bottomSub }}</span>
-                    @endif
-                </div>
+                @if($view === 'scroll')
+                    <a href="{{ $bottomInfoLink }}" class="reader-count-square" aria-label="View item info" title="View item info">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-[#2f4858]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 8h.01M11 12h1v4h1m-1 5a9 9 0 100-18 9 9 0 000 18z" />
+                        </svg>
+                    </a>
+                @else
+                    <div class="reader-count-square">
+                        <span class="reader-count-label">{{ $bottomMainLabel }}</span>
+                        @if($view === 'double' && !$isManwha && $rightNum)
+                            <span class="reader-count-pair">
+                                <span>{{ $leftNum }}</span>
+                                <span class="reader-count-sep">|</span>
+                                <span>{{ $rightNum }}</span>
+                            </span>
+                        @else
+                            <span class="reader-count-value">{{ $bottomMainValue }}</span>
+                        @endif
+                        @if($bottomSub)
+                            <span class="reader-count-sub">{{ $bottomSub }}</span>
+                        @endif
+                    </div>
+                @endif
 
                 @if($bottomRightLink)
                     <a href="{{ $bottomRightLink }}" class="reader-arrow-square right" aria-label="{{ $bottomRightAction === 'next' ? 'Next' : 'Previous' }}">
@@ -817,5 +826,4 @@
 
     </script>
 @endsection
-
 

@@ -15,6 +15,6 @@ class ConfirmTwoFactorAuthenticationController extends Controller
             return back()->withErrors(['code' => __('The provided code is invalid.')]);
         }
 
-        return back()->with('status', 'two-factor-authentication-confirmed');
+        return back();
     }
 }

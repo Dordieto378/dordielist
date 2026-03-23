@@ -77,8 +77,6 @@ class RegisterController extends Controller
             ->send(new AdminNewUserNotification($user, $confirmUrl));
 
         return redirect()
-            ->route('register.pending')
-            ->with('status', 'Registration received! An administrator will activate your account soon.')
-            ->with('status_color', 'green');
+            ->route('register.pending');
     }
 }

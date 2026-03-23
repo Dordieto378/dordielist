@@ -100,33 +100,39 @@
                                     $item['type'] === 'HENTAI'||
                                     $item['type'] === 'DOUJIN'
                                 )
-                                    <div onclick="window.location.href='{{ $href }}'"
-                                         class="cursor-pointer w-[270px] flex-shrink-0 mt-7">
-                                        <div class="relative w-[256px] h-[360px] mx-auto rounded shadow-lg overflow-hidden">
-                                            <img
-                                                src="{{ $item['coverImage']['extraLarge'] ?? asset('images/6.jpg') }}"
-                                                alt="Image"
-                                                class="w-full h-full object-cover"
-                                            >
-                                        </div>
+                                    <div class="w-[270px] flex-shrink-0 mt-7">
+                                        <a href="{{ $href }}" class="block">
+                                            <div class="relative w-[256px] h-[360px] mx-auto rounded shadow-lg overflow-hidden">
+                                                <img
+                                                    src="{{ $item['coverImage']['extraLarge'] ?? asset('images/6.jpg') }}"
+                                                    alt="Image"
+                                                    class="w-full h-full object-cover"
+                                                >
+                                            </div>
+                                        </a>
 
                                         <p class="mt-2 ml-2 text-left">
-                                            {{ shortTitle($fullTitle, 30) }}
+                                            <a href="{{ $href }}" class="hover:underline">
+                                                {{ shortTitle($fullTitle, 30) }}
+                                            </a>
                                         </p>
                                     </div>
                                 @elseif($item['type'] === 'VN')
-                                    <div onclick="window.location.href='{{ $href }}'"
-                                         class="cursor-pointer w-[270px] flex-shrink-0 mt-7">
-                                        <div class="relative w-[256px] h-[360px] mx-auto rounded shadow-lg overflow-hidden">
-                                            <img
-                                                src="{{ $item['coverImage']['extraLarge'] ?? asset('images/6.jpg') }}"
-                                                alt="Image"
-                                                class="w-full h-full object-cover"
-                                            >
-                                        </div>
+                                    <div class="w-[270px] flex-shrink-0 mt-7">
+                                        <a href="{{ $href }}" class="block">
+                                            <div class="relative w-[256px] h-[360px] mx-auto rounded shadow-lg overflow-hidden">
+                                                <img
+                                                    src="{{ $item['coverImage']['extraLarge'] ?? asset('images/6.jpg') }}"
+                                                    alt="Image"
+                                                    class="w-full h-full object-cover"
+                                                >
+                                            </div>
+                                        </a>
 
                                         <p class="mt-2 ml-2 text-left">
-                                            {{ shortTitle($fullTitle, 30) }}
+                                            <a href="{{ $href }}" class="hover:underline">
+                                                {{ shortTitle($fullTitle, 30) }}
+                                            </a>
                                         </p>
                                     </div>
                                 @endif
@@ -170,37 +176,39 @@
                         $item['type'] === 'HENTAI'||
                         $item['type'] === 'DOUJIN'
                     )
-                        <div onclick="window.location.href='{{ $href }}'"
-                             class="cursor-pointer flex-shrink-0 overflow-hidden">
-                            <div class="relative w-[302px] h-[424px] rounded-lg shadow-lg overflow-hidden">
-                                <img
-                                    src="{{ $item['coverImage']['extraLarge'] ?? asset('images/no-image.jpg') }}"
-                                    alt="Cover Image"
-                                    class="w-full h-full object-cover"
-                                >
-                            </div>
+                        <div class="flex-shrink-0 overflow-hidden">
+                            <a href="{{ $href }}" class="block">
+                                <div class="relative w-[302px] h-[424px] rounded-lg shadow-lg overflow-hidden">
+                                    <img
+                                        src="{{ $item['coverImage']['extraLarge'] ?? asset('images/no-image.jpg') }}"
+                                        alt="Cover Image"
+                                        class="w-full h-full object-cover"
+                                    >
+                                </div>
+                            </a>
 
                             <div class="py-3 mr-10">
-                                <p class="text-red-600">
+                                <a href="{{ $href }}" class="text-red-600 hover:underline">
                                     {{ shortTitle($fullTitle, 30) }}
-                                </p>
+                                </a>
                             </div>
                         </div>
                     @elseif($item['type'] === 'VN')
-                        <div onclick="window.location.href='{{ $href }}'"
-                             class="cursor-pointer flex-shrink-0 overflow-hidden">
-                            <div class="relative w-[302px] h-[424px] rounded-lg shadow-lg overflow-hidden">
-                                <img
-                                    src="{{ $item['coverImage']['extraLarge'] ?? asset('images/no-image.jpg') }}"
-                                    alt="Cover Image"
-                                    class="w-full h-full object-cover"
-                                >
-                            </div>
+                        <div class="flex-shrink-0 overflow-hidden">
+                            <a href="{{ $href }}" class="block">
+                                <div class="relative w-[302px] h-[424px] rounded-lg shadow-lg overflow-hidden">
+                                    <img
+                                        src="{{ $item['coverImage']['extraLarge'] ?? asset('images/no-image.jpg') }}"
+                                        alt="Cover Image"
+                                        class="w-full h-full object-cover"
+                                    >
+                                </div>
+                            </a>
 
                             <div class="py-3 mr-10">
-                                <p class="text-red-600">
+                                <a href="{{ $href }}" class="text-red-600 hover:underline">
                                     {{ shortTitle($fullTitle, 30) }}
-                                </p>
+                                </a>
                             </div>
                         </div>
                     @endif
@@ -278,44 +286,46 @@
                     $item['type'] === 'HENTAI'||
                     $item['type'] === 'DOUJIN'
                 )
-                    <div onclick="window.location.href='{{ $href }}'"
-                        class="cursor-pointer card grid-view
+                    <div class="card grid-view
                            w-[305px] flex-shrink-0 overflow-hidden
                            {{ $isGrid ? '' : 'hidden' }}">
                         {{-- Image container --}}
-                        <div class="relative thumb-wrapper thumb-portrait rounded-lg shadow-lg overflow-hidden">
-                            <img
-                                src="{{ $item['coverImage']['extraLarge'] ?? asset('images/no-image.jpg') }}"
-                                alt="Cover Image"
-                                class="thumb-img w-full h-full object-cover"
-                            >
-                        </div>
+                        <a href="{{ $href }}" class="block">
+                            <div class="relative thumb-wrapper thumb-portrait rounded-lg shadow-lg overflow-hidden">
+                                <img
+                                    src="{{ $item['coverImage']['extraLarge'] ?? asset('images/no-image.jpg') }}"
+                                    alt="Cover Image"
+                                    class="thumb-img w-full h-full object-cover"
+                                >
+                            </div>
+                        </a>
                         <div class="py-3">
-                            <p class="text-red-600 font-bold">
+                            <a href="{{ $href }}" class="text-red-600 font-bold hover:underline">
                                 {{ shortTitle($fullTitle, 30) }}
-                            </p>
+                            </a>
                             <p class="text-gray-600 font-medium">
                                 {{ displayMediaType($item) }}
                             </p>
                         </div>
                     </div>
                 @elseif($item['type'] === 'VN')
-                    <div onclick="window.location.href='{{ $href }}'"
-                        class="cursor-pointer card grid-view
+                    <div class="card grid-view
                        w-[305px] flex-shrink-0 overflow-hidden
                        {{ $isGrid ? '' : 'hidden' }}">
                         {{-- Image container --}}
-                        <div class="relative thumb-wrapper thumb-portrait rounded-lg shadow-lg overflow-hidden">
-                            <img
-                                src="{{ $item['coverImage']['extraLarge'] ?? asset('images/no-image.jpg') }}"
-                                alt="Cover Image"
-                                class="thumb-img w-full h-full object-cover"
-                            >
-                        </div>
+                        <a href="{{ $href }}" class="block">
+                            <div class="relative thumb-wrapper thumb-portrait rounded-lg shadow-lg overflow-hidden">
+                                <img
+                                    src="{{ $item['coverImage']['extraLarge'] ?? asset('images/no-image.jpg') }}"
+                                    alt="Cover Image"
+                                    class="thumb-img w-full h-full object-cover"
+                                >
+                            </div>
+                        </a>
                         <div class="py-3">
-                            <p class="text-red-600 font-bold">
+                            <a href="{{ $href }}" class="text-red-600 font-bold hover:underline">
                                 {{ shortTitle($fullTitle, 30) }}
-                            </p>
+                            </a>
                             <p class="text-gray-600 font-medium">
                                 {{ displayMediaType($item) }}
                             </p>
@@ -335,7 +345,7 @@
                         $item['type'] === 'HENTAI'||
                         $item['type'] === 'DOUJIN'
                     )
-                        <div onclick="window.location.href='{{ $href }}'" class="cursor-pointer flex">
+                        <a href="{{ $href }}" class="flex">
                             <img src="{{ $item['coverImage']['extraLarge'] ?? asset('images/no-image.jpg') }}"
                                  alt="Cover Image"
                                  class="w-[256px] h-[360px] object-cover">
@@ -344,9 +354,9 @@
                                 alt="Banner Image"
                                 class="w-[256px] h-[360px] object-cover"
                             >
-                        </div>
+                        </a>
                     @elseif($item['type']  === 'VN')
-                        <div onclick="window.location.href='{{ $href }}'" class="cursor-pointer flex">
+                        <a href="{{ $href }}" class="flex">
                             <img src="{{ $item['coverImage']['extraLarge'] ?? asset('images/no-image.jpg') }}"
                                  alt="Cover Image"
                                  class="w-[256px] h-[360px] object-cover">
@@ -355,7 +365,7 @@
                                 alt="Banner Image"
                                 class="w-[256px] h-[360px] object-cover"
                             >
-                        </div>
+                        </a>
                     @endif
 
 
@@ -366,9 +376,9 @@
                                           ? substr($fullTitle, 0, 87).'...'
                                           : $fullTitle;
                             @endphp
-                            <p onclick="window.location.href='{{ $href }}'" class="text-red-600 font-bold text-2xl hover:underline cursor-pointer">
+                            <a href="{{ $href }}" class="text-red-600 font-bold text-2xl hover:underline">
                                 {{ $shortT }}
-                            </p>
+                            </a>
 
                             @if (!$item['genres'])
 

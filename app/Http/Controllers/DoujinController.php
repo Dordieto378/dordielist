@@ -128,7 +128,7 @@ class DoujinController extends Controller
 
         $this->metadataSyncer->syncDoujin($media, $authors);
 
-        return back()->with('status', 'Doujin updated.');
+        return back();
     }
 
     public function destroy(Media $media)
@@ -169,8 +169,7 @@ class DoujinController extends Controller
         }
 
         return redirect()
-            ->route('category', ['category' => 'doujins'])
-            ->with('status', 'Doujin deleted.');
+            ->route('category', ['category' => 'doujins']);
     }
 
     public function storeUploaded(Request $request)

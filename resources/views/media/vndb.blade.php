@@ -278,6 +278,8 @@
         action="{{ route('collection.store') }}"
       >
         @csrf
+        <input type="hidden" name="attach_item_type" value="{{ $category }}">
+        <input type="hidden" name="attach_item_id" value="{{ $item['id'] }}">
 
         <!-- Name -->
         <label class="block relative" for="name">
@@ -375,7 +377,7 @@ document.addEventListener('DOMContentLoaded', () => {
     listContainer.insertAdjacentHTML('beforeend', `
       <label class="flex items-center justify-between w-full space-x-2 px-4 py-[15px] rounded hover:bg-gray-100 transition-colors">
         <div class="flex items-center space-x-2">
-          <input type="checkbox" name="collection_ids[]" value="${newCol.id}" class="sr-only peer" onchange="this.form.submit()" />
+          <input type="checkbox" name="collection_ids[]" value="${newCol.id}" class="sr-only peer" onchange="this.form.submit()" checked />
             <span class="mr-1 inline-block h-[20px] w-[20px] rounded border border-gray-600 bg-white transition peer-checked:bg-flatRed peer-checked:border-red-600 group-hover:bg-gray-100 flex items-center justify-center">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-white hidden peer-checked:block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
@@ -390,8 +392,14 @@ document.addEventListener('DOMContentLoaded', () => {
       </label>
     `);
 
+    const newCheckbox = listContainer.querySelector(`input[name="collection_ids[]"][value="${newCol.id}"]`);
+    if (newCheckbox) {
+      newCheckbox.checked = true;
+    }
+
     // close the Create modal
     hideCreate();
+    showAdd();
   });
     const spoilers = document.querySelectorAll('.vn-desc .spoiler');
 

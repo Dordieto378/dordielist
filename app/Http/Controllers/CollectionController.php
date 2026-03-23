@@ -116,13 +116,21 @@ class CollectionController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-        'name' => 'required|string|max:50|unique:collections,name'
+        'name' => 'required|string|max:50|unique:collections,name',
+        'attach_item_type' => 'nullable|in:animes,mangas,manwhas,hentais,doujins,visual-novel',
+        'attach_item_id' => 'nullable',
         ]);
 
         $col = Collection::create([
         'name'      => $request->name,
         'is_system' => false,
         ]);
+
+        $attachType = $request->input('attach_item_type');
+        $attachItemId = $request->input('attach_item_id');
+        if ($attachType && $attachItemId !== null && $attachItemId !== '') {
+            $this->attachItemToCollection($col->id, $attachType, $attachItemId);
+        }
 
         if ($request->wantsJson()) {
             return response()->json($col);
@@ -169,8 +177,7 @@ class CollectionController extends Controller
 
         $collection->delete();
 
-        return redirect()->route('collection.index')
-                         ->with('status', 'Collection deleted');
+        return redirect()->route('collection.index');
     }
 
     public function attachMedia(Request $request)
@@ -266,6 +273,38 @@ class CollectionController extends Controller
         return back();
     }
 
+    private function attachItemToCollection(int $collectionId, string $itemType, string|int $rawItemId): void
+    {
+        $cleanId = (int) ltrim((string) $rawItemId, 'v');
+        $media = $this->fetchMedia($itemType, $cleanId);
+
+        $thumb = $media['coverImage']['extraLarge']
+            ?? ($media['image']['url'] ?? null);
+
+        $title = null;
+        if (isset($media['title']['english'])) {
+            $title = $media['title']['english'];
+        } elseif (isset($media['title']['romaji'])) {
+            $title = $media['title']['romaji'];
+        } elseif (isset($media['title']['native'])) {
+            $title = $media['title']['native'];
+        } elseif (is_string($media['title'] ?? null)) {
+            $title = $media['title'];
+        }
+
+        CollectionItem::updateOrCreate(
+            [
+                'collection_id' => $collectionId,
+                'item_type' => $itemType,
+                'item_id' => $cleanId,
+            ],
+            [
+                'thumbnail_url' => $thumb,
+                'title' => $title,
+            ]
+        );
+    }
+
     public function fetchMedia(string $type, int $id)
     {
         if (in_array($type, ['animes','mangas','manwhas','hentais'], true)) {
@@ -356,7 +395,7 @@ class CollectionController extends Controller
 
         $collection->update(['name' => $data['name']]);
 
-        return back()->with('status', 'Collection renamed.');
+        return back();
     }
 
     public function random(Collection $collection)

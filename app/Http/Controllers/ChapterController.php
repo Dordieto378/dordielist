@@ -102,7 +102,7 @@ class ChapterController extends Controller
             $imported++;
         }
 
-        return back()->with('status', "Synced {$imported} chapter(s) from {$root}");
+        return back();
     }
 
 
@@ -222,6 +222,8 @@ class ChapterController extends Controller
                 'page'    => 1,
                 'view'    => $view,
             ]);
+        } else {
+            $nextLink = $itemUrl;
         }
 
         $prevChapterLink = $prevChapter
@@ -240,7 +242,7 @@ class ChapterController extends Controller
                 'page'    => 1,
                 'view'    => $view,
             ])
-            : null;
+            : $itemUrl;
 
         return view('chapters.read', [
             'chapter'           => $chapter,

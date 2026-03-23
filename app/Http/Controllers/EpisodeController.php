@@ -86,7 +86,7 @@ class EpisodeController extends Controller
             $created++;
         }
 
-        return back()->with('status', "Synced {$created} new episode(s) from {$dir}");
+        return back();
     }
 
 

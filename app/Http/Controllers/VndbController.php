@@ -467,7 +467,7 @@ class VndbController extends Controller
             return back()->with('error', 'VNDB sync failed: '.$e->getMessage());
         }
 
-        return back()->with('status', "VNDB sync done. created={$created}, updated={$updated}.");
+        return back();
     }
 
     private function vndbClient(string $token)
@@ -564,6 +564,6 @@ class VndbController extends Controller
             $media->save();
         }
 
-        return back()->with('status', 'Marked as NSFW.');
+        return back();
     }
 }

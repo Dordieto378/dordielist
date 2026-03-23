@@ -15,6 +15,6 @@ class TwoFactorDisableController extends Controller
 
         $user->forceFill(['two_factor_confirmed' => false])->save();
 
-        return back()->with('status', 'two-factor-authentication-disabled');
+        return back();
     }
 }

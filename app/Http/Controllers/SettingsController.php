@@ -73,9 +73,7 @@ class SettingsController extends Controller
         $user->save();
 
         return redirect()
-            ->route('settings.profile.edit')
-            ->with('status', 'Settings updated successfully.')
-            ->with('status_color', 'green');
+            ->route('settings.profile.edit');
     }
 
     public function users()
@@ -129,9 +127,7 @@ class SettingsController extends Controller
         $user->save();
 
         return redirect()
-            ->route('settings.users')
-            ->with('status', 'User updated successfully.')
-            ->with('status_color', 'green');
+            ->route('settings.users');
     }
 
     public function updateList()

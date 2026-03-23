@@ -246,34 +246,39 @@
                 list.className = "px-3 py-2 space-y-1";
 
                 items.slice(0, 10).forEach(item => {
-                    const title = item.title.english || item.title.romaji || item.title.native || "No Title";
+                    const title = item.label || item.title?.english || item.title?.romaji || item.title?.native || "No Title";
+                    const subtitle = item.subtitle || (item.type || '').replace('-', ' ');
+                    const cover = item.coverImage?.extraLarge || null;
+                    const hasThumbnail = Boolean(cover);
+                    const thumb = hasThumbnail
+                        ? `<span class="relative inline-flex h-16 w-12 flex-shrink-0 items-center justify-center overflow-hidden rounded">
+                               <img src="${cover}" alt="Cover" class="h-full w-full object-cover">
+                           </span>`
+                        : '<span class="inline-flex h-16 w-12 flex-shrink-0" aria-hidden="true"></span>';
 
                     const row = document.createElement("div");
                     row.className = "flex min-h-[80px] items-center gap-3 px-3 py-2 cursor-pointer rounded-lg group";
 
                     row.innerHTML = `
-        <span class="relative inline-flex h-16 w-12 flex-shrink-0 items-center justify-center overflow-hidden rounded">
-          <img src="${item.coverImage?.extraLarge ?? '/images/no-image.jpg'}"
-               alt="Cover" class="h-full w-full object-cover">
-        </span>
+        ${thumb}
         <div class="min-w-0">
           <p class="font-semibold text-black group-hover:text-red-600">
             ${highlightMatch(title, query)}
           </p>
-          <p class="text-gray-600 text-sm">${(item.type || '').replace('-', ' ')}</p>
+          <p class="text-gray-600 text-sm">${subtitle}</p>
         </div>
       `;
 
                     row.addEventListener("click", () => {
-                        const t = (item.type || '').toLowerCase();
-                        if (t === 'visual-novel') {
-                            window.location.href = `/vn/${item.id}`;
-                        } else if (t === 'doujin') {
-                            window.location.href = `/doujin/${item.id}`;
-                        } else {
-                            // anime/manga/hentai/manwha/others
-                            window.location.href = `/media/${item.id}`;
+                        if (item.url) {
+                            window.location.href = item.url;
+                            return;
                         }
+
+                        const t = (item.type || '').toLowerCase();
+                        window.location.href = t === 'visual-novel'
+                            ? `/vn/${item.id}`
+                            : (t === 'doujin' ? `/doujin/${item.id}` : `/media/${item.id}`);
                     });
 
                     list.appendChild(row);

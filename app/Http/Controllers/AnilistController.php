@@ -208,6 +208,19 @@ class AnilistController extends Controller
         $progress = $data['progress'] === null || $data['progress'] === ''
             ? null
             : (int) $data['progress'];
+        $progressLimit = in_array($media->type, ['anime', 'hentai'], true)
+            ? (int) ($media->episodes_cnt ?? 0)
+            : (int) ($media->chapters_cnt ?? 0);
+
+        if ($progress !== null && $progressLimit > 0 && $progress > $progressLimit) {
+            $unitLabel = in_array($media->type, ['anime', 'hentai'], true) ? 'episodes' : 'chapters';
+
+            return back()
+                ->withInput()
+                ->with('open_edit_entry_modal', true)
+                ->with('entry_update_error', "Progress cannot be higher than {$progressLimit} {$unitLabel}.");
+        }
+
         $scoreRaw = $data['user_score'] === null || $data['user_score'] === ''
             ? null
             : (int) $data['user_score'];

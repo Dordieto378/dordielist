@@ -118,6 +118,9 @@
     $progressTotal = $isEpisodeBased
         ? ($item['episodes'] ?? (($localEpisodeCount ?? 0) > 0 ? $localEpisodeCount : null))
         : ($item['chapters'] ?? (($localChapterCount ?? 0) > 0 ? $localChapterCount : null));
+    $progressHardMax = $isEpisodeBased
+        ? (($item['episodes'] ?? null) ?: null)
+        : (($item['chapters'] ?? null) ?: null);
     $syncButtonLabel = $isEpisodeBased ? 'Add Episode(s)' : 'Add Chapter(s)';
     $syncRoute = $isEpisodeBased
         ? route('episodes.sync', ['media' => $item['id']])
@@ -674,6 +677,9 @@
             <input
               type="number"
               min="0"
+              @if($progressHardMax)
+              max="{{ $progressHardMax }}"
+              @endif
               name="progress"
               value="{{ $currentProgress ?? '' }}"
               class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"

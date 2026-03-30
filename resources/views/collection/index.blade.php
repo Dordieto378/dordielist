@@ -16,8 +16,7 @@
 
         <section class="mt-6 flex justify-center">
             <div id="contentContainer" class="w-full max-w-screen-xl grid grid-cols-4 gap-4">
-                <div class="cursor-pointer card grid-view overflow-hidden"
-                     onclick="window.location.href='{{ route('collection.show', $favorites) }}'">
+                <a href="{{ route('collection.show', $favorites) }}" class="block card grid-view overflow-hidden">
                     <div class="thumb-wrapper thumb-portrait rounded-lg shadow-lg w-[302px] h-[424px] overflow-hidden">
                         <img
                             src="{{ $favoritesThumbnail ?? asset('images/no-image.jpg') }}"
@@ -27,9 +26,9 @@
                         />
                     </div>
                     <div class="py-3">
-                        <p class="text-red-600 font-bold">Favorites</p>
+                        <p class="text-red-600 font-bold hover:underline">Favorites</p>
                     </div>
-                </div>
+                </a>
 
                 @forelse($otherCollections as $col)
                     <div class="relative cursor-pointer overflow-hidden transition">
@@ -76,8 +75,7 @@
                             $cardHref = route('collection.show', $col);
                         @endphp
 
-                        <div onclick="window.location.href='{{ $cardHref }}'">
-                            <div class="cursor-pointer card grid-view overflow-hidden">
+                        <a href="{{ $cardHref }}" class="block card grid-view overflow-hidden">
                                 <div class="thumb-wrapper thumb-portrait rounded-lg shadow-lg w-[302px] h-[424px] overflow-hidden">
                                     <img
                                         src="{{ $thumbUrl }}"
@@ -87,10 +85,9 @@
                                     />
                                 </div>
                                 <div class="py-3">
-                                    <p class="text-red-600 font-bold">{{ $col->name }}</p>
+                                    <p class="text-red-600 font-bold hover:underline">{{ $col->name }}</p>
                                 </div>
-                            </div>
-                        </div>
+                        </a>
                     </div>
                 @empty
 

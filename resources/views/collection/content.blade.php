@@ -64,7 +64,7 @@
                 @endphp
 
                 <div class="relative group">
-                    <div class="cursor-pointer card overflow-hidden" onclick="location='{{ $link }}'">
+                    <a href="{{ $link }}" class="block card overflow-hidden">
                         <div class="thumb-wrapper thumb-portrait rounded-lg shadow-lg w-[302px] h-[424px] overflow-hidden">
                             <img
                                 src="{{ $thumbUrl }}"
@@ -74,14 +74,14 @@
                             >
                         </div>
                         <div class="py-3">
-                            <p class="text-red-600 font-bold">
+                            <p class="text-red-600 font-bold hover:underline">
                                 {{ \Illuminate\Support\Str::limit($ci->title ?? 'Untitled', 25) }}
                             </p>
                             @if($typeLabel)
                                 <p class="text-gray-600 font-medium">{{ $typeLabel }}</p>
                             @endif
                         </div>
-                    </div>
+                    </a>
 
                     <form method="POST"
                           action="{{ route('collection.item.remove', $collection) }}"

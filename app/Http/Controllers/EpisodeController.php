@@ -38,30 +38,21 @@ class EpisodeController extends Controller
             return back()->with('status', "No .mp4/.webm files found in {$dir}");
         }
 
-        $existingByPath = Episode::where('media_fk', $mediaId)
-            ->get(['id', 'episode_number', 'file_path', 'thumbnail_path'])
-            ->keyBy(fn($ep) => ltrim((string) $ep->file_path, '/'));
+        $existingEpisodes = Episode::where('media_fk', $mediaId)
+            ->get(['id', 'thumbnail_path']);
 
-        $nextEp  = (Episode::where('media_fk', $mediaId)->max('episode_number') ?? 0) + 1;
-        $created = 0;
+        foreach ($existingEpisodes as $episode) {
+            $thumbPath = ltrim((string) $episode->thumbnail_path, '/');
+            if ($thumbPath !== '' && $disk->exists($thumbPath)) {
+                $disk->delete($thumbPath);
+            }
+        }
+
+        Episode::where('media_fk', $mediaId)->delete();
+
+        $nextEp = 1;
 
         foreach ($files as $relPath) {
-            $existingEpisode = $existingByPath->get($relPath);
-            if ($existingEpisode) {
-                if (empty($existingEpisode->thumbnail_path)) {
-                    $thumb = EpisodeThumbnailer::generate(
-                        $mediaId,
-                        (int) $existingEpisode->episode_number,
-                        $relPath
-                    );
-                    if ($thumb) {
-                        $existingEpisode->thumbnail_path = $thumb;
-                        $existingEpisode->save();
-                    }
-                }
-                continue;
-            }
-
             $basename  = basename($relPath);
             $parsedNum = $this->parseEpisodeNumber($basename);
 
@@ -74,16 +65,13 @@ class EpisodeController extends Controller
 
             $thumb = EpisodeThumbnailer::generate($mediaId, (int) $epNumber, $relPath);
 
-            Episode::updateOrCreate(
-                ['media_fk' => $mediaId, 'episode_number' => $epNumber],
-                [
-                    'media_type'     => $mediaType,
-                    'file_path'      => $relPath,
-                    'thumbnail_path' => $thumb,
-                ]
-            );
-
-            $created++;
+            Episode::create([
+                'media_fk' => $mediaId,
+                'episode_number' => $epNumber,
+                'media_type' => $mediaType,
+                'file_path' => $relPath,
+                'thumbnail_path' => $thumb,
+            ]);
         }
 
         return back();

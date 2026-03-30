@@ -15,6 +15,19 @@ use Illuminate\Http\Request;
 
 class CategoryController extends Controller
 {
+    private function displayCategoryTitle(string $category): string
+    {
+        return match (strtoupper($category)) {
+            'ANIMES' => 'ANIME',
+            'HENTAIS' => 'HENTAI',
+            'MANGAS' => 'MANGA',
+            'MANWHAS' => 'MANWHA',
+            'VISUAL-NOVEL' => 'VISUAL-NOVEL',
+            'DOUJINS' => 'DOUJINS',
+            default => strtoupper(str_replace('-', ' ', $category)),
+        };
+    }
+
     private function toCard($row): array
     {
         if (is_array($row) && isset($row['url'], $row['cover'])) {
@@ -111,7 +124,8 @@ class CategoryController extends Controller
             $p->setCollection($cards);
 
             return view('category', [
-                'category' => 'DOUJINS',
+                'category' => $this->displayCategoryTitle($normalized),
+                'categorySlug' => strtolower($category),
                 'media' => $cards->all(),
                 'paginatedMedia' => $p,
                 'nameOrder' => $nameOrder,
@@ -219,7 +233,8 @@ class CategoryController extends Controller
             $p->setCollection($cards);
 
             return view('category', [
-                'category' => 'VISUAL-NOVEL',
+                'category' => $this->displayCategoryTitle($normalized),
+                'categorySlug' => strtolower($category),
                 'media' => $cards->all(),
                 'paginatedMedia' => $p,
                 'listFilter' => $listFilter,
@@ -393,7 +408,8 @@ class CategoryController extends Controller
         $p->setCollection($cards);
 
         return view('category', [
-            'category' => ucfirst(str_replace('-', ' ', $category)),
+            'category' => $this->displayCategoryTitle($normalized),
+            'categorySlug' => strtolower($category),
             'media' => $cards->all(),
             'paginatedMedia' => $p,
             'listFilter' => $listFilter,

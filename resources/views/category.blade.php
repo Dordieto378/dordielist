@@ -14,7 +14,7 @@ if (!function_exists('shortTitle')) {
 }
 @endphp
 <script>
-  const categorySlug = @json(Str::slug($category));
+  const categorySlug = @json($categorySlug ?? Str::slug($category));
 </script>
 <div class="mt-6 ml-4 flex flex-col items-center py-[4.5rem]">
     <div class="w-[1320px] flex justify-between items-center">
@@ -30,7 +30,7 @@ if (!function_exists('shortTitle')) {
         <aside class="w-[265px] bg-gray-100 p-4 mt-[5px]">
             @if(strtoupper($category) === 'DOUJINS')
                 <form method="GET"
-                        action="{{ route('category', ['category' => Str::slug($category)]) }}"
+                        action="{{ route('category', ['category' => $categorySlug ?? Str::slug($category)]) }}"
                         onsubmit="event.preventDefault(); toggleSpinner(true); setTimeout(() => this.submit(), 100)">
                     <div class="relative mb-4">
                         <label class="block text-sm font-medium text-gray-900 mb-2">TITLE</label>
@@ -117,7 +117,7 @@ if (!function_exists('shortTitle')) {
             @elseif(strtoupper($category) === 'VISUAL-NOVEL')
                 <form method="GET"
                     action="{{ route('category', [
-                        'category'   => Str::slug($category),
+                        'category'   => $categorySlug ?? Str::slug($category),
                         'listFilter' => $listFilter
                     ]) }}">
                     <div class="relative mb-4">
@@ -297,7 +297,7 @@ if (!function_exists('shortTitle')) {
             @else
                 <form method="GET"
                     action="{{ route('category', [
-                        'category'    => Str::slug($category),
+                        'category'    => $categorySlug ?? Str::slug($category),
                         'listFilter'  => $listFilter,
                         'mediaStatus' => $mediaStatus,
                         'titleOrder'  => $titleOrder,

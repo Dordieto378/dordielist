@@ -74,7 +74,7 @@
                             >
                         </div>
                         <div class="py-3">
-                            <p class="text-red-600 font-bold hover:underline">
+                            <p class="text-red-600 font-bold">
                                 {{ \Illuminate\Support\Str::limit($ci->title ?? 'Untitled', 25) }}
                             </p>
                             @if($typeLabel)

@@ -26,7 +26,7 @@
                         />
                     </div>
                     <div class="py-3">
-                        <p class="text-red-600 font-bold hover:underline">Favorites</p>
+                        <p class="text-red-600 font-bold">Favorites</p>
                     </div>
                 </a>
 
@@ -85,7 +85,7 @@
                                     />
                                 </div>
                                 <div class="py-3">
-                                    <p class="text-red-600 font-bold hover:underline">{{ $col->name }}</p>
+                                    <p class="text-red-600 font-bold">{{ $col->name }}</p>
                                 </div>
                         </a>
                     </div>

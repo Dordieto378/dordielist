@@ -87,11 +87,13 @@ class CategoryController extends Controller
 
             $titleExpr = 'COALESCE(NULLIF(title_romaji,""), NULLIF(title_english,""), NULLIF(title_native,""), slug)';
             if ($nameOrder === 'az') {
-                $q->orderByRaw("$titleExpr ASC");
+                $q->orderByRaw("$titleExpr ASC")
+                    ->orderBy('id', 'asc');
             } elseif ($nameOrder === 'za') {
-                $q->orderByRaw("$titleExpr DESC");
+                $q->orderByRaw("$titleExpr DESC")
+                    ->orderBy('id', 'asc');
             } else {
-                $q->orderBy('id');
+                $q->orderBy('id', 'asc');
             }
 
             $perPage = 40;
@@ -170,13 +172,16 @@ class CategoryController extends Controller
                 $q->orderBy(
                     str_contains($scoreOrder, 'avg') ? 'avg_score' : 'user_score',
                     str_contains($scoreOrder, 'desc') ? 'desc' : 'asc'
-                );
+                )->orderBy('id', 'asc');
             } elseif ($yearOrder !== 'none') {
-                $q->orderBy('year', $yearOrder === 'year_desc' ? 'desc' : 'asc');
+                $q->orderBy('year', $yearOrder === 'year_desc' ? 'desc' : 'asc')
+                    ->orderBy('id', 'asc');
             } elseif ($titleOrder !== 'none') {
-                $q->orderByRaw("$titleExpr ".($titleOrder === 'za' ? 'DESC' : 'ASC'));
+                $q->orderByRaw("$titleExpr ".($titleOrder === 'za' ? 'DESC' : 'ASC'))
+                    ->orderBy('id', 'asc');
             } else {
-                $q->orderByRaw("$titleExpr ASC");
+                $q->orderByRaw("$titleExpr ASC")
+                    ->orderBy('id', 'asc');
             }
 
             $perPage = 40;
@@ -318,16 +323,19 @@ class CategoryController extends Controller
             $q->orderBy(
                 str_contains($scoreOrder, 'avg') ? 'avg_score' : 'user_score',
                 str_contains($scoreOrder, 'desc') ? 'desc' : 'asc'
-            );
+            )->orderBy('id', 'asc');
         } elseif ($dateOrder !== 'none') {
             $col = str_contains($dateOrder, 'start') ? 'start_date'
                 : (str_contains($dateOrder, 'updated') ? 'list_updated_at'
                     : (str_contains($dateOrder, 'created') ? 'list_created_at' : 'start_date'));
-            $q->orderBy($col, str_contains($dateOrder, 'desc') ? 'desc' : 'asc');
+            $q->orderBy($col, str_contains($dateOrder, 'desc') ? 'desc' : 'asc')
+                ->orderBy('id', 'asc');
         } elseif ($titleOrder !== 'none') {
-            $q->orderByRaw("$titleExpr ".($titleOrder === 'za' ? 'DESC' : 'ASC'));
+            $q->orderByRaw("$titleExpr ".($titleOrder === 'za' ? 'DESC' : 'ASC'))
+                ->orderBy('id', 'asc');
         } else {
-            $q->orderByRaw("$titleExpr ASC");
+            $q->orderByRaw("$titleExpr ASC")
+                ->orderBy('id', 'asc');
         }
 
         $perPage = 40;

@@ -100,6 +100,16 @@ class EpisodeController extends Controller
             ->where('episode_number', $episodeNumber)
             ->firstOrFail();
 
+        $descHtml = $media->description ?? '';
+        $desc = preg_replace('/<\s*br\s*\/?>/i', "\n", $descHtml);
+        $desc = preg_replace('/<\/p>\s*<p>/i', "\n\n", $desc);
+        $desc = strip_tags($desc);
+        $desc = html_entity_decode($desc, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $desc = preg_replace("/\r\n?/", "\n", $desc);
+        $desc = preg_replace("/[ \t]+$/m", '', $desc);
+        $desc = preg_replace("/\n{3,}/", "\n\n", $desc);
+        $desc = trim($desc);
+
         $item = [
             'id'          => $media->id,
             'type'        => strtoupper($media->type),
@@ -109,7 +119,7 @@ class EpisodeController extends Controller
                 'native'  => $media->title_native,
             ],
             'coverImage'  => ['extraLarge' => $media->cover_url ?: asset('images/no-image.jpg')],
-            'description' => $media->description,
+            'description' => $desc,
             'genres'      => $media->metadataNamesFrom('anilistGenres'),
             'tags'        => $media->metadataNamesFrom('anilistTags'),
             'averageScore'=> $media->avg_score,
@@ -125,6 +135,7 @@ class EpisodeController extends Controller
                 'progress' => $media->progress,
                 'status'   => $media->list_status,
             ],
+            'releaseDate' => $media->start_date,
         ];
 
         $genres  = $item['genres'] ?? [];
@@ -140,10 +151,15 @@ class EpisodeController extends Controller
             $category = 'animes';
         }
 
+        $episodes = Episode::where('media_fk', $mediaId)
+            ->orderBy('episode_number')
+            ->get(['episode_number', 'thumbnail_path']);
+
         return view('episodes.show', [
             'item'     => $item,
             'episode'  => $episode,
             'category' => $category,
+            'episodes' => $episodes,
         ]);
     }
 }

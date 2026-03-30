@@ -581,7 +581,7 @@ if (!function_exists('shortTitle')) {
                               name="existing_author"
                               class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
                             >
-                                <option value="">Select existing author</option>
+                                <option value="" disabled hidden {{ old('existing_author') ? '' : 'selected' }}>Select existing author</option>
                                 @foreach($allAuthors as $author)
                                     <option value="{{ $author }}" {{ old('existing_author') === $author ? 'selected' : '' }}>
                                         {{ $author }}
@@ -596,7 +596,6 @@ if (!function_exists('shortTitle')) {
                               type="text"
                               name="new_author"
                               value="{{ old('new_author') }}"
-                              placeholder="Add new author"
                               class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
                             />
                         </label>

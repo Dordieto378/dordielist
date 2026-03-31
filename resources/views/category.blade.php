@@ -306,10 +306,18 @@ if (!function_exists('shortTitle')) {
                     ]) }}">
                     <div class="relative mb-4">
                         <label class="block text-sm font-medium text-gray-900 mb-2">LIST</label>
+                        @php
+                            $listCategory = strtoupper((string) ($categorySlug ?? $category ?? ''));
+                            $isReadingCategory = in_array($listCategory, [
+                                'MANGA', 'MANGAS',
+                                'MANWHA', 'MANWHAS',
+                                'H-MANGA', 'H-MANGAS',
+                            ], true);
+                        @endphp
                         <select name="list_filter" onchange="redirectWithFilters()"
                                 class="appearance-none w-full px-3 py-2 border rounded-sm focus:border-red-600 focus:outline-none focus:ring-2 focus:ring-red-600 h-[2.5rem] text-gray-900 font-medium">
                             <option value="all" {{ (isset($listFilter) && $listFilter=='all') ? 'selected' : '' }}>All</option>
-                            @if(in_array(strtoupper($category), ['MANGAS', 'H-MANGAS', 'MANWHAS']))
+                            @if($isReadingCategory)
                                 <option value="CURRENT" {{ (isset($listFilter) && $listFilter=='CURRENT') ? 'selected' : '' }}>Reading</option>
                             @else
                                 <option value="CURRENT" {{ (isset($listFilter) && $listFilter=='CURRENT') ? 'selected' : '' }}>Watching</option>

@@ -22,7 +22,7 @@ class ImportAniList extends Command
         $token = $this->resolveToken();
 
         if (!$token) {
-            $this->error('No AniList access token found. Save one in account settings or set ANILIST_ACCESS_TOKEN.');
+            $this->error('No AniList access token found. Save one in API settings or set ANILIST_ACCESS_TOKEN.');
 
             return self::FAILURE;
         }

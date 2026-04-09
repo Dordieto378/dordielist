@@ -21,6 +21,7 @@ use App\Http\Controllers\AdminController;
 use App\Http\Controllers\EpisodeController;
 use App\Http\Controllers\ChapterController;
 use App\Http\Controllers\SearchController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ConfirmTwoFactorAuthenticationController;
 
 // -----------------------------
@@ -36,6 +37,13 @@ Route::get('/home-paginated', [AnilistController::class, 'paginatedMedia'])
 Route::get('/search', [SearchController::class, 'index'])
     ->middleware('auth')
     ->name('search.index');
+
+Route::get('/notifications', [NotificationController::class, 'index'])
+    ->middleware('auth')
+    ->name('notifications.index');
+Route::post('/notifications/read-visible', [NotificationController::class, 'markVisibleRead'])
+    ->middleware('auth')
+    ->name('notifications.read-visible');
 
 // Registration
 Route::get('/register', [RegisterController::class, 'show'])->name('register');
@@ -107,8 +115,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/',  [SettingsController::class, 'edit'])->name('profile.edit');
         Route::put('/',  [SettingsController::class, 'update'])->name('profile.update');
 
-        // Update list screen
-        Route::get('/update-list', [SettingsController::class, 'updateList'])->name('list');
+        // API credentials
+        Route::get('/api', [SettingsController::class, 'api'])->name('api');
+        Route::put('/api', [SettingsController::class, 'updateApi'])->name('api.update');
 
         // Users
         Route::get('/users', [SettingsController::class, 'users'])->name('users');

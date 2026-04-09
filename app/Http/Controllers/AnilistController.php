@@ -194,7 +194,7 @@ class AnilistController extends Controller
             return back()
                 ->withInput()
                 ->with('open_edit_entry_modal', true)
-                ->with('entry_update_error', 'Add your AniList access token in account settings first.');
+                ->with('entry_update_error', 'Add your AniList access token in API settings first.');
         }
 
         if (($media->source ?? null) !== 'anilist' || empty($media->source_id)) {
@@ -286,7 +286,7 @@ GQL;
         $token = Auth::user()?->anilist_access_token;
         if (!$token) {
             return back()->with([
-                'status' => 'Add your AniList access token in account settings first.',
+                'status' => 'Add your AniList access token in API settings first.',
                 'status_color' => 'red',
             ]);
         }
@@ -441,7 +441,7 @@ GQL;
     {
         $token = Auth::user()?->anilist_access_token;
         if (!$token) {
-            return back()->with('error', 'Add your AniList access token in account settings first.');
+            return back()->with('error', 'Add your AniList access token in API settings first.');
         }
 
         $viewerId = $this->getViewerId($token);

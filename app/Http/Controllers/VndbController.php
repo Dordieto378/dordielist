@@ -273,7 +273,7 @@ class VndbController extends Controller
         $username = Auth::user()?->vndb_username;
 
         if (!$token || !$username) {
-            return back()->with('error', 'Add your VNDB API token and username in account settings first.');
+            return back()->with('error', 'Add your VNDB API token and username in API settings first.');
         }
 
         $userId = $this->vndbLookupUserId($token, $username);

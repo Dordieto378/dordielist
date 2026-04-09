@@ -26,6 +26,12 @@
                 </div>
                 <div class="flex-1"></div>
             @else
+                @php
+                    $navbarUnreadNotificationCount = \App\Models\AnilistNotification::where('is_read', false)->count();
+                    $navbarUnreadNotificationLabel = $navbarUnreadNotificationCount > 99
+                        ? '99+'
+                        : (string) $navbarUnreadNotificationCount;
+                @endphp
                 <div class="flex items-center space-x-1">
                     <!-- Title -->
                     <a href="{{ route('home') }}" class="text-2xl font-bold ml-[6.2rem] pr-2">DORDIELIST</a>
@@ -55,7 +61,7 @@
                     <div class="relative group ml-4 py-1 px-2 rounded hover:bg-red-600">
                         <button
                         id="accountToggle"
-                        class="menu-link-text flex items-center js-my-account-links"
+                        class="menu-link-text relative flex items-center js-my-account-links"
                         data-target="my-account-drop-links"
                         aria-haspopup="true"
                         aria-expanded="false"
@@ -84,10 +90,16 @@
                                 stroke-linejoin="round">
                             <polyline points="6 9 12 15 18 9"/>
                             </svg>
+
+                            @if($navbarUnreadNotificationCount > 0)
+                                <span class="absolute -right-4 -top-3 inline-flex min-w-[22px] items-center justify-center rounded-full bg-[#08875b] px-1.5 py-0.5 text-[11px] font-bold leading-none text-white">
+                                    {{ $navbarUnreadNotificationLabel }}
+                                </span>
+                            @endif
                         </button>
                         <ul
                         id="my-account-drop-links"
-                        class="absolute right-0 mt-2 w-[100px] bg-white text-gray-800 rounded-[0.2rem] shadow-lg
+                        class="absolute right-0 mt-2 w-[150px] bg-white text-gray-800 rounded-[0.2rem] shadow-lg
                                 opacity-0 pointer-events-none transition-opacity font-medium text-sm text-left list-none p-0 m-0"
                         >
                         <li>
@@ -108,6 +120,17 @@
                             class="block w-full text-left pl-3 pr-3 py-3.5 hover:bg-gray-100 rounded-[0.2rem] text-gray-800"
                         >
                             Favorites
+                        </a>
+                        </li>
+                        <li>
+                        <a href="{{ route('notifications.index') }}"
+                            class="flex w-full items-center justify-between pl-3 pr-3 py-3.5 hover:bg-gray-100 rounded-[0.2rem] text-gray-800">
+                            <span>Notification</span>
+                            @if($navbarUnreadNotificationCount > 0)
+                                <span class="inline-flex min-w-[22px] items-center justify-center rounded-full bg-[#08875b] px-1.5 py-0.5 text-[11px] font-bold leading-none text-white">
+                                    {{ $navbarUnreadNotificationLabel }}
+                                </span>
+                            @endif
                         </a>
                         </li>
                         <li>
@@ -372,6 +395,7 @@
         });
       });
     </script>
+    @stack('scripts')
 
 </body>
 </html>

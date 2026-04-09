@@ -40,10 +40,6 @@ class SettingsController extends Controller
                 'regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{15,}$/',
                 'confirmed',
             ],
-            'anilist_access_token' => ['nullable', 'string'],
-            'vndb_api_token' => ['nullable', 'string'],
-            'vndb_username' => ['nullable', 'string', 'max:255'],
-            'vndb_password' => ['nullable', 'string'],
         ];
 
         $validator = Validator::make($request->all(), $rules);
@@ -61,10 +57,6 @@ class SettingsController extends Controller
 
         $user->username = $data['username'];
         $user->email    = $data['email'];
-        $user->anilist_access_token = $data['anilist_access_token'] ?: null;
-        $user->vndb_api_token = $data['vndb_api_token'] ?: null;
-        $user->vndb_username = $data['vndb_username'] ?: null;
-        $user->vndb_password = $data['vndb_password'] ?: null;
 
         if (!empty($data['password'])) {
             $user->password = $data['password'];
@@ -74,6 +66,45 @@ class SettingsController extends Controller
 
         return redirect()
             ->route('settings.profile.edit');
+    }
+
+    public function api()
+    {
+        $user = Auth::user();
+
+        return view('settings.api', compact('user'));
+    }
+
+    public function updateApi(Request $request)
+    {
+        $user = Auth::user();
+
+        $validator = Validator::make($request->all(), [
+            'anilist_access_token' => ['nullable', 'string'],
+            'vndb_api_token' => ['nullable', 'string'],
+            'vndb_username' => ['nullable', 'string', 'max:255'],
+            'vndb_password' => ['nullable', 'string'],
+        ]);
+
+        if ($validator->fails()) {
+            return back()
+                ->withInput()
+                ->with('status', $validator->errors()->first())
+                ->with('status_color', 'red');
+        }
+
+        $data = $validator->validated();
+
+        $user->anilist_access_token = $data['anilist_access_token'] ?: null;
+        $user->vndb_api_token = $data['vndb_api_token'] ?: null;
+        $user->vndb_username = $data['vndb_username'] ?: null;
+        $user->vndb_password = $data['vndb_password'] ?: null;
+        $user->save();
+
+        return redirect()
+            ->route('settings.api')
+            ->with('status', 'API settings saved.')
+            ->with('status_color', 'green');
     }
 
     public function users()
@@ -130,8 +161,4 @@ class SettingsController extends Controller
             ->route('settings.users');
     }
 
-    public function updateList()
-    {
-        return view('settings.update');
-    }
 }

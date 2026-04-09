@@ -35,7 +35,7 @@ class ImportVndb extends Command
     {
         $credentials = $this->resolveCredentials();
         if (!$credentials) {
-            $this->error('No VNDB API token and username found. Save them in account settings or set VNDB_API_TOKEN and VNDB_USERNAME.');
+            $this->error('No VNDB API token and username found. Save them in API settings or set VNDB_API_TOKEN and VNDB_USERNAME.');
             return self::FAILURE;
         }
 

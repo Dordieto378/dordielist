@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\AnilistNotification;
 use App\Models\Media;
 use App\Support\MediaMetadataSyncer;
 use Carbon\Carbon;
@@ -212,13 +213,353 @@ class AnilistSyncService
             throw $e;
         }
 
+        $notifications = $this->syncNotifications($token);
+
         return [
             'viewer_id' => $viewerId,
             'created' => $created,
             'updated' => $updated,
             'deleted' => $deleted,
             'total' => count($seenIds),
+            'notifications' => $notifications,
         ];
+    }
+
+    private function syncNotifications(string $token): array
+    {
+        $fullImport = !AnilistNotification::query()->exists();
+        $page = 1;
+        $inserted = 0;
+        $updated = 0;
+
+        do {
+            $result = $this->fetchNotifications($token, $page, 50);
+            $notifications = $result['notifications'];
+
+            foreach ($notifications as $notification) {
+                $wasInserted = $this->storeNotification($notification);
+                $wasInserted ? $inserted++ : $updated++;
+            }
+
+            $page++;
+        } while ($fullImport && $result['has_next_page']);
+
+        return [
+            'created' => $inserted,
+            'updated' => $updated,
+        ];
+    }
+
+    private function fetchNotifications(string $token, int $page, int $perPage): array
+    {
+        $query = <<<'GQL'
+query ($page: Int, $perPage: Int) {
+  Page(page: $page, perPage: $perPage) {
+    pageInfo {
+      hasNextPage
+    }
+    notifications(resetNotificationCount: false) {
+      __typename
+      ... on AiringNotification {
+        id
+        type
+        animeId
+        episode
+        contexts
+        createdAt
+        media {
+          id
+          title { userPreferred romaji english native }
+          coverImage { medium }
+        }
+      }
+      ... on FollowingNotification {
+        id
+        type
+        userId
+        context
+        createdAt
+        user { id name avatar { medium } }
+      }
+      ... on ActivityMessageNotification {
+        id
+        type
+        userId
+        context
+        createdAt
+        user { id name avatar { medium } }
+      }
+      ... on ActivityMentionNotification {
+        id
+        type
+        userId
+        context
+        createdAt
+        user { id name avatar { medium } }
+      }
+      ... on ActivityReplyNotification {
+        id
+        type
+        userId
+        context
+        createdAt
+        user { id name avatar { medium } }
+      }
+      ... on ActivityReplySubscribedNotification {
+        id
+        type
+        userId
+        context
+        createdAt
+        user { id name avatar { medium } }
+      }
+      ... on ActivityLikeNotification {
+        id
+        type
+        userId
+        context
+        createdAt
+        user { id name avatar { medium } }
+      }
+      ... on ActivityReplyLikeNotification {
+        id
+        type
+        userId
+        context
+        createdAt
+        user { id name avatar { medium } }
+      }
+      ... on ThreadCommentMentionNotification {
+        id
+        type
+        userId
+        context
+        createdAt
+        user { id name avatar { medium } }
+        comment { thread { id title } }
+      }
+      ... on ThreadCommentReplyNotification {
+        id
+        type
+        userId
+        context
+        createdAt
+        user { id name avatar { medium } }
+        comment { thread { id title } }
+      }
+      ... on ThreadCommentSubscribedNotification {
+        id
+        type
+        userId
+        context
+        createdAt
+        user { id name avatar { medium } }
+        comment { thread { id title } }
+      }
+      ... on ThreadCommentLikeNotification {
+        id
+        type
+        userId
+        context
+        createdAt
+        user { id name avatar { medium } }
+        comment { thread { id title } }
+      }
+      ... on ThreadLikeNotification {
+        id
+        type
+        userId
+        context
+        createdAt
+        user { id name avatar { medium } }
+        thread { id title }
+      }
+      ... on RelatedMediaAdditionNotification {
+        id
+        type
+        mediaId
+        context
+        createdAt
+        media {
+          id
+          title { userPreferred romaji english native }
+          coverImage { medium }
+        }
+      }
+      ... on MediaDataChangeNotification {
+        id
+        type
+        mediaId
+        context
+        reason
+        createdAt
+        media {
+          id
+          title { userPreferred romaji english native }
+          coverImage { medium }
+        }
+      }
+      ... on MediaMergeNotification {
+        id
+        type
+        mediaId
+        deletedMediaTitles
+        context
+        reason
+        createdAt
+        media {
+          id
+          title { userPreferred romaji english native }
+          coverImage { medium }
+        }
+      }
+      ... on MediaDeletionNotification {
+        id
+        type
+        deletedMediaTitle
+        context
+        reason
+        createdAt
+      }
+    }
+  }
+}
+GQL;
+
+        $response = Http::withHeaders([
+            'Authorization' => "Bearer {$token}",
+            'Content-Type' => 'application/json',
+            'Accept' => 'application/json',
+        ])->post('https://graphql.anilist.co', [
+            'query' => $query,
+            'variables' => ['page' => $page, 'perPage' => $perPage],
+        ]);
+
+        if (!$response->successful() || $response->json('errors')) {
+            throw new \RuntimeException($response->json('errors.0.message') ?: 'AniList notification sync failed.');
+        }
+
+        return [
+            'notifications' => $response->json('data.Page.notifications') ?? [],
+            'has_next_page' => (bool) $response->json('data.Page.pageInfo.hasNextPage'),
+        ];
+    }
+
+    private function storeNotification(array $notification): bool
+    {
+        $anilistId = (int) ($notification['id'] ?? 0);
+        if ($anilistId <= 0) {
+            return false;
+        }
+
+        $row = AnilistNotification::firstOrNew(['anilist_id' => $anilistId]);
+        $wasNew = !$row->exists;
+        $presentation = $this->formatNotification($notification);
+
+        $row->fill([
+            'type' => $notification['type'] ?? $notification['__typename'] ?? null,
+            'title' => $presentation['title'],
+            'body' => $presentation['body'],
+            'url' => $presentation['url'],
+            'image_url' => $presentation['image_url'],
+            'anilist_media_id' => $presentation['anilist_media_id'],
+            'payload' => $notification,
+            'notified_at' => isset($notification['createdAt'])
+                ? Carbon::createFromTimestamp((int) $notification['createdAt'])
+                : null,
+        ]);
+
+        if ($wasNew) {
+            $row->is_read = false;
+        }
+
+        $row->save();
+
+        return $wasNew;
+    }
+
+    private function formatNotification(array $notification): array
+    {
+        $media = $notification['media'] ?? null;
+        $user = $notification['user'] ?? null;
+        $thread = $notification['thread'] ?? ($notification['comment']['thread'] ?? null);
+        $mediaTitle = $this->mediaTitle($media);
+        $userName = $user['name'] ?? null;
+        $type = (string) ($notification['type'] ?? $notification['__typename'] ?? 'Notification');
+        $context = trim((string) ($notification['context'] ?? ''));
+        $reason = trim((string) ($notification['reason'] ?? ''));
+
+        if (!empty($notification['contexts']) && is_array($notification['contexts'])) {
+            $context = trim(implode('', array_map(fn ($value) => (string) $value, $notification['contexts'])));
+        }
+
+        $title = $mediaTitle ?: ($userName ?: ($thread['title'] ?? $this->humanizeNotificationType($type)));
+        $body = $context !== '' ? $context : $this->humanizeNotificationType($type);
+
+        if (($notification['__typename'] ?? '') === 'AiringNotification' && $mediaTitle) {
+            $episode = $notification['episode'] ?? null;
+            $body = $episode ? "Episode {$episode} of {$mediaTitle} aired." : "{$mediaTitle} aired.";
+        }
+
+        if ($reason !== '') {
+            $body = trim($body.' '.$reason);
+        }
+
+        if (!empty($notification['deletedMediaTitle'])) {
+            $title = (string) $notification['deletedMediaTitle'];
+        }
+
+        return [
+            'title' => $title,
+            'body' => $body,
+            'url' => $this->notificationUrl($notification, $media),
+            'image_url' => $media['coverImage']['medium'] ?? $user['avatar']['medium'] ?? null,
+            'anilist_media_id' => $media['id'] ?? $notification['mediaId'] ?? $notification['animeId'] ?? null,
+        ];
+    }
+
+    private function mediaTitle(?array $media): ?string
+    {
+        if (!$media) {
+            return null;
+        }
+
+        return $media['title']['userPreferred']
+            ?? $media['title']['romaji']
+            ?? $media['title']['english']
+            ?? $media['title']['native']
+            ?? null;
+    }
+
+    private function notificationUrl(array $notification, ?array $media): ?string
+    {
+        $mediaId = $media['id'] ?? $notification['mediaId'] ?? $notification['animeId'] ?? null;
+        if ($mediaId) {
+            $localMedia = Media::where('source', 'anilist')->where('source_id', $mediaId)->first(['id']);
+            return $localMedia ? '/media/'.$localMedia->id : 'https://anilist.co/anime/'.$mediaId;
+        }
+
+        if (!empty($notification['user']['name'])) {
+            return 'https://anilist.co/user/'.$notification['user']['name'];
+        }
+
+        if (!empty($notification['thread']['id'])) {
+            return 'https://anilist.co/forum/thread/'.$notification['thread']['id'];
+        }
+
+        if (!empty($notification['comment']['thread']['id'])) {
+            return 'https://anilist.co/forum/thread/'.$notification['comment']['thread']['id'];
+        }
+
+        return null;
+    }
+
+    private function humanizeNotificationType(string $type): string
+    {
+        $type = preg_replace('/Notification$/', '', $type);
+        $type = preg_replace('/(?<!^)[A-Z]/', ' $0', (string) $type);
+
+        return trim((string) $type) ?: 'Notification';
     }
 
     private function getViewerId(string $token): ?int

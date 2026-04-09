@@ -40,7 +40,10 @@ return Application::configure(basePath: dirname(__DIR__))
 
     // 4) Scheduled tasks
     ->withSchedule(function (Schedule $schedule) {
-        // $schedule->command('inspire')->hourly();
+        $schedule->command('anilist:import')
+            ->everyThirtySeconds();
+        $schedule->command('vndb:import')
+            ->everyThirtySeconds();
     })
 
     // Finally, build the application instance

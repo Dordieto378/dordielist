@@ -121,11 +121,12 @@
     $progressHardMax = $isEpisodeBased
         ? (($item['episodes'] ?? null) ?: null)
         : (($item['chapters'] ?? null) ?: null);
-    $syncButtonLabel = $isEpisodeBased ? 'Add Episode(s)' : 'Add Chapter(s)';
-    $syncRoute = $isEpisodeBased
-        ? route('episodes.sync', ['media' => $item['id']])
-        : route('chapters.sync', ['media' => $item['id']]);
-
+    $isAdmin = optional(auth()->user()?->role)->role === 'Admin';
+    $contentUploadRoute = $isEpisodeBased
+        ? route('episodes.upload', ['media' => $item['id']])
+        : route('chapters.upload', ['media' => $item['id']]);
+    $contentUploadLabel = $isEpisodeBased ? 'Upload Episode(s)' : 'Upload Chapter(s)';
+    $contentUploadTitle = $isEpisodeBased ? 'Upload Episodes' : 'Upload Chapters';
 @endphp
 
 <div class="flex flex-col items-center py-[8.5rem]">
@@ -247,6 +248,16 @@
                         </svg>
                         <span class="ml-1">Edit</span>
                     </button>
+                    @if($isAdmin)
+                    <button id="openMediaContentUploadModal" type="button" class="flex items-center justify-start w-full text-blue-950 py-2 rounded-sm hover:text-[#08875b]">
+                        <svg xmlns="http://www.w3.org/2000/svg"
+                             class="ml-[1.4rem] h-[1.1rem] w-[1.1rem] mr-[0.5rem] mb-[0.1rem]"
+                             fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14m-7-7h14" />
+                        </svg>
+                        <span class="ml-1">{{ $contentUploadLabel }}</span>
+                    </button>
+                    @endif
 
                     <form action="{{ route('media.destroy', ['media' => $item['id']]) }}"
                           method="POST"
@@ -737,18 +748,7 @@
       </form>
     </div>
 
-    <div class="mb-2 px-4 pt-4 flex items-center justify-between gap-3">
-      <div>
-        @if(optional(auth()->user()->role)->role === 'Admin')
-          <form method="POST" action="{{ $syncRoute }}">
-            @csrf
-            <button type="submit" class="flatGreen transition-200 text-white px-5 py-3 rounded">
-              {{ $syncButtonLabel }}
-            </button>
-          </form>
-        @endif
-      </div>
-
+    <div class="mb-2 px-4 pt-4 flex items-center justify-end gap-3">
       <div class="flex items-center gap-3">
         <button id="cancelEditModal" type="button" class="px-5 py-3 rounded border border-gray-200 text-gray-700 font-medium hover:bg-gray-100 transition-colors">
           Cancel
@@ -760,6 +760,74 @@
     </div>
   </div>
 </div>
+
+@if($isAdmin)
+<div
+  id="mediaContentUploadModal"
+  class="fixed inset-0 flex items-start pt-[130px] justify-center bg-black bg-opacity-50 hidden z-50"
+>
+  <div class="relative bg-white p-4 text-left shadow-2xl w-[800px] rounded-lg">
+    <div class="flex justify-between items-start pb-4 pt-2 border-b ml-4 mr-4 border-gray-200">
+      <h3 class="text-lg font-bold text-gray-800">{{ $contentUploadTitle }}</h3>
+      <button id="closeMediaContentUploadModal" type="button" class="text-gray-400 hover:text-gray-900" aria-label="Close Upload Modal">
+        <span class="sr-only">Close</span>
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none"
+             viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+          <path stroke-linecap="round" stroke-linejoin="round"
+                d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="border-b border-gray-200 mr-4 ml-4">
+      <form method="POST" action="{{ $contentUploadRoute }}" enctype="multipart/form-data" class="space-y-4 py-4" id="mediaContentUploadForm">
+        @csrf
+
+        @if(session('media_content_upload_error'))
+          <div class="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+            {{ session('media_content_upload_error') }}
+          </div>
+        @endif
+
+        <div>
+          <span class="block mb-2 text-red-600 font-medium">ZIP File</span>
+          <input
+            id="mediaContentArchiveInput"
+            type="file"
+            name="archive"
+            accept=".zip"
+            class="sr-only"
+          />
+          <label
+            for="mediaContentArchiveInput"
+            class="flex w-full cursor-pointer items-center justify-between gap-4 rounded-md border border-gray-200 bg-gray-100 px-3 py-2 text-base text-gray-800 font-medium focus-within:ring-[0.2rem] focus-within:ring-red-600"
+          >
+            <span
+              id="mediaContentArchiveName"
+              class="min-w-0 flex-1 truncate text-gray-500"
+              data-placeholder="No ZIP selected"
+            >
+              No ZIP selected
+            </span>
+            <span class="flatGreen shrink-0 rounded-[0.19rem] px-3 py-2 text-sm font-medium text-white">
+              Select ZIP
+            </span>
+          </label>
+        </div>
+      </form>
+    </div>
+
+    <div class="mb-2 px-4 pt-4 flex items-center justify-end gap-3">
+      <button id="cancelMediaContentUploadModal" type="button" class="px-5 py-3 rounded border border-gray-200 text-gray-700 font-medium hover:bg-gray-100 transition-colors">
+        Cancel
+      </button>
+      <button form="mediaContentUploadForm" type="submit" class="flatGreen transition-200 text-white px-5 py-3 rounded">
+        Upload ZIP
+      </button>
+    </div>
+  </div>
+</div>
+@endif
 
 <div
   id="addToCollectionModal"
@@ -931,69 +999,36 @@
 </div>
 @endauth
 <script>
-function chapterUpload () {
-  return {
-    showUpload : false,
-    uploading  : false,
-    xhr        : null,
-
-    startUpload () {
-      this.uploading = true;
-      const d  = new FormData(this.$refs.form);
-      this.xhr = new XMLHttpRequest();
-      this.xhr.open('POST', this.$refs.form.action, true);
-
-      this.xhr.upload.onprogress = ev => {
-        if (ev.lengthComputable) {
-          const pct = Math.round(ev.loaded / ev.total * 100);
-          this.$refs.bar.style.width = pct + '%';
-          this.$refs.txt.textContent = pct + '%';
-        }
-      };
-
-      this.xhr.onload  = () => location.reload();
-      this.xhr.onerror = () => this.cancelUpload();
-      this.xhr.send(d);
-    },
-
-    cancelUpload () {
-      if (this.xhr) this.xhr.abort();
-      this.uploading            = false;
-      this.$refs.bar.style.width = '0%';
-      this.$refs.txt.textContent = '0%';
-    }
-  };
-}
-</script>
-<script>
 document.addEventListener('DOMContentLoaded', () => {
 const addModal       = document.getElementById('addToCollectionModal');
 const editModal      = document.getElementById('editEntryModal');
+const uploadModal    = document.getElementById('mediaContentUploadModal');
 const createModal    = document.getElementById('createCollectionModal');
 const openAddBtn     = document.getElementById('openAddToCollection');
 const openEditBtn    = document.getElementById('openEditEntryModal');
+const openUploadBtn  = document.getElementById('openMediaContentUploadModal');
 const closeAddBtn    = document.getElementById('closeAddModal');
 const closeEditBtn   = document.getElementById('closeEditModal');
 const cancelEditBtn  = document.getElementById('cancelEditModal');
+const closeUploadBtn = document.getElementById('closeMediaContentUploadModal');
+const cancelUploadBtn = document.getElementById('cancelMediaContentUploadModal');
 const openCreateBtn  = document.getElementById('openInlineCreateCollection');
 const closeCreateBtn = document.getElementById('closeCreateModal');
 const createForm     = document.getElementById('collectionCreateForm');
 const listContainer  = document.getElementById('collectionCheckboxList');
-const dropZone = document.getElementById('drop-zone');
-const fileInput = document.getElementById('video-input');
-const fileInfo  = document.getElementById('video-info');
-const form        = document.getElementById('uploadForm');
-const progressBar = document.getElementById('progressBar');
-const progressText= document.getElementById('progressText');
+const mediaContentArchiveInput = document.getElementById('mediaContentArchiveInput');
+const mediaContentArchiveName = document.getElementById('mediaContentArchiveName');
 
 // helpers
 const shouldOpenEditModal = @json(session('open_edit_entry_modal', false));
+const shouldOpenUploadModal = @json(session('open_media_content_upload_modal', false));
 const lockBody   = ()=> document.body.classList.add('overflow-hidden');
 const unlockBody = ()=> {
   const addHidden = !addModal || addModal.classList.contains('hidden');
   const editHidden = !editModal || editModal.classList.contains('hidden');
+  const uploadHidden = !uploadModal || uploadModal.classList.contains('hidden');
   const createHidden = !createModal || createModal.classList.contains('hidden');
-  if (addHidden && editHidden && createHidden) {
+  if (addHidden && editHidden && uploadHidden && createHidden) {
     document.body.classList.remove('overflow-hidden');
   }
 };
@@ -1002,8 +1037,21 @@ const showAdd    = ()=> { if (!addModal) return; addModal.classList.remove('hidd
 const hideAdd    = ()=> { if (!addModal) return; addModal.classList.add('hidden'); unlockBody(); };
 const showEdit   = ()=> { if (!editModal) return; editModal.classList.remove('hidden'); lockBody(); };
 const hideEdit   = ()=> { if (!editModal) return; editModal.classList.add('hidden'); unlockBody(); };
+const showUpload = ()=> { if (!uploadModal) return; uploadModal.classList.remove('hidden'); lockBody(); };
+const hideUpload = ()=> { if (!uploadModal) return; uploadModal.classList.add('hidden'); unlockBody(); };
 const showCreate = ()=> { if (!createModal) return; createModal.classList.remove('hidden'); lockBody(); };
 const hideCreate = ()=> { if (!createModal) return; createModal.classList.add('hidden'); unlockBody(); };
+
+function updateMediaContentArchiveName() {
+  if (!mediaContentArchiveInput || !mediaContentArchiveName) return;
+
+  const selectedFile = mediaContentArchiveInput.files?.[0];
+  const placeholder = mediaContentArchiveName.dataset.placeholder ?? 'No ZIP selected';
+
+  mediaContentArchiveName.textContent = selectedFile ? selectedFile.name : placeholder;
+  mediaContentArchiveName.classList.toggle('text-gray-500', !selectedFile);
+  mediaContentArchiveName.classList.toggle('text-gray-800', Boolean(selectedFile));
+}
 
 // open/close Add→Collection
 if (openAddBtn && addModal) {
@@ -1028,6 +1076,23 @@ if (cancelEditBtn) {
 }
 if (shouldOpenEditModal) {
   showEdit();
+}
+
+if (openUploadBtn && uploadModal) {
+  openUploadBtn.addEventListener('click', showUpload);
+}
+if (closeUploadBtn && uploadModal) {
+  closeUploadBtn.addEventListener('click', hideUpload);
+  uploadModal.addEventListener('click', e => { if (e.target === uploadModal) hideUpload(); });
+  document.addEventListener('keyup', e => { if (e.key === 'Escape' && !uploadModal.classList.contains('hidden')) hideUpload(); });
+}
+if (cancelUploadBtn) {
+  cancelUploadBtn.addEventListener('click', hideUpload);
+}
+mediaContentArchiveInput?.addEventListener('change', updateMediaContentArchiveName);
+updateMediaContentArchiveName();
+if (shouldOpenUploadModal) {
+  showUpload();
 }
 
 // from inside Add, open Create
@@ -1092,70 +1157,6 @@ listContainer.insertAdjacentHTML('beforeend', `
  showAdd();
 });
 }
-if (dropZone && fileInput) {
-  ['dragenter','dragover'].forEach(e => {
-      dropZone.addEventListener(e, ev => {
-      ev.preventDefault();
-      dropZone.classList.add('ring-2','ring-red-600');
-      });
-  });
-  ['dragleave','drop'].forEach(e => {
-      dropZone.addEventListener(e, ev => {
-      dropZone.classList.remove('ring-2','ring-red-600');
-      });
-  });
-
-  dropZone.addEventListener('drop', ev => {
-      ev.preventDefault();
-      if (ev.dataTransfer.files.length) {
-      fileInput.files = ev.dataTransfer.files;
-      updateFileInfo();
-      }
-  });
-
-  fileInput.addEventListener('change', updateFileInfo);
-
-  function updateFileInfo() {
-      const names = Array.from(fileInput.files).map(f => f.name).join(', ');
-      if (fileInfo) fileInfo.textContent = names || 'MP4, WEBM';
-  }
-}
-  if (form && progressBar && progressText) {
-  form.addEventListener('submit', function(e) {
-    e.preventDefault();
-    const data = new FormData(form);
-    const xhr  = new XMLHttpRequest();
-
-    xhr.open('POST', form.action, true);
-
-    xhr.upload.onprogress = ev => {
-      if (ev.lengthComputable) {
-        const pct = Math.round(ev.loaded / ev.total * 100);
-        progressBar.style.width  = pct + '%';
-        progressText.textContent = pct + '%';
-      }
-    };
-
-    xhr.onload = () => {
-    if (xhr.status === 200) {
-        alert('Success!');
-        location.reload();
-    } else {
-        let msg = 'Error ' + xhr.status + ':\n';
-        try {
-        const json = JSON.parse(xhr.responseText);
-        msg += json.error || JSON.stringify(json);
-        } catch {
-        msg += xhr.responseText || xhr.statusText;
-        }
-        alert(msg);
-    }
-    };
-    xhr.onerror = () => alert('Network error during upload.');
-
-    xhr.send(data);
-  });
-  }
 
     Plyr.setup('.plyr', {
       controls: [

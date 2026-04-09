@@ -7,6 +7,7 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use App\Models\Media;
+use App\Models\User;
 use App\Support\MediaMetadataSyncer;
 use GuzzleHttp\Client;
 
@@ -28,27 +29,25 @@ class ImportVndb extends Command
     public function __construct(private readonly MediaMetadataSyncer $metadataSyncer)
     {
         parent::__construct();
-
-        $this->client = new Client([
-            'base_uri' => 'https://api.vndb.org/kana/',
-            'headers'  => [
-                'Authorization' => 'Token ' . env('VNDB_API_TOKEN'),
-                'Accept'        => 'application/json',
-            ],
-            'timeout'  => 30,
-        ]);
     }
 
     public function handle(): int
     {
-        // sanity: ensure we're on the right DB
-        $this->line('DB: ' . config('database.connections.' . config('database.default') . '.database'));
-
-        $username = env('VNDB_USERNAME');
-        if (!$username) {
-            $this->error('VNDB_USERNAME is not set in ..env');
+        $credentials = $this->resolveCredentials();
+        if (!$credentials) {
+            $this->error('No VNDB API token and username found. Save them in account settings or set VNDB_API_TOKEN and VNDB_USERNAME.');
             return self::FAILURE;
         }
+
+        [$token, $username] = $credentials;
+        $this->client = new Client([
+            'base_uri' => 'https://api.vndb.org/kana/',
+            'headers'  => [
+                'Authorization' => 'Token '.$token,
+                'Accept'        => 'application/json',
+            ],
+            'timeout'  => 30,
+        ]);
 
         $userId = $this->lookupUserId($username);
         if (!$userId) {
@@ -191,6 +190,34 @@ class ImportVndb extends Command
         $this->info("VNDB import complete. Inserted: {$inserted}, Updated: {$updated}");
 
         return self::SUCCESS;
+    }
+
+    private function resolveCredentials(): ?array
+    {
+        $adminUser = User::with('role')
+            ->get()
+            ->first(function (User $user) {
+                return optional($user->role)->role === 'Admin'
+                    && filled($user->vndb_api_token)
+                    && filled($user->vndb_username);
+            });
+
+        if ($adminUser) {
+            return [$adminUser->vndb_api_token, $adminUser->vndb_username];
+        }
+
+        $userWithCredentials = User::query()
+            ->get()
+            ->first(fn (User $user) => filled($user->vndb_api_token) && filled($user->vndb_username));
+
+        if ($userWithCredentials) {
+            return [$userWithCredentials->vndb_api_token, $userWithCredentials->vndb_username];
+        }
+
+        $token = env('VNDB_API_TOKEN');
+        $username = env('VNDB_USERNAME');
+
+        return filled($token) && filled($username) ? [$token, $username] : null;
     }
 
     private function lookupUserId(string $username): ?string

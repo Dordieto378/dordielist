@@ -608,15 +608,31 @@ if (!function_exists('shortTitle')) {
                             />
                         </label>
 
-                        <label class="block col-span-2">
+                        <div class="block col-span-2">
                             <span class="block mb-2 text-red-600 font-medium">ZIP File</span>
                             <input
+                              id="doujinArchiveInput"
                               type="file"
                               name="archive"
                               accept=".zip"
-                              class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium file:mr-3 file:rounded-[0.19rem] file:border-0 file:bg-white file:px-3 file:py-2 file:text-sm file:font-medium file:text-gray-800"
+                              class="sr-only"
                             />
-                        </label>
+                            <label
+                              for="doujinArchiveInput"
+                              class="flex w-full cursor-pointer items-center justify-between gap-4 rounded-md border border-gray-200 bg-gray-100 px-3 py-2 text-base text-gray-800 font-medium focus-within:ring-[0.2rem] focus-within:ring-red-600"
+                            >
+                                <span
+                                  id="doujinArchiveName"
+                                  class="min-w-0 flex-1 truncate text-gray-500"
+                                  data-placeholder="No ZIP selected"
+                                >
+                                    No ZIP selected
+                                </span>
+                                <span class="flatGreen shrink-0 rounded-[0.19rem] px-3 py-2 text-sm font-medium text-white">
+                                    Select ZIP
+                                </span>
+                            </label>
+                        </div>
                     </div>
                 </form>
             </div>
@@ -951,6 +967,19 @@ const addDoujinModal = document.getElementById('addDoujinModal');
 const openAddDoujinModalButton = document.getElementById('openAddDoujinModal');
 const closeAddDoujinModalButton = document.getElementById('closeAddDoujinModal');
 const cancelAddDoujinModalButton = document.getElementById('cancelAddDoujinModal');
+const doujinArchiveInput = document.getElementById('doujinArchiveInput');
+const doujinArchiveName = document.getElementById('doujinArchiveName');
+
+function updateDoujinArchiveName() {
+    if (!doujinArchiveInput || !doujinArchiveName) return;
+
+    const selectedFile = doujinArchiveInput.files?.[0];
+    const placeholder = doujinArchiveName.dataset.placeholder ?? 'No ZIP selected';
+
+    doujinArchiveName.textContent = selectedFile ? selectedFile.name : placeholder;
+    doujinArchiveName.classList.toggle('text-gray-500', !selectedFile);
+    doujinArchiveName.classList.toggle('text-gray-800', Boolean(selectedFile));
+}
 
 function setAddDoujinModal(open) {
     if (!addDoujinModal) return;
@@ -961,6 +990,7 @@ function setAddDoujinModal(open) {
 openAddDoujinModalButton?.addEventListener('click', () => setAddDoujinModal(true));
 closeAddDoujinModalButton?.addEventListener('click', () => setAddDoujinModal(false));
 cancelAddDoujinModalButton?.addEventListener('click', () => setAddDoujinModal(false));
+doujinArchiveInput?.addEventListener('change', updateDoujinArchiveName);
 addDoujinModal?.addEventListener('click', (event) => {
     if (event.target === addDoujinModal) {
         setAddDoujinModal(false);
@@ -968,6 +998,8 @@ addDoujinModal?.addEventListener('click', (event) => {
 });
 
 window.addEventListener('DOMContentLoaded', () => {
+    updateDoujinArchiveName();
+
     const shouldOpenAddDoujinModal = @json(session('open_add_doujin_modal', false));
     if (shouldOpenAddDoujinModal) {
         setAddDoujinModal(true);

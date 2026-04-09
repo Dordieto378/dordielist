@@ -13,7 +13,7 @@ class Kernel extends ConsoleKernel
      */
     protected $commands = [
         \App\Console\Commands\ImportVndb::class,
-        \App\Console\Commands\ImportAnilist::class,
+        \App\Console\Commands\ImportAniList::class,
         \App\Console\Commands\ImportDoujin::class,
         \App\Console\Commands\GenerateEpisodeThumbnails::class,
     ];
@@ -23,8 +23,10 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule)
     {
-        // (optional) if you want to rebuild nightly, you could do:
-        // $schedule->command('doujins:build-index')->daily();
+        $schedule->command('anilist:import')
+            ->everyThirtySeconds();
+        $schedule->command('vndb:import')
+            ->everyThirtySeconds();
     }
 
     // …

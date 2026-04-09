@@ -148,10 +148,10 @@ Route::middleware('auth')->group(function () {
     Route::delete('/doujin/{media}', [DoujinController::class, 'destroy'])->name('doujin.destroy');
     Route::post('/doujin/upload', [DoujinController::class, 'storeUploaded'])->name('doujin.upload');
     // Episode & Chapter management
-    Route::post('/media/{media}/episodes', [EpisodeController::class, 'syncFromDisk'])->name('episodes.sync');
+    Route::post('/media/{media}/episodes/upload', [EpisodeController::class, 'storeUploaded'])->name('episodes.upload');
     Route::get('/media/{media}/episodes/{episode}', [EpisodeController::class, 'show'])->name('episodes.show');
 
-    Route::post('/media/{media}/chapters/sync', [ChapterController::class, 'syncFromDisk'])->name('chapters.sync');
+    Route::post('/media/{media}/chapters/upload', [ChapterController::class, 'storeUploaded'])->name('chapters.upload');
     Route::get('/media/{media}/chapters/{chapter}/{page?}', [ChapterController::class, 'readPage'])->name('chapters.page');
 
     // VN tools + NSFW mark

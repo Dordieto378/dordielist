@@ -126,10 +126,7 @@ class EpisodeController extends Controller
                 $media->save();
             });
 
-            return back()->with([
-                'status' => 'Uploaded '.count($rows).' episode(s).',
-                'status_color' => 'green',
-            ]);
+            return back();
         } catch (Throwable $e) {
             report($e);
             $this->cleanupCreatedFiles($disk, $createdThumbs);
@@ -166,10 +163,7 @@ class EpisodeController extends Controller
             $disk->deleteDirectory($targetRelDir);
         }
 
-        return back()->with([
-            'status' => 'All uploaded episodes were removed.',
-            'status_color' => 'green',
-        ]);
+        return back();
     }
 
     private function redirectUploadFailure(string $message, Request $request)

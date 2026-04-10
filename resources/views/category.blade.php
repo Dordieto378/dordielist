@@ -96,12 +96,6 @@ if (!function_exists('shortTitle')) {
                 </form>
 
                 <div class="mt-6">
-                    @if(session('status'))
-                        <div class="app-alert app-alert-success mb-3 px-3 py-2 text-sm">
-                            {{ session('status') }}
-                        </div>
-                    @endif
-
                     <button type="button"
                             id="openAddDoujinModal"
                             class="inline-block w-full px-4 py-2 flatGreen text-white rounded-[0.19rem] mt-2 hover:bg-emerald-700 text-center">

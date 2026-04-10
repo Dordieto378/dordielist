@@ -102,9 +102,7 @@ class SettingsController extends Controller
         $user->save();
 
         return redirect()
-            ->route('settings.api')
-            ->with('status', 'API settings saved.')
-            ->with('status_color', 'green');
+            ->route('settings.api');
     }
 
     public function users()

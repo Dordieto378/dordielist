@@ -137,13 +137,8 @@
 @endphp
 
 <div class="flex flex-col items-center py-[8.5rem]">
-    @if(session('status'))
-        @php
-            $flashClasses = session('status_color') === 'red'
-                ? 'bg-red-50 text-red-700 border border-red-200'
-                : 'bg-green-50 text-green-700 border border-green-200';
-        @endphp
-        <div class="app-alert w-[1280px] mb-4 px-5 py-4 text-sm {{ session('status_color') === 'red' ? 'app-alert-error' : 'app-alert-success' }}">
+    @if(session('status') && session('status_color') === 'red')
+        <div class="app-alert app-alert-error w-[1280px] mb-4 px-5 py-4 text-sm">
             {{ session('status') }}
         </div>
     @endif

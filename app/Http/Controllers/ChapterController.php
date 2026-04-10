@@ -184,10 +184,7 @@ class ChapterController extends Controller
                 $media->save();
             });
 
-            return back()->with([
-                'status' => 'Uploaded '.count($imports).' chapter(s).',
-                'status_color' => 'green',
-            ]);
+            return back();
         } catch (Throwable $e) {
             report($e);
             $this->cleanupCreatedFiles($disk, $createdFiles);
@@ -235,10 +232,7 @@ class ChapterController extends Controller
             $disk->deleteDirectory($targetRelRoot);
         }
 
-        return back()->with([
-            'status' => 'All uploaded chapters were removed.',
-            'status_color' => 'green',
-        ]);
+        return back();
     }
 
     private function buildChapterImports(string $contentRoot, UploadedFile $archive, UploadedArchive $uploadedArchive): array

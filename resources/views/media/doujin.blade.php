@@ -55,11 +55,6 @@
     @endphp
 
     <div class="flex flex-col items-center py-[8.5rem]">
-        @if(session('status'))
-            <div class="app-alert app-alert-success w-[1280px] mb-4 px-5 py-4 text-sm">
-                {{ session('status') }}
-            </div>
-        @endif
         <div class="w-[1280px] h-auto bg-white shadow-sm rounded-md p-6 ml-[0.5rem]">
             <div class="flex flex-col md:flex-row">
                 {{-- Left Column --}}

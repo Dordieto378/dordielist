@@ -23,17 +23,8 @@
         <div class="bg-white shadow-md rounded-lg overflow-hidden p-8">
           <h1 class="text-2xl font-bold text-red-600 mb-4">Users</h1>
 
-          @if(session('status'))
-            @php
-              $bg = session('status_color') === 'red'
-                      ? 'bg-red-100 border-red-200 text-red-800'
-                      : (
-                          session('status_color') === 'green'
-                          ? 'bg-green-100 border-green-200 text-green-800'
-                          : 'bg-gray-100 border-gray-200 text-gray-800'
-                      );
-            @endphp
-            <div class="app-alert mt-4 mb-4 {{ session('status_color') === 'red' ? 'app-alert-error' : (session('status_color') === 'green' ? 'app-alert-success' : 'app-alert-neutral') }}">
+          @if(session('status') && session('status_color') === 'red')
+            <div class="app-alert app-alert-error mt-4 mb-4">
               {{ session('status') }}
             </div>
           @endif

@@ -488,8 +488,10 @@
                                         alt="Episode {{ $ep->episode_number }} thumbnail"
                                         loading="lazy"
                                     >
-                                    <span class="absolute z-10 bg-black/70 text-white text-lg font-semibold px-2 py-0.5 rounded leading-none"
-                                          style="right: 8px; bottom: 8px; top: auto; left: auto;">
+                                    <span class="absolute inset-0 z-10 pointer-events-none"
+                                          style="background: linear-gradient(to top, rgba(0, 0, 0, 0.76) 0%, rgba(0, 0, 0, 0.46) 9%, rgba(0, 0, 0, 0.22) 18%, rgba(0, 0, 0, 0.08) 28%, rgba(0, 0, 0, 0.02) 36%, rgba(0, 0, 0, 0) 46%);"></span>
+                                    <span class="absolute z-20 text-white text-lg font-semibold leading-none"
+                                          style="right: 10px; bottom: 8px; top: auto; left: auto; text-shadow: 0 2px 6px rgba(0, 0, 0, 0.98), 0 1px 2px rgba(0, 0, 0, 0.95);">
                                         {{ $ep->episode_number }}
                                     </span>
                                 </a>
@@ -562,7 +564,6 @@
                 @php
                     $allowedExts = ['jpg','jpeg','png','gif','webp'];
                     $isMangaType = strtoupper($item['type'] ?? '') === 'MANGA';
-                    $isManwhaType = strtoupper($item['type'] ?? '') === 'MANWHA';
                 @endphp
 
                 @foreach($chapters->chunk(4) as $rowIndex => $row)
@@ -597,16 +598,17 @@
 
                         <div onclick="window.location.href='{{ route('chapters.page', ['media' => $chapter->item_id, 'chapter' => $chapterParam, 'page' => 1]) }}'"
                              class="cursor-pointer">
-                            <div class="relative w-full rounded-lg overflow-hidden shadow-lg"
-                                 @if($isManwhaType) style="height: 460px;" @endif>
+                            <div class="relative w-full rounded-lg overflow-hidden shadow-lg bg-gray-100"
+                                 style="aspect-ratio: 3 / 4;">
                                 <img
                                     src="{{ $thumb }}"
                                     alt="{{ $chapter->chapter_title }}"
-                                    class="w-full {{ $isManwhaType ? '' : 'h-auto object-contain' }}"
-                                    @if($isManwhaType) style="height: 100%; object-fit: cover; object-position: top;" @endif
+                                    class="absolute inset-0 w-full h-full object-cover object-top"
                                 >
-                                <span class="absolute z-10 bg-black/70 text-white text-lg font-semibold px-2 py-0.5 rounded leading-none"
-                                      style="right: 8px; bottom: 8px; top: auto; left: auto;">
+                                <span class="absolute inset-0 z-10 pointer-events-none"
+                                      style="background: linear-gradient(to top, rgba(0, 0, 0, 0.76) 0%, rgba(0, 0, 0, 0.46) 9%, rgba(0, 0, 0, 0.22) 18%, rgba(0, 0, 0, 0.08) 28%, rgba(0, 0, 0, 0.02) 36%, rgba(0, 0, 0, 0) 46%);"></span>
+                                <span class="absolute z-20 text-white text-lg font-semibold leading-none"
+                                      style="right: 10px; bottom: 8px; top: auto; left: auto; text-shadow: 0 2px 6px rgba(0, 0, 0, 0.98), 0 1px 2px rgba(0, 0, 0, 0.95);">
                                     {{ $chapterBadge }}
                                 </span>
                             </div>

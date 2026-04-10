@@ -14,9 +14,7 @@
             ? \Carbon\Carbon::parse($item['releaseDate'])->format('M j, Y')
             : (!empty($item['startDate']['year']) ? (string) $item['startDate']['year'] : null);
         $description = (string) ($item['description'] ?? '');
-        $visibleEpisodes = ($episodes ?? collect())
-            ->reject(fn ($ep) => (int) $ep->episode_number === (int) $episodeNumber)
-            ->values();
+        $visibleEpisodes = ($episodes ?? collect())->values();
     @endphp
 
     <div class="w-full bg-black flex justify-center min-h-[70vh] relative">
@@ -61,6 +59,7 @@
                     <div class="max-h-[460px] overflow-y-auto space-y-1.5 pr-1">
                         @foreach($visibleEpisodes as $index => $ep)
                             @php
+                                $isCurrentEpisode = (int) $ep->episode_number === (int) $episodeNumber;
                                 $thumbUrl = !empty($ep->thumbnail_path)
                                     ? Storage::url($ep->thumbnail_path)
                                     : asset('images/no-image.jpg');
@@ -70,7 +69,8 @@
                                 }
                             @endphp
                             <a href="{{ route('episodes.show', ['media' => $item['id'], 'episode' => $ep->episode_number]) }}"
-                               class="episode-sidebar-item rounded-sm px-2 py-1 transition hover:bg-gray-50"
+                               class="episode-sidebar-item rounded-sm px-2 py-1 transition {{ $isCurrentEpisode ? 'bg-gray-300' : 'hover:bg-gray-50' }}"
+                               @if($isCurrentEpisode) aria-current="page" @endif
                                style="{{ $rowStyle }}">
                                 <img
                                     style="width:160px;height:90px;flex:0 0 160px;display:block;object-fit:cover;border-radius:2px;"
@@ -78,7 +78,7 @@
                                     alt="Episode {{ $ep->episode_number }} thumbnail"
                                     loading="lazy"
                                 >
-                                <span style="display:block;flex:0 0 auto;min-width:88px;color:#111827;font-size:14px;font-weight:600;line-height:1.2;white-space:nowrap;">
+                                <span style="display:block;flex:0 0 auto;min-width:88px;color:#111827;font-size:14px;font-weight:{{ $isCurrentEpisode ? '700' : '600' }};line-height:1.2;white-space:nowrap;">
                                     E{{ $ep->episode_number }}
                                 </span>
                             </a>

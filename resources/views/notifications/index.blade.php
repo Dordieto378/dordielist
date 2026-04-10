@@ -53,6 +53,7 @@
                 @if($hasMore)
                     <div class="mt-8 text-center">
                         <a
+                            id="notifications-show-more"
                             href="{{ route('notifications.index', ['limit' => $limit + 20]) }}"
                             class="text-base font-bold text-red-600 hover:underline"
                         >
@@ -66,25 +67,44 @@
 </div>
 @endsection
 
-@if(!empty($visibleUnreadNotificationIds))
-    @push('scripts')
-        <script>
-            document.addEventListener('DOMContentLoaded', function () {
-                const unreadIds = @json(array_values($visibleUnreadNotificationIds));
+@push('scripts')
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const scrollStorageKey = 'notifications-index-scroll-y';
+            const showMoreLink = document.getElementById('notifications-show-more');
+            const savedScrollY = window.sessionStorage.getItem(scrollStorageKey);
+            const unreadIds = @json(array_values($visibleUnreadNotificationIds));
 
-                window.setTimeout(function () {
-                    fetch(@json(route('notifications.read-visible')), {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                            'Accept': 'application/json',
-                        },
-                        body: JSON.stringify({ ids: unreadIds }),
-                        credentials: 'same-origin',
-                    }).catch(function () {});
-                }, 300);
-            });
-        </script>
-    @endpush
-@endif
+            if (savedScrollY !== null) {
+                window.sessionStorage.removeItem(scrollStorageKey);
+
+                window.requestAnimationFrame(function () {
+                    window.scrollTo(0, parseInt(savedScrollY, 10) || 0);
+                });
+            }
+
+            if (showMoreLink) {
+                showMoreLink.addEventListener('click', function () {
+                    window.sessionStorage.setItem(scrollStorageKey, String(window.scrollY));
+                });
+            }
+
+            if (unreadIds.length === 0) {
+                return;
+            }
+
+            window.setTimeout(function () {
+                fetch(@json(route('notifications.read-visible')), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                        'Accept': 'application/json',
+                    },
+                    body: JSON.stringify({ ids: unreadIds }),
+                    credentials: 'same-origin',
+                }).catch(function () {});
+            }, 300);
+        });
+    </script>
+@endpush

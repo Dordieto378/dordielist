@@ -28,8 +28,8 @@
             @else
                 @php
                     $navbarUnreadNotificationCount = \App\Models\AnilistNotification::where('is_read', false)->count();
-                    $navbarUnreadNotificationLabel = $navbarUnreadNotificationCount > 99
-                        ? '99+'
+                    $navbarUnreadNotificationLabel = $navbarUnreadNotificationCount > 9
+                        ? '9+'
                         : (string) $navbarUnreadNotificationCount;
                 @endphp
                 <div class="flex items-center space-x-1">
@@ -58,7 +58,7 @@
                         </svg>
                     </button>
 
-                    <div class="relative group ml-4 py-1 px-2 rounded hover:bg-red-600">
+                    <div class="relative group ml-4 py-1 px-2 pr-5 rounded hover:bg-red-600">
                         <button
                         id="accountToggle"
                         class="menu-link-text relative flex items-center js-my-account-links"
@@ -92,7 +92,8 @@
                             </svg>
 
                             @if($navbarUnreadNotificationCount > 0)
-                                <span class="absolute -right-4 -top-3 inline-flex min-w-[22px] items-center justify-center rounded-full bg-[#08875b] px-1.5 py-0.5 text-[11px] font-bold leading-none text-white">
+                                <span class="absolute right-0 top-0 inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#08875b] text-[10px] font-bold leading-none tabular-nums text-white"
+                                      style="transform: translate(82%, -64%);">
                                     {{ $navbarUnreadNotificationLabel }}
                                 </span>
                             @endif
@@ -124,10 +125,11 @@
                         </li>
                         <li>
                         <a href="{{ route('notifications.index') }}"
-                            class="flex w-full items-center justify-between pl-3 pr-3 py-3.5 hover:bg-gray-100 rounded-[0.2rem] text-gray-800">
+                            class="relative flex w-full items-center pl-3 pr-10 py-3.5 hover:bg-gray-100 rounded-[0.2rem] text-gray-800">
                             <span>Notification</span>
                             @if($navbarUnreadNotificationCount > 0)
-                                <span class="inline-flex min-w-[22px] items-center justify-center rounded-full bg-[#08875b] px-1.5 py-0.5 text-[11px] font-bold leading-none text-white">
+                                <span class="absolute right-0 top-0 inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#08875b] text-[10px] font-bold leading-none tabular-nums text-white"
+                                      style="transform: translate(-60%, -24%);">
                                     {{ $navbarUnreadNotificationLabel }}
                                 </span>
                             @endif

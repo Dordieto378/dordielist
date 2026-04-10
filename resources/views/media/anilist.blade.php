@@ -134,6 +134,7 @@
     $contentResetConfirm = $isEpisodeBased
         ? 'Remove all uploaded episodes for this title?'
         : 'Remove all uploaded chapters for this title?';
+    $isViewer = optional(auth()->user()?->role)->role === 'Viewer';
 @endphp
 
 <div class="flex flex-col items-center py-[8.5rem]">
@@ -153,6 +154,7 @@
                         class="thumb-img w-full h-full">
                 </div>
                 @auth
+                @unless($isViewer)
                 <div class="mt-4 flex flex-col space-y-3 w-[325px] font-bold">
                     @php
                         $enabled = $isEpisodeBased ? $firstEpisode : $firstChapter;
@@ -278,6 +280,7 @@
                         </button>
                     </form>
                 </div>
+                @endunless
                 @endauth
             </div>
             {{-- Right Column: Basic Info --}}

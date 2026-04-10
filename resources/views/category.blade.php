@@ -3,6 +3,7 @@
 @section('content')
 @php
 use Illuminate\Support\Str;
+$isViewer = optional(auth()->user()?->role)->role === 'Viewer';
 
 if (!function_exists('shortTitle')) {
     function shortTitle($title, $maxLen = 25) {
@@ -96,11 +97,13 @@ if (!function_exists('shortTitle')) {
                 </form>
 
                 <div class="mt-6">
+                    @unless($isViewer)
                     <button type="button"
                             id="openAddDoujinModal"
                             class="inline-block w-full px-4 py-2 flatGreen text-white rounded-[0.19rem] mt-2 hover:bg-emerald-700 text-center">
                         Add Doujin ZIP
                     </button>
+                    @endunless
                 </div>
             @elseif(strtoupper($category) === 'VISUAL-NOVEL')
                 <form method="GET"
@@ -516,7 +519,7 @@ if (!function_exists('shortTitle')) {
     </div>
 </div>
 
-@if(strtoupper($category) === 'DOUJINS')
+@if(strtoupper($category) === 'DOUJINS' && !$isViewer)
     <div
       id="addDoujinModal"
       class="fixed inset-0 flex items-start pt-[130px] justify-center bg-black bg-opacity-50 hidden z-50"

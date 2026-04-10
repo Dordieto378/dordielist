@@ -1,6 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
+@php $isViewer = optional(auth()->user()?->role)->role === 'Viewer'; @endphp
 <div class="mt-6 py-[4.5rem]">
     <div class="max-w-screen-xl mx-auto flex justify-between items-center px-4">
         <h2 class="text-2xl text-red-600 mb-[1.9rem]">
@@ -83,26 +84,28 @@
                         </div>
                     </a>
 
-                    <form method="POST"
-                          action="{{ route('collection.item.remove', $collection) }}"
-                          class="absolute top-2 left-2 z-20"
-                          onpointerdown="event.stopPropagation()">
-                        @csrf
-                        <input type="hidden" name="item_type" value="{{ $ci->item_type }}">
-                        <input type="hidden" name="item_id"   value="{{ $ci->item_id   }}">
-                        <button type="submit"
-                                class="p-1 rounded-full bg-transparent hover:bg-gray-200"
-                                title="Remove {{ \Illuminate\Support\Str::limit($ci->title ?? 'item', 25) }}">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-600" viewBox="0 0 20 20" fill="currentColor">
-                                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10
-              8.586l4.293-4.293a1 1 0 111.414
-              1.414L11.414 10l4.293 4.293a1 1
-              0 01-1.414 1.414L10 11.414l-4.293
-              4.293a1 1 0 01-1.414-1.414L8.586
-              10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
-                            </svg>
-                        </button>
-                    </form>
+                    @unless($isViewer)
+                        <form method="POST"
+                              action="{{ route('collection.item.remove', $collection) }}"
+                              class="absolute top-2 left-2 z-20"
+                              onpointerdown="event.stopPropagation()">
+                            @csrf
+                            <input type="hidden" name="item_type" value="{{ $ci->item_type }}">
+                            <input type="hidden" name="item_id"   value="{{ $ci->item_id   }}">
+                            <button type="submit"
+                                    class="p-1 rounded-full bg-transparent hover:bg-gray-200"
+                                    title="Remove {{ \Illuminate\Support\Str::limit($ci->title ?? 'item', 25) }}">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-600" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10
+                  8.586l4.293-4.293a1 1 0 111.414
+                  1.414L11.414 10l4.293 4.293a1 1
+                  0 01-1.414 1.414L10 11.414l-4.293
+                  4.293a1 1 0 01-1.414-1.414L8.586
+                  10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                                </svg>
+                            </button>
+                        </form>
+                    @endunless
                 </div>
             @empty
                 <div class="w-[1270px] bg-white border border-gray-200 rounded shadow-sm

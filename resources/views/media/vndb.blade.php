@@ -24,6 +24,7 @@
 
         // use the actual model we passed via fetchVnById()
         $mediaModel = $item['media'] ?? null;
+        $isViewer = optional(auth()->user()?->role)->role === 'Viewer';
 
 
     @endphp
@@ -40,6 +41,7 @@
                         class="thumb-img w-full h-full">
                 </div>
                 @auth
+                  @unless($isViewer)
                   <div class="mt-4 flex flex-col space-y-3 w-[325px] font-bold">
                       @php
                       $id       = $item['id'];
@@ -96,6 +98,7 @@
                           <span class="ml-[0.2rem]">Add to Collection</span>
                       </button>
                   </div>
+                  @endunless
                 @endauth
             </div>
 

@@ -2,6 +2,7 @@
 @extends('layouts.app')
 
 @section('content')
+    @php $isViewer = optional(auth()->user()?->role)->role === 'Viewer'; @endphp
     <div class="mt-6 py-[4.5rem]">
         <div class="max-w-screen-xl mx-auto flex justify-between items-center px-4">
             <h2 class="text-2xl text-red-600 mb-[1.9rem]">Collections</h2>
@@ -33,7 +34,7 @@
                 @forelse($otherCollections as $col)
                     <div class="relative cursor-pointer overflow-hidden transition">
 
-                        @unless($col->is_system)
+                        @unless($col->is_system || $isViewer)
                             <form
                                 method="POST"
                                 action="{{ route('collection.destroy', $col) }}"

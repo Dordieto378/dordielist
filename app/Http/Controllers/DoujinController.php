@@ -174,6 +174,8 @@ class DoujinController extends Controller
 
     public function storeUploaded(Request $request)
     {
+        abort_unless(optional($request->user()?->role)->role === 'Admin', 403);
+
         $validator = Validator::make($request->all(), [
             'title_english' => ['nullable', 'string', 'max:255'],
             'title_romaji' => ['nullable', 'string', 'max:255'],

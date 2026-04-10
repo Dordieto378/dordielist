@@ -7,8 +7,15 @@ use Illuminate\Http\Request;
 
 class NotificationController extends Controller
 {
+    private function abortIfViewer(Request $request): void
+    {
+        abort_if(optional($request->user()?->role)->role === 'Viewer', 403);
+    }
+
     public function index(Request $request)
     {
+        $this->abortIfViewer($request);
+
         $limit = (int) $request->query('limit', 20);
         $limit = max(20, $limit);
 
@@ -41,6 +48,8 @@ class NotificationController extends Controller
 
     public function markVisibleRead(Request $request)
     {
+        $this->abortIfViewer($request);
+
         $ids = collect((array) $request->input('ids', []))
             ->map(fn ($id) => (int) $id)
             ->filter(fn ($id) => $id > 0)

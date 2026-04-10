@@ -11,6 +11,11 @@ use App\Models\Role;
 
 class SettingsController extends Controller
 {
+    private function abortIfViewer(): void
+    {
+        abort_if(optional(Auth::user()?->role)->role === 'Viewer', 403);
+    }
+
     public function edit()
     {
         $user = Auth::user();
@@ -70,6 +75,8 @@ class SettingsController extends Controller
 
     public function api()
     {
+        $this->abortIfViewer();
+
         $user = Auth::user();
 
         return view('settings.api', compact('user'));
@@ -77,6 +84,8 @@ class SettingsController extends Controller
 
     public function updateApi(Request $request)
     {
+        $this->abortIfViewer();
+
         $user = Auth::user();
 
         $validator = Validator::make($request->all(), [

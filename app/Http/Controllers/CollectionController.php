@@ -13,6 +13,11 @@ use Illuminate\Support\Str;
 
 class CollectionController extends Controller
 {
+    private function abortIfViewer(Request $request): void
+    {
+        abort_if(optional($request->user()?->role)->role === 'Viewer', 403);
+    }
+
     public function index()
     {
         $favorites = Collection::firstOrCreate(
@@ -171,6 +176,8 @@ class CollectionController extends Controller
 
     public function destroy(Collection $collection)
     {
+        abort_if(optional(auth()->user()?->role)->role === 'Viewer', 403);
+
         if ($collection->is_system) {
             abort(403, 'Cannot remove system collection.');
         }
@@ -360,6 +367,8 @@ class CollectionController extends Controller
 
     public function removeItem(Collection $collection, Request $request)
     {
+        $this->abortIfViewer($request);
+
         $rawId = $request->input('item_id');
         $id    = (int) ltrim($rawId, 'v');
 

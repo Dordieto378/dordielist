@@ -57,6 +57,7 @@
         $contentUploadTitle = 'Upload Chapters';
         $contentResetLabel = 'Reset Chapters';
         $contentResetConfirm = 'Remove all uploaded chapters for this doujin?';
+        $isViewer = optional(auth()->user()?->role)->role === 'Viewer';
 
     @endphp
 
@@ -72,6 +73,7 @@
                             class="thumb-img w-full h-full">
                     </div>
                     @auth
+                        @unless($isViewer)
                         <div class="mt-4 flex flex-col space-y-3 w-[325px] font-bold">
                             @if($firstChapter)
                                 <a href="{{ route('chapters.page', [
@@ -183,6 +185,7 @@
                                     </button>
                                 </form>
                         </div>
+                        @endunless
                     @endauth
                 </div>
 

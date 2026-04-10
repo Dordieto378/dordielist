@@ -144,6 +144,7 @@ class ChapterController extends Controller
             }
 
             $firstImportedPage = null;
+            $chapterOneCoverPage = null;
             $replacedChapterIds = array_keys($replacedChapters);
             $replacedFiles = [];
             $replacedDirectories = [];
@@ -176,7 +177,8 @@ class ChapterController extends Controller
                 $mediaType,
                 &$createdFiles,
                 &$createdDirectories,
-                &$firstImportedPage
+                &$firstImportedPage,
+                &$chapterOneCoverPage
             ) {
                 if ($replacedChapterIds !== []) {
                     ChapterPage::whereIn('chapter_id', $replacedChapterIds)->delete();
@@ -223,6 +225,15 @@ class ChapterController extends Controller
                             $firstImportedPage = $targetRelPath;
                         }
 
+                        if (
+                            $mediaType === 'doujin'
+                            && (float) $chapterNumber === 1.0
+                            && $pageNumber === 1
+                            && $chapterOneCoverPage === null
+                        ) {
+                            $chapterOneCoverPage = $targetRelPath;
+                        }
+
                         $pageRows[] = [
                             'chapter_id' => $chapter->id,
                             'page_number' => $pageNumber,
@@ -236,7 +247,9 @@ class ChapterController extends Controller
                 }
 
                 $media->chapters_cnt = Chapter::where('media_fk', $media->id)->count();
-                if (($coverNeedsRefresh || !$media->cover_url) && $firstImportedPage !== null) {
+                if ($mediaType === 'doujin' && $chapterOneCoverPage !== null) {
+                    $media->cover_url = $chapterOneCoverPage;
+                } elseif (($coverNeedsRefresh || !$media->cover_url) && $firstImportedPage !== null) {
                     $media->cover_url = $firstImportedPage;
                 }
                 $media->save();

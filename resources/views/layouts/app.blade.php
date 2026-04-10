@@ -77,7 +77,10 @@
                 <div class="flex-1"></div>
             @else
                 @php
-                    $navbarUnreadNotificationCount = \App\Models\AnilistNotification::where('is_read', false)->count();
+                    $isViewer = optional(auth()->user()?->role)->role === 'Viewer';
+                    $navbarUnreadNotificationCount = $isViewer
+                        ? 0
+                        : \App\Models\AnilistNotification::where('is_read', false)->count();
                     $navbarUnreadNotificationLabel = $navbarUnreadNotificationCount > 9
                         ? '9+'
                         : (string) $navbarUnreadNotificationCount;
@@ -141,7 +144,7 @@
                             <polyline points="6 9 12 15 18 9"/>
                             </svg>
 
-                            @if($navbarUnreadNotificationCount > 0)
+                            @if(!$isViewer && $navbarUnreadNotificationCount > 0)
                                 <span class="absolute right-0 top-0 inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#08875b] text-[10px] font-bold leading-none tabular-nums text-white"
                                       style="transform: translate(82%, -64%);">
                                     {{ $navbarUnreadNotificationLabel }}
@@ -173,18 +176,20 @@
                             Favorites
                         </a>
                         </li>
-                        <li>
-                        <a href="{{ route('notifications.index') }}"
-                            class="relative flex w-full items-center pl-3 pr-10 py-3.5 hover:bg-gray-100 rounded-[0.2rem] text-gray-800">
-                            <span>Notification</span>
-                            @if($navbarUnreadNotificationCount > 0)
-                                <span class="absolute right-0 top-0 inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#08875b] text-[10px] font-bold leading-none tabular-nums text-white"
-                                      style="transform: translate(-60%, -24%);">
-                                    {{ $navbarUnreadNotificationLabel }}
-                                </span>
-                            @endif
-                        </a>
-                        </li>
+                        @unless($isViewer)
+                            <li>
+                            <a href="{{ route('notifications.index') }}"
+                                class="relative flex w-full items-center pl-3 pr-10 py-3.5 hover:bg-gray-100 rounded-[0.2rem] text-gray-800">
+                                <span>Notification</span>
+                                @if($navbarUnreadNotificationCount > 0)
+                                    <span class="absolute right-0 top-0 inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#08875b] text-[10px] font-bold leading-none tabular-nums text-white"
+                                          style="transform: translate(-60%, -24%);">
+                                        {{ $navbarUnreadNotificationLabel }}
+                                    </span>
+                                @endif
+                            </a>
+                            </li>
+                        @endunless
                         <li>
                         <a href="{{ route('settings.profile.edit') }}"
                             class="block w-full text-left pl-3 pr-3 py-3.5 hover:bg-gray-100 rounded-[0.2rem] text-gray-800">

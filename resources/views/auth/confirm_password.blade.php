@@ -12,7 +12,7 @@
     <form method="POST" action="{{ url('/user/confirm-password') }}" class="space-y-4">
       @csrf
       @error('password')
-      <div class="mb-4 p-4 bg-red-100 border-red-200 text-red-800 border rounded">
+      <div class="app-alert app-alert-error mb-4">
         {{ $message }}
       </div>
       @enderror

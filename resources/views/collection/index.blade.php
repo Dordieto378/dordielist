@@ -132,7 +132,7 @@
                             required
                         />
                         @error('name')
-                        <span class="text-red-600 text-sm mt-1">{{ $message }}</span>
+                        <span class="app-inline-error">{{ $message }}</span>
                         @enderror
                     </label>
 

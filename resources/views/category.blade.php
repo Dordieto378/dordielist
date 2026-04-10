@@ -97,13 +97,13 @@ if (!function_exists('shortTitle')) {
 
                 <div class="mt-6">
                     @if(session('doujin_upload_error'))
-                        <div class="mb-3 rounded-sm border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                        <div class="app-alert app-alert-error mb-3 px-3 py-2 text-sm">
                             {{ session('doujin_upload_error') }}
                         </div>
                     @endif
 
                     @if(session('status'))
-                        <div class="mb-3 rounded-sm border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
+                        <div class="app-alert app-alert-success mb-3 px-3 py-2 text-sm">
                             {{ session('status') }}
                         </div>
                     @endif

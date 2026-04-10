@@ -6,7 +6,7 @@
   <div class="max-w-md w-full bg-white shadow-md rounded-lg p-8">
     <h2 class="text-2xl font-semibold text-gray-900 mb-4">Registration Received</h2>
     <p class="text-gray-700 mb-6 font-medium">
-      Thank you for registering, <strong>{{ old('username') ?? 'New User' }}</strong>.<br>
+      Thank you for registering, <strong>{{ $username ?? old('username') ?? 'New User' }}</strong>.<br>
       Please wait for an administrator to confirm your account. 
       You will receive an email once your account is activated.
     </p>

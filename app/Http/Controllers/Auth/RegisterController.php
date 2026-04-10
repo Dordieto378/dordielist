@@ -7,9 +7,11 @@ use App\Http\Controllers\Controller;
 use App\Mail\AdminNewUserNotification;
 use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Facades\Validator;
+use Throwable;
 
 class RegisterController extends Controller
 {
@@ -67,16 +69,25 @@ class RegisterController extends Controller
             'status'    => 'not_active',
         ]);
 
-        $confirmUrl = URL::temporarySignedRoute(
-            'admin.confirm',
-            now()->addDays(7),
-            ['user' => $user->user_id]
-        );
+        try {
+            $confirmUrl = URL::temporarySignedRoute(
+                'admin.confirm',
+                now()->addDays(7),
+                ['user' => $user->user_id]
+            );
 
-        Mail::to('joshua.esser378@gmail.com')
-            ->send(new AdminNewUserNotification($user, $confirmUrl));
+            Mail::to('joshua.esser378@gmail.com')
+                ->send(new AdminNewUserNotification($user, $confirmUrl));
+        } catch (Throwable $exception) {
+            Log::error('Registration completed, but admin notification failed.', [
+                'user_id' => $user->user_id,
+                'email' => $user->email,
+                'exception' => $exception,
+            ]);
+        }
 
-        return redirect()
-            ->route('register.pending');
+        return view('auth.register_pending', [
+            'username' => $user->username,
+        ]);
     }
 }

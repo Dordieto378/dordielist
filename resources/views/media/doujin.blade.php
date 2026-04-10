@@ -56,7 +56,7 @@
 
     <div class="flex flex-col items-center py-[8.5rem]">
         @if(session('status'))
-            <div class="w-[1280px] mb-4 rounded-md px-5 py-4 text-sm font-medium bg-green-50 text-green-700 border border-green-200">
+            <div class="app-alert app-alert-success w-[1280px] mb-4 px-5 py-4 text-sm">
                 {{ session('status') }}
             </div>
         @endif
@@ -343,7 +343,7 @@
                         @method('PATCH')
 
                         @if(session('doujin_update_error'))
-                            <div class="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                            <div class="app-alert app-alert-error px-4 py-3 text-sm">
                                 {{ session('doujin_update_error') }}
                             </div>
                         @endif
@@ -530,7 +530,7 @@
                             />
 
                             @error('name')
-                                <span class="text-red-600 text-sm mt-1">{{ $message }}</span>
+                                <span class="app-inline-error">{{ $message }}</span>
                             @enderror
                         </label>
 

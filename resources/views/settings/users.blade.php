@@ -33,7 +33,7 @@
                           : 'bg-gray-100 border-gray-200 text-gray-800'
                       );
             @endphp
-            <div class="mt-4 mb-4 p-4 {{ $bg }} border rounded">
+            <div class="app-alert mt-4 mb-4 {{ session('status_color') === 'red' ? 'app-alert-error' : (session('status_color') === 'green' ? 'app-alert-success' : 'app-alert-neutral') }}">
               {{ session('status') }}
             </div>
           @endif

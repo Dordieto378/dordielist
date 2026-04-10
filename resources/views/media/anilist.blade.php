@@ -136,7 +136,7 @@
                 ? 'bg-red-50 text-red-700 border border-red-200'
                 : 'bg-green-50 text-green-700 border border-green-200';
         @endphp
-        <div class="w-[1280px] mb-4 rounded-md px-5 py-4 text-sm font-medium {{ $flashClasses }}">
+        <div class="app-alert w-[1280px] mb-4 px-5 py-4 text-sm {{ session('status_color') === 'red' ? 'app-alert-error' : 'app-alert-success' }}">
             {{ session('status') }}
         </div>
     @endif
@@ -679,7 +679,7 @@
         @method('PATCH')
 
         @if(session('entry_update_error'))
-          <div class="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+          <div class="app-alert app-alert-error px-4 py-3 text-sm">
             {{ session('entry_update_error') }}
           </div>
         @endif
@@ -786,7 +786,7 @@
         @csrf
 
         @if(session('media_content_upload_error'))
-          <div class="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+          <div class="app-alert app-alert-error px-4 py-3 text-sm">
             {{ session('media_content_upload_error') }}
           </div>
         @endif
@@ -981,7 +981,7 @@
             />
 
           @error('name')
-          <span class="text-red-600 text-sm mt-1">{{ $message }}</span>
+          <span class="app-inline-error">{{ $message }}</span>
           @enderror
         </label>
 

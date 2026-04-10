@@ -13,6 +13,36 @@
         .thumb-wrapper { position: relative; overflow: hidden; }
         .thumb-img { width: 100%; height: 100%; object-fit: cover; }
         .thumb-landscape { height: 190px !important; }
+        .app-alert {
+            border: 1px solid transparent;
+            border-radius: 0.375rem;
+            padding: 1rem;
+            font-weight: 400 !important;
+            text-transform: none !important;
+        }
+        .app-alert-error {
+            background: rgb(254 242 242);
+            border-color: rgb(254 202 202);
+            color: rgb(153 27 27) !important;
+        }
+        .app-alert-success {
+            background: rgb(240 253 244);
+            border-color: rgb(187 247 208);
+            color: rgb(22 101 52) !important;
+        }
+        .app-alert-neutral {
+            background: rgb(243 244 246);
+            border-color: rgb(229 231 235);
+            color: rgb(31 41 55) !important;
+        }
+        .app-inline-error {
+            display: block;
+            margin-top: 0.25rem;
+            color: rgb(220 38 38) !important;
+            font-size: 0.875rem;
+            font-weight: 400 !important;
+            text-transform: none !important;
+        }
     </style>
 </head>
 <body class="bg-gray-100 font-sans text-white text-base font-semibold capitalize">
@@ -162,6 +192,8 @@
             @endguest
         </div>
     </nav>
+
+    @include('partials.app-error-alert')
 
     @yield('content')
 

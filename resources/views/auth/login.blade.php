@@ -37,8 +37,14 @@
                 ? 'bg-red-100 border-red-200 text-red-800'
                 : 'bg-gray-100 border-gray-200 text-gray-800';
         @endphp
-        <div class="mb-4 p-4 {{ $bg }} border rounded">
+        <div class="app-alert mb-4 {{ session('status_color') === 'red' ? 'app-alert-error' : 'app-alert-neutral' }}">
           {{ session('status') }}
+        </div>
+      @endif
+
+      @if($errors->any())
+        <div class="app-alert app-alert-error mb-4">
+          {{ $errors->first() }}
         </div>
       @endif
 

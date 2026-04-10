@@ -1,6 +1,16 @@
 @extends('layouts.app')
 
 @section('content')
+<style>
+  .register-input {
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .register-input:focus {
+    border-color: #dc2626 !important;
+    box-shadow: none !important;
+  }
+</style>
 <div class="min-h-[1032px] bg-gray-100 flex items-start justify-center pt-[115px]">
   <div class="w-full max-w-[500px] grid gap-4">
     <div
@@ -36,7 +46,7 @@
                 ? 'bg-red-100 border-red-200 text-red-800'
                 : 'bg-gray-100 border-gray-200 text-gray-800';
         @endphp
-        <div class="mb-4 p-4 {{ $bg }} border rounded">
+        <div class="app-alert mb-4 {{ session('status_color') === 'red' ? 'app-alert-error' : 'app-alert-neutral' }}">
           {{ session('status') }}
         </div>
       @endif
@@ -44,6 +54,7 @@
       <form
         method="POST"
         action="{{ route('register') }}"
+        novalidate
         class="bg-white rounded-lg shadow-sm p-8 flex flex-col gap-6 min-h-[540px]"
       >
         @csrf
@@ -62,12 +73,19 @@
             <input
               id="email"
               name="email"
-              type="email"
+              type="text"
               value="{{ old('email') }}"
               required
+              inputmode="email"
               autocomplete="email"
-              class="h-9 w-full rounded-md border px-3 py-1 text-sm bg-gray-100 focus:outline-none focus:ring-1 focus:ring-flatRed border-gray-200 text-gray-800 font-medium"
+              autocapitalize="off"
+              spellcheck="false"
+              class="register-input auth-input block min-h-10 w-full appearance-none rounded-md border {{ $errors->has('email') ? 'border-red-500' : 'border-gray-200' }} bg-gray-100 px-3 py-2 text-sm leading-5 text-gray-800 font-medium focus:outline-none"
+              @if($errors->has('email')) aria-invalid="true" @endif
             >
+            @error('email')
+              <p class="app-inline-error">{{ $message }}</p>
+            @enderror
           </div>
 
           {{-- Username --}}
@@ -80,8 +98,12 @@
               value="{{ old('username') }}"
               required
               autocomplete="username"
-              class="h-9 w-full rounded-md border px-3 py-1 text-sm bg-gray-100 focus:outline-none focus:ring-1 focus:ring-flatRed border-gray-200 text-gray-800 font-medium"
+              class="register-input auth-input block min-h-10 w-full appearance-none rounded-md border {{ $errors->has('username') ? 'border-red-500' : 'border-gray-200' }} bg-gray-100 px-3 py-2 text-sm leading-5 text-gray-800 font-medium focus:outline-none"
+              @if($errors->has('username')) aria-invalid="true" @endif
             >
+            @error('username')
+              <p class="app-inline-error">{{ $message }}</p>
+            @enderror
           </div>
 
           {{-- Password --}}
@@ -93,8 +115,12 @@
               type="password"
               required
               autocomplete="new-password"
-              class="h-9 w-full rounded-md border px-3 py-1 text-sm bg-gray-100 focus:outline-none focus:ring-1 focus:ring-flatRed border-gray-200 text-gray-800 font-medium"
+              class="register-input auth-input block min-h-10 w-full appearance-none rounded-md border {{ $errors->has('password') ? 'border-red-500' : 'border-gray-200' }} bg-gray-100 px-3 py-2 text-sm leading-5 text-gray-800 font-medium focus:outline-none"
+              @if($errors->has('password')) aria-invalid="true" @endif
             >
+            @error('password')
+              <p class="app-inline-error">{{ $message }}</p>
+            @enderror
           </div>
 
           {{-- Confirm Password --}}
@@ -106,8 +132,12 @@
               type="password"
               required
               autocomplete="new-password"
-              class="h-9 w-full rounded-md border px-3 py-1 text-sm bg-gray-100 focus:outline-none focus:ring-1 focus:ring-flatRed border-gray-200 text-gray-800 font-medium"
+              class="register-input auth-input block min-h-10 w-full appearance-none rounded-md border {{ $errors->has('password_confirmation') ? 'border-red-500' : 'border-gray-200' }} bg-gray-100 px-3 py-2 text-sm leading-5 text-gray-800 font-medium focus:outline-none"
+              @if($errors->has('password_confirmation')) aria-invalid="true" @endif
             >
+            @error('password_confirmation')
+              <p class="app-inline-error">{{ $message }}</p>
+            @enderror
           </div>
 
           {{-- Age confirmation checkbox --}}
@@ -135,6 +165,9 @@
                 </p>
               </div>
             </label>
+            @error('terms')
+              <p class="app-inline-error">{{ $message }}</p>
+            @enderror
           </div>
 
           {{-- Submit --}}

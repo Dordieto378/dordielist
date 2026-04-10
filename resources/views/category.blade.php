@@ -447,7 +447,7 @@ if (!function_exists('shortTitle')) {
                             @endforeach
                         </ul>
                     </div>
-                    @if(in_array(strtoupper($category), ['ANIMES', 'HENTAIS']))
+                    @if(in_array(strtoupper($category), ['ANIME', 'HENTAI']))
                         <div class="relative mt-4">
                             <label class="block text-sm font-medium text-gray-900 mb-2">STUDIO</label>
                             <!-- Expanding Studio Container -->
@@ -477,7 +477,7 @@ if (!function_exists('shortTitle')) {
                             </div>
                         </div>
                     @endif
-                    @if(!in_array(strtoupper($category), ['ANIMES', 'HENTAIS']))
+                    @if(!in_array(strtoupper($category), ['ANIME', 'HENTAI']))
                         <div class="relative mt-4">
                             <label class="block text-sm font-medium text-gray-900 mb-2">AUTHOR</label>
                             <!-- Expanding Author Container -->

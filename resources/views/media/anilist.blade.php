@@ -785,12 +785,11 @@
     <div class="border-b border-gray-200 mr-4 ml-4">
       <form method="POST" action="{{ $contentUploadRoute }}" enctype="multipart/form-data" class="space-y-4 py-4" id="mediaContentUploadForm">
         @csrf
+        <input type="hidden" name="replace_existing" id="mediaContentReplaceExisting" value="0">
 
-        @if(session('media_content_upload_error'))
-          <div class="app-alert app-alert-error px-4 py-3 text-sm">
-            {{ session('media_content_upload_error') }}
-          </div>
-        @endif
+        <div id="mediaContentUploadError" class="app-alert app-alert-error px-4 py-3 text-sm {{ session('media_content_upload_error') ? '' : 'hidden' }}">
+          <span id="mediaContentUploadErrorText">{{ session('media_content_upload_error') }}</span>
+        </div>
 
         <div>
           <span class="block mb-2 text-red-600 font-medium">ZIP File</span>
@@ -833,7 +832,7 @@
         <button id="cancelMediaContentUploadModal" type="button" class="px-5 py-3 rounded border border-gray-200 text-gray-700 font-medium hover:bg-gray-100 transition-colors">
           Cancel
         </button>
-        <button form="mediaContentUploadForm" type="submit" class="flatGreen transition-200 text-white px-5 py-3 rounded">
+        <button id="submitMediaContentUploadBtn" form="mediaContentUploadForm" type="submit" class="flatGreen transition-200 text-white px-5 py-3 rounded" data-default-label="Upload ZIP" data-replace-label="Replace Existing">
           Upload ZIP
         </button>
       </div>
@@ -1029,8 +1028,13 @@ const openCreateBtn  = document.getElementById('openInlineCreateCollection');
 const closeCreateBtn = document.getElementById('closeCreateModal');
 const createForm     = document.getElementById('collectionCreateForm');
 const listContainer  = document.getElementById('collectionCheckboxList');
+const mediaContentUploadForm = document.getElementById('mediaContentUploadForm');
 const mediaContentArchiveInput = document.getElementById('mediaContentArchiveInput');
 const mediaContentArchiveName = document.getElementById('mediaContentArchiveName');
+const mediaContentUploadError = document.getElementById('mediaContentUploadError');
+const mediaContentUploadErrorText = document.getElementById('mediaContentUploadErrorText');
+const mediaContentReplaceExisting = document.getElementById('mediaContentReplaceExisting');
+const submitMediaContentUploadBtn = document.getElementById('submitMediaContentUploadBtn');
 
 // helpers
 const shouldOpenEditModal = @json(session('open_edit_entry_modal', false));
@@ -1051,9 +1055,58 @@ const hideAdd    = ()=> { if (!addModal) return; addModal.classList.add('hidden'
 const showEdit   = ()=> { if (!editModal) return; editModal.classList.remove('hidden'); lockBody(); };
 const hideEdit   = ()=> { if (!editModal) return; editModal.classList.add('hidden'); unlockBody(); };
 const showUpload = ()=> { if (!uploadModal) return; uploadModal.classList.remove('hidden'); lockBody(); };
-const hideUpload = ()=> { if (!uploadModal) return; uploadModal.classList.add('hidden'); unlockBody(); };
+const hideUpload = ()=> { if (!uploadModal) return; uploadModal.classList.add('hidden'); resetMediaContentUploadState(); unlockBody(); };
 const showCreate = ()=> { if (!createModal) return; createModal.classList.remove('hidden'); lockBody(); };
 const hideCreate = ()=> { if (!createModal) return; createModal.classList.add('hidden'); unlockBody(); };
+
+function setMediaContentUploadBusy(isBusy) {
+  if (!submitMediaContentUploadBtn) return;
+  submitMediaContentUploadBtn.disabled = isBusy;
+  submitMediaContentUploadBtn.classList.toggle('opacity-60', isBusy);
+  submitMediaContentUploadBtn.classList.toggle('cursor-not-allowed', isBusy);
+}
+
+function setMediaContentReplaceMode(canReplace) {
+  if (mediaContentReplaceExisting) {
+    mediaContentReplaceExisting.value = canReplace ? '1' : '0';
+  }
+  if (!submitMediaContentUploadBtn) return;
+
+  submitMediaContentUploadBtn.textContent = canReplace
+    ? (submitMediaContentUploadBtn.dataset.replaceLabel || 'Replace Existing')
+    : (submitMediaContentUploadBtn.dataset.defaultLabel || 'Upload ZIP');
+
+  submitMediaContentUploadBtn.classList.toggle('flatGreen', !canReplace);
+  submitMediaContentUploadBtn.classList.toggle('bg-red-600', canReplace);
+  submitMediaContentUploadBtn.classList.toggle('hover:bg-red-700', canReplace);
+}
+
+function setMediaContentUploadError(message, canReplace = false) {
+  if (mediaContentUploadErrorText) {
+    mediaContentUploadErrorText.textContent = message;
+  }
+  if (mediaContentUploadError) {
+    mediaContentUploadError.classList.remove('hidden');
+  }
+  setMediaContentReplaceMode(canReplace);
+}
+
+function clearMediaContentUploadError() {
+  if (mediaContentUploadErrorText) {
+    mediaContentUploadErrorText.textContent = '';
+  }
+  if (mediaContentUploadError) {
+    mediaContentUploadError.classList.add('hidden');
+  }
+}
+
+function resetMediaContentUploadState(keepError = false) {
+  setMediaContentUploadBusy(false);
+  setMediaContentReplaceMode(false);
+  if (!keepError) {
+    clearMediaContentUploadError();
+  }
+}
 
 function updateMediaContentArchiveName() {
   if (!mediaContentArchiveInput || !mediaContentArchiveName) return;
@@ -1092,7 +1145,10 @@ if (shouldOpenEditModal) {
 }
 
 if (openUploadBtn && uploadModal) {
-  openUploadBtn.addEventListener('click', showUpload);
+  openUploadBtn.addEventListener('click', () => {
+    resetMediaContentUploadState();
+    showUpload();
+  });
 }
 if (closeUploadBtn && uploadModal) {
   closeUploadBtn.addEventListener('click', hideUpload);
@@ -1102,10 +1158,67 @@ if (closeUploadBtn && uploadModal) {
 if (cancelUploadBtn) {
   cancelUploadBtn.addEventListener('click', hideUpload);
 }
-mediaContentArchiveInput?.addEventListener('change', updateMediaContentArchiveName);
+mediaContentArchiveInput?.addEventListener('change', () => {
+  updateMediaContentArchiveName();
+  resetMediaContentUploadState();
+});
 updateMediaContentArchiveName();
 if (shouldOpenUploadModal) {
+  resetMediaContentUploadState(true);
   showUpload();
+}
+
+if (mediaContentUploadForm) {
+  mediaContentUploadForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    if (!mediaContentArchiveInput?.files?.length) {
+      setMediaContentUploadError('Upload a ZIP archive.');
+      showUpload();
+      return;
+    }
+
+    const token = document.querySelector('meta[name="csrf-token"]')?.content;
+    const formData = new FormData(mediaContentUploadForm);
+    setMediaContentUploadBusy(true);
+
+    try {
+      const res = await fetch(mediaContentUploadForm.action, {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+          ...(token ? { 'X-CSRF-TOKEN': token } : {}),
+        },
+        body: formData,
+      });
+
+      if (res.ok) {
+        window.location.reload();
+        return;
+      }
+
+      let payload = {};
+      try {
+        payload = await res.json();
+      } catch (err) {
+        payload = {};
+      }
+
+      const canReplace = Boolean(payload.can_replace);
+      const message = canReplace
+        ? `${payload.message || 'This number already exists.'} Click Replace Existing to overwrite it, or Cancel to keep the current one.`
+        : (payload.message || 'Upload failed.');
+
+      setMediaContentUploadError(message, canReplace);
+      showUpload();
+    } catch (err) {
+      setMediaContentUploadError('Upload failed.');
+      showUpload();
+    } finally {
+      setMediaContentUploadBusy(false);
+    }
+  });
 }
 
 // from inside Add, open Create

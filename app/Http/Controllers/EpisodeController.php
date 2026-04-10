@@ -20,6 +20,7 @@ class EpisodeController extends Controller
     {
         abort_unless(in_array(strtolower((string) $media->type), ['anime', 'hentai'], true), 404);
         abort_unless(optional($request->user()?->role)->role === 'Admin', 403);
+        $replaceExisting = $request->boolean('replace_existing');
 
         $validator = Validator::make($request->all(), [
             'archive' => ['required', 'file', 'max:1048576'],
@@ -53,46 +54,64 @@ class EpisodeController extends Controller
 
             File::ensureDirectoryExists($disk->path($targetRelDir));
 
-            $usedNumbers = Episode::where('media_fk', $media->id)
-                ->pluck('episode_number')
-                ->map(fn ($number) => (int) $number)
-                ->all();
+            $existingEpisodes = Episode::where('media_fk', $media->id)
+                ->get(['id', 'episode_number', 'file_path', 'thumbnail_path'])
+                ->keyBy(fn (Episode $episode) => (int) $episode->episode_number);
 
+            $usedNumbers = $existingEpisodes->keys()->map(fn ($number) => (int) $number)->all();
             $usedMap = array_fill_keys($usedNumbers, true);
+            $plannedNumbers = [];
+            $replacedEpisodes = [];
             $nextEpisode = $usedNumbers !== [] ? (max($usedNumbers) + 1) : 1;
             $rows = [];
 
             foreach ($videoFiles as $videoPath) {
                 $basename = basename($videoPath);
                 $parsedNumber = $this->parseEpisodeNumber($basename);
+                $existingEpisode = null;
 
                 if ($parsedNumber !== null) {
-                    if (isset($usedMap[$parsedNumber])) {
-                        throw new \RuntimeException("Episode {$parsedNumber} already exists.");
+                    $existingEpisode = $existingEpisodes->get($parsedNumber);
+
+                    if ($existingEpisode && !$replaceExisting) {
+                        return $this->redirectUploadFailure("Episode {$parsedNumber} already exists.", $request, true, 409);
                     }
 
                     $episodeNumber = $parsedNumber;
                 } else {
-                    while (isset($usedMap[$nextEpisode])) {
+                    while (isset($usedMap[$nextEpisode]) || isset($plannedNumbers[$nextEpisode])) {
                         $nextEpisode++;
                     }
 
                     $episodeNumber = $nextEpisode;
                 }
 
-                $usedMap[$episodeNumber] = true;
+                if (isset($plannedNumbers[$episodeNumber])) {
+                    throw new \RuntimeException("Episode {$episodeNumber} appears more than once in the ZIP.");
+                }
+
+                $plannedNumbers[$episodeNumber] = true;
                 $nextEpisode = max($nextEpisode, $episodeNumber + 1);
+
+                if ($existingEpisode) {
+                    $replacedEpisodes[$episodeNumber] = $existingEpisode;
+                }
 
                 $ext = strtolower(pathinfo($basename, PATHINFO_EXTENSION));
                 $sourceName = pathinfo($basename, PATHINFO_FILENAME);
                 $safeName = $uploadedArchive->sanitizePathSegment($sourceName, 'episode-'.$episodeNumber);
                 $targetFilename = sprintf('episode-%03d-%s.%s', $episodeNumber, $safeName, $ext);
                 $targetRelPath = $targetRelDir.'/'.$targetFilename;
-                $targetAbsPath = $disk->path($targetRelPath);
 
                 if ($disk->exists($targetRelPath)) {
-                    throw new \RuntimeException("File already exists for episode {$episodeNumber}.");
+                    if ($existingEpisode) {
+                        $targetRelPath = $this->makeUniqueTargetPath($disk, $targetRelDir, $targetFilename);
+                    } else {
+                        throw new \RuntimeException("File already exists for episode {$episodeNumber}.");
+                    }
                 }
+
+                $targetAbsPath = $disk->path($targetRelPath);
 
                 if (!@rename($videoPath, $targetAbsPath)) {
                     if (!@copy($videoPath, $targetAbsPath)) {
@@ -104,7 +123,7 @@ class EpisodeController extends Controller
 
                 $createdFiles[] = $targetRelPath;
 
-                $thumb = EpisodeThumbnailer::generate($media->id, $episodeNumber, $targetRelPath);
+                $thumb = EpisodeThumbnailer::generate($media->id, $episodeNumber, $targetRelPath, $existingEpisode !== null);
                 if ($thumb !== null && $disk->exists($thumb)) {
                     $createdThumbs[] = $thumb;
                 }
@@ -120,13 +139,44 @@ class EpisodeController extends Controller
                 ];
             }
 
-            DB::transaction(function () use ($rows, $media) {
+            $replacedEpisodeIds = array_values(array_filter(array_map(
+                fn (Episode $episode) => $episode->id ?? null,
+                $replacedEpisodes
+            )));
+
+            DB::transaction(function () use ($rows, $media, $replacedEpisodeIds) {
+                if ($replacedEpisodeIds !== []) {
+                    Episode::whereIn('id', $replacedEpisodeIds)->delete();
+                }
+
                 Episode::insert($rows);
                 $media->episodes_cnt = Episode::where('media_fk', $media->id)->count();
                 $media->save();
             });
 
-            return back();
+            $newThumbsByEpisode = [];
+            foreach ($rows as $row) {
+                $newThumbsByEpisode[(int) $row['episode_number']] = $row['thumbnail_path'] ?? null;
+            }
+
+            $oldThumbsToDelete = [];
+            $oldFilesToDelete = [];
+            foreach ($replacedEpisodes as $episodeNumber => $existingEpisode) {
+                if (!empty($existingEpisode->file_path)) {
+                    $oldFilesToDelete[] = $existingEpisode->file_path;
+                }
+
+                $existingThumb = $existingEpisode->thumbnail_path ?? null;
+                $newThumb = $newThumbsByEpisode[(int) $episodeNumber] ?? null;
+                if ($existingThumb && $existingThumb !== $newThumb) {
+                    $oldThumbsToDelete[] = $existingThumb;
+                }
+            }
+
+            $this->cleanupCreatedFiles($disk, $oldThumbsToDelete);
+            $this->cleanupCreatedFiles($disk, $oldFilesToDelete);
+
+            return $this->uploadSuccessResponse($request);
         } catch (Throwable $e) {
             report($e);
             $this->cleanupCreatedFiles($disk, $createdThumbs);
@@ -166,12 +216,28 @@ class EpisodeController extends Controller
         return back();
     }
 
-    private function redirectUploadFailure(string $message, Request $request)
+    private function redirectUploadFailure(string $message, Request $request, bool $canReplace = false, int $status = 422)
     {
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => $message,
+                'can_replace' => $canReplace,
+            ], $status);
+        }
+
         return back()
             ->withInput($request->except('archive'))
             ->with('open_media_content_upload_modal', true)
             ->with('media_content_upload_error', $message);
+    }
+
+    private function uploadSuccessResponse(Request $request)
+    {
+        if ($request->expectsJson()) {
+            return response()->json(['ok' => true]);
+        }
+
+        return back();
     }
 
     private function cleanupCreatedFiles($disk, array $paths): void
@@ -194,6 +260,28 @@ class EpisodeController extends Controller
         }
 
         File::deleteDirectory($disk->path($relativePath));
+    }
+
+    private function makeUniqueTargetPath($disk, string $directory, string $filename): string
+    {
+        $directory = trim($directory, '/');
+        $extension = pathinfo($filename, PATHINFO_EXTENSION);
+        $name = pathinfo($filename, PATHINFO_FILENAME);
+        $candidate = $directory.'/'.$filename;
+        $suffix = 2;
+
+        while ($disk->exists($candidate)) {
+            $candidate = sprintf(
+                '%s/%s-%d%s',
+                $directory,
+                $name,
+                $suffix,
+                $extension !== '' ? '.'.$extension : ''
+            );
+            $suffix++;
+        }
+
+        return $candidate;
     }
 
     private function parseEpisodeNumber(string $filename): ?int

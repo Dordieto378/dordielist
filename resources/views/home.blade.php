@@ -407,6 +407,7 @@
                                                 {{ $genre }}
                                             </a>
                                         @endif
+                                        @if(!$loop->last), @endif
                                     @endforeach
                                 </p>
                             @endif

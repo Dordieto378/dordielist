@@ -51,6 +51,12 @@
         $currentTitleRomaji = old('title_romaji', $media->title_romaji);
         $currentTitleNative = old('title_native', $media->title_native);
         $currentAuthor = old('author', $authors->first());
+        $isAdmin = optional(auth()->user()?->role)->role === 'Admin';
+        $contentUploadRoute = route('chapters.upload', ['media' => $media->id]);
+        $contentResetRoute = route('chapters.reset', ['media' => $media->id]);
+        $contentUploadTitle = 'Upload Chapters';
+        $contentResetLabel = 'Reset Chapters';
+        $contentResetConfirm = 'Remove all uploaded chapters for this doujin?';
 
     @endphp
 
@@ -147,6 +153,18 @@
                                     </svg>
                                     <span class="ml-1">Edit</span>
                                 </button>
+
+                                @if($isAdmin)
+                                    <button id="openMediaContentUploadModal" type="button" class="flex items-center justify-start w-full text-blue-950 py-2 rounded-sm hover:text-[#08875b]">
+                                        <svg xmlns="http://www.w3.org/2000/svg"
+                                             class="ml-[1.4rem] h-[1.1rem] w-[1.1rem] mr-[0.5rem] mb-[0.1rem]"
+                                             fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                            <path stroke-linecap="round" stroke-linejoin="round"
+                                                  d="M12 5v14m-7-7h14" />
+                                        </svg>
+                                        <span class="ml-1">Upload Chapter(s)</span>
+                                    </button>
+                                @endif
 
                                 <form action="{{ route('doujin.destroy', ['media' => $media->id]) }}"
                                       method="POST"
@@ -402,6 +420,83 @@
             </div>
         </div>
 
+        @if($isAdmin)
+            <div
+              id="mediaContentUploadModal"
+              class="fixed inset-0 flex items-start pt-[130px] justify-center bg-black bg-opacity-50 hidden z-50"
+            >
+                <div class="relative bg-white p-4 text-left shadow-2xl w-[800px] rounded-lg">
+                    <div class="flex justify-between items-start pb-4 pt-2 border-b ml-4 mr-4 border-gray-200">
+                        <h3 class="text-lg font-bold text-gray-800">{{ $contentUploadTitle }}</h3>
+                        <button id="closeMediaContentUploadModal" type="button" class="text-gray-400 hover:text-gray-900" aria-label="Close Upload Modal">
+                            <span class="sr-only">Close</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none"
+                                 viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                      d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+                    </div>
+
+                    <div class="border-b border-gray-200 mr-4 ml-4">
+                        <form method="POST" action="{{ $contentUploadRoute }}" enctype="multipart/form-data" class="space-y-4 py-4" id="mediaContentUploadForm">
+                            @csrf
+                            <input type="hidden" name="replace_existing" id="mediaContentReplaceExisting" value="0">
+
+                            <div id="mediaContentUploadError" class="app-alert app-alert-error px-4 py-3 text-sm {{ session('media_content_upload_error') ? '' : 'hidden' }}">
+                                <span id="mediaContentUploadErrorText">{{ session('media_content_upload_error') }}</span>
+                            </div>
+
+                            <div>
+                                <span class="block mb-2 text-red-600 font-medium">ZIP File</span>
+                                <input
+                                  id="mediaContentArchiveInput"
+                                  type="file"
+                                  name="archive"
+                                  accept=".zip"
+                                  class="sr-only"
+                                />
+                                <label
+                                  for="mediaContentArchiveInput"
+                                  class="flex w-full cursor-pointer items-center justify-between gap-4 rounded-md border border-gray-200 bg-gray-100 px-3 py-2 text-base text-gray-800 font-medium focus-within:ring-[0.2rem] focus-within:ring-red-600"
+                                >
+                                    <span
+                                      id="mediaContentArchiveName"
+                                      class="min-w-0 flex-1 truncate text-gray-500"
+                                      data-placeholder="No ZIP selected"
+                                    >
+                                        No ZIP selected
+                                    </span>
+                                    <span class="flatGreen shrink-0 rounded-[0.19rem] px-3 py-2 text-sm font-medium text-white">
+                                        Select ZIP
+                                    </span>
+                                </label>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="mb-2 px-4 pt-4 flex items-center justify-between gap-3">
+                        <form method="POST" action="{{ $contentResetRoute }}" onsubmit="return confirm(@js($contentResetConfirm));">
+                            @csrf
+                            @method('DELETE')
+                            <button type="submit" class="rounded bg-red-600 px-5 py-3 text-white transition-colors hover:bg-red-700">
+                                {{ $contentResetLabel }}
+                            </button>
+                        </form>
+
+                        <div class="flex items-center gap-3">
+                            <button id="cancelMediaContentUploadModal" type="button" class="px-5 py-3 rounded border border-gray-200 text-gray-700 font-medium hover:bg-gray-100 transition-colors">
+                                Cancel
+                            </button>
+                            <button id="submitMediaContentUploadBtn" form="mediaContentUploadForm" type="submit" class="flatGreen transition-200 text-white px-5 py-3 rounded" data-default-label="Upload ZIP" data-replace-label="Replace Existing">
+                                Upload ZIP
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        @endif
+
         <div
           id="addToCollectionModal"
           class="fixed inset-0 flex items-start pt-[130px] justify-center bg-black bg-opacity-50 hidden z-50"
@@ -543,23 +638,36 @@
                 const editModal      = document.getElementById('editEntryModal');
                 const addModal       = document.getElementById('addToCollectionModal');
                 const createModal    = document.getElementById('createCollectionModal');
+                const uploadModal    = document.getElementById('mediaContentUploadModal');
                 const openEditBtn    = document.getElementById('openEditEntryModal');
                 const openAddBtn     = document.getElementById('openAddToCollection');
+                const openUploadBtn  = document.getElementById('openMediaContentUploadModal');
                 const closeEditBtn   = document.getElementById('closeEditModal');
                 const closeAddBtn    = document.getElementById('closeAddModal');
+                const closeUploadBtn = document.getElementById('closeMediaContentUploadModal');
                 const cancelEditBtn  = document.getElementById('cancelEditModal');
+                const cancelUploadBtn = document.getElementById('cancelMediaContentUploadModal');
                 const openCreateBtn  = document.getElementById('openInlineCreateCollection');
                 const closeCreateBtn = document.getElementById('closeCreateModal');
                 const createForm     = document.getElementById('collectionCreateForm');
                 const listContainer  = document.getElementById('collectionCheckboxList');
+                const mediaContentUploadForm = document.getElementById('mediaContentUploadForm');
+                const archiveInput   = document.getElementById('mediaContentArchiveInput');
+                const archiveName    = document.getElementById('mediaContentArchiveName');
+                const uploadError    = document.getElementById('mediaContentUploadError');
+                const uploadErrorText = document.getElementById('mediaContentUploadErrorText');
+                const replaceExistingInput = document.getElementById('mediaContentReplaceExisting');
+                const submitUploadBtn = document.getElementById('submitMediaContentUploadBtn');
                 const shouldOpenEditModal = @json(session('open_edit_doujin_modal', false));
+                const shouldOpenUploadModal = @json(session('open_media_content_upload_modal', false));
 
                 const lockBody = () => document.body.classList.add('overflow-hidden');
                 const unlockBody = () => {
                     const editHidden = !editModal || editModal.classList.contains('hidden');
                     const addHidden = !addModal || addModal.classList.contains('hidden');
                     const createHidden = !createModal || createModal.classList.contains('hidden');
-                    if (editHidden && addHidden && createHidden) {
+                    const uploadHidden = !uploadModal || uploadModal.classList.contains('hidden');
+                    if (editHidden && addHidden && createHidden && uploadHidden) {
                         document.body.classList.remove('overflow-hidden');
                     }
                 };
@@ -594,6 +702,69 @@
                     createModal.classList.add('hidden');
                     unlockBody();
                 };
+                const showUpload = () => {
+                    if (!uploadModal) return;
+                    uploadModal.classList.remove('hidden');
+                    lockBody();
+                };
+                const hideUpload = () => {
+                    if (!uploadModal) return;
+                    uploadModal.classList.add('hidden');
+                    resetUploadState();
+                    unlockBody();
+                };
+                const syncArchiveName = () => {
+                    if (!archiveInput || !archiveName) return;
+                    const selectedFile = archiveInput.files?.[0];
+                    const placeholder = archiveName.dataset.placeholder ?? 'No ZIP selected';
+                    archiveName.textContent = selectedFile ? selectedFile.name : placeholder;
+                    archiveName.classList.toggle('text-gray-500', !selectedFile);
+                    archiveName.classList.toggle('text-gray-800', Boolean(selectedFile));
+                };
+                const setUploadBusy = (isBusy) => {
+                    if (!submitUploadBtn) return;
+                    submitUploadBtn.disabled = isBusy;
+                    submitUploadBtn.classList.toggle('opacity-60', isBusy);
+                    submitUploadBtn.classList.toggle('cursor-not-allowed', isBusy);
+                };
+                const setReplaceMode = (canReplace) => {
+                    if (replaceExistingInput) {
+                        replaceExistingInput.value = canReplace ? '1' : '0';
+                    }
+                    if (!submitUploadBtn) return;
+
+                    submitUploadBtn.textContent = canReplace
+                        ? (submitUploadBtn.dataset.replaceLabel || 'Replace Existing')
+                        : (submitUploadBtn.dataset.defaultLabel || 'Upload ZIP');
+
+                    submitUploadBtn.classList.toggle('flatGreen', !canReplace);
+                    submitUploadBtn.classList.toggle('bg-red-600', canReplace);
+                    submitUploadBtn.classList.toggle('hover:bg-red-700', canReplace);
+                };
+                const setUploadError = (message, canReplace = false) => {
+                    if (uploadErrorText) {
+                        uploadErrorText.textContent = message;
+                    }
+                    if (uploadError) {
+                        uploadError.classList.remove('hidden');
+                    }
+                    setReplaceMode(canReplace);
+                };
+                const clearUploadError = () => {
+                    if (uploadErrorText) {
+                        uploadErrorText.textContent = '';
+                    }
+                    if (uploadError) {
+                        uploadError.classList.add('hidden');
+                    }
+                };
+                const resetUploadState = (keepError = false) => {
+                    setUploadBusy(false);
+                    setReplaceMode(false);
+                    if (!keepError) {
+                        clearUploadError();
+                    }
+                };
 
                 if (openEditBtn) {
                     openEditBtn.addEventListener('click', showEdit);
@@ -612,6 +783,89 @@
                 }
                 if (shouldOpenEditModal) {
                     showEdit();
+                }
+
+                if (openUploadBtn) {
+                    openUploadBtn.addEventListener('click', () => {
+                        resetUploadState();
+                        showUpload();
+                    });
+                }
+                if (closeUploadBtn && uploadModal) {
+                    closeUploadBtn.addEventListener('click', hideUpload);
+                    uploadModal.addEventListener('click', (e) => {
+                        if (e.target === uploadModal) hideUpload();
+                    });
+                    document.addEventListener('keyup', (e) => {
+                        if (e.key === 'Escape' && !uploadModal.classList.contains('hidden')) hideUpload();
+                    });
+                }
+                if (cancelUploadBtn) {
+                    cancelUploadBtn.addEventListener('click', hideUpload);
+                }
+                if (archiveInput) {
+                    syncArchiveName();
+                    archiveInput.addEventListener('change', () => {
+                        syncArchiveName();
+                        resetUploadState();
+                    });
+                }
+                if (shouldOpenUploadModal) {
+                    resetUploadState(true);
+                    showUpload();
+                    syncArchiveName();
+                }
+                if (mediaContentUploadForm) {
+                    mediaContentUploadForm.addEventListener('submit', async (e) => {
+                        e.preventDefault();
+
+                        if (!archiveInput?.files?.length) {
+                            setUploadError('Upload a ZIP archive.');
+                            showUpload();
+                            return;
+                        }
+
+                        const token = document.querySelector('meta[name="csrf-token"]')?.content;
+                        const formData = new FormData(mediaContentUploadForm);
+                        setUploadBusy(true);
+
+                        try {
+                            const res = await fetch(mediaContentUploadForm.action, {
+                                method: 'POST',
+                                headers: {
+                                    'Accept': 'application/json',
+                                    'X-Requested-With': 'XMLHttpRequest',
+                                    ...(token ? { 'X-CSRF-TOKEN': token } : {}),
+                                },
+                                body: formData,
+                            });
+
+                            if (res.ok) {
+                                window.location.reload();
+                                return;
+                            }
+
+                            let payload = {};
+                            try {
+                                payload = await res.json();
+                            } catch (err) {
+                                payload = {};
+                            }
+
+                            const canReplace = Boolean(payload.can_replace);
+                            const message = canReplace
+                                ? `${payload.message || 'This number already exists.'} Click Replace Existing to overwrite it, or Cancel to keep the current one.`
+                                : (payload.message || 'Upload failed.');
+
+                            setUploadError(message, canReplace);
+                            showUpload();
+                        } catch (err) {
+                            setUploadError('Upload failed.');
+                            showUpload();
+                        } finally {
+                            setUploadBusy(false);
+                        }
+                    });
                 }
 
                 if (openAddBtn) {

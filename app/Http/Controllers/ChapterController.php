@@ -18,8 +18,11 @@ class ChapterController extends Controller
 {
     public function storeUploaded(Request $request, Media $media, UploadedArchive $uploadedArchive)
     {
-        abort_unless(in_array(strtolower((string) $media->type), ['manga', 'manwha'], true), 404);
+        $mediaType = strtolower((string) $media->type);
+
+        abort_unless(in_array($mediaType, ['manga', 'manwha', 'doujin'], true), 404);
         abort_unless(optional($request->user()?->role)->role === 'Admin', 403);
+        $replaceExisting = $request->boolean('replace_existing');
 
         $validator = Validator::make($request->all(), [
             'archive' => ['required', 'file', 'max:1048576'],
@@ -37,7 +40,7 @@ class ChapterController extends Controller
         }
 
         $disk = Storage::disk('public');
-        $targetRelRoot = strtolower((string) $media->type).'/'.$media->id;
+        $targetRelRoot = $mediaType.'/'.$media->id;
         $createdFiles = [];
         $createdDirectories = [];
         $extractRoot = null;
@@ -53,21 +56,25 @@ class ChapterController extends Controller
 
             File::ensureDirectoryExists($disk->path($targetRelRoot));
 
-            $existingChapters = Chapter::where('media_fk', $media->id)
-                ->get(['chapter_number', 'chapter_title']);
+            $existingChapters = Chapter::with(['pages:id,chapter_id,file_path'])
+                ->where('media_fk', $media->id)
+                ->get(['id', 'chapter_number', 'chapter_title']);
 
+            $existingByNumber = [];
+            $existingByTitle = [];
             $usedNumbers = [];
             foreach ($existingChapters as $chapter) {
                 if ($chapter->chapter_number !== null) {
-                    $usedNumbers[$this->normalizeChapterNumber((float) $chapter->chapter_number)] = true;
+                    $numberKey = $this->normalizeChapterNumber((float) $chapter->chapter_number);
+                    $usedNumbers[$numberKey] = true;
+                    $existingByNumber[$numberKey] = $chapter;
+                }
+
+                $title = trim((string) ($chapter->chapter_title ?? ''));
+                if ($title !== '') {
+                    $existingByTitle[mb_strtolower($title)] = $chapter;
                 }
             }
-
-            $usedTitles = $existingChapters
-                ->pluck('chapter_title')
-                ->filter()
-                ->mapWithKeys(fn ($title) => [mb_strtolower(trim((string) $title)) => true])
-                ->all();
 
             $maxExistingNumber = $existingChapters
                 ->pluck('chapter_number')
@@ -78,21 +85,39 @@ class ChapterController extends Controller
             $nextFallbackNumber = $maxExistingNumber !== null
                 ? ((int) $maxExistingNumber + 1)
                 : 1;
+            $plannedNumberKeys = [];
+            $plannedTitleKeys = [];
+            $replacedChapters = [];
 
             foreach ($imports as $index => $import) {
                 $resolvedNumber = $import['number'];
+                $replacementChapter = null;
 
                 if ($resolvedNumber !== null) {
                     $numberKey = $this->normalizeChapterNumber($resolvedNumber);
-                    if (isset($usedNumbers[$numberKey])) {
-                        throw new \RuntimeException("Chapter {$this->displayChapterNumber($resolvedNumber)} already exists.");
+                    $replacementChapter = $existingByNumber[$numberKey] ?? null;
+
+                    if ($replacementChapter && !$replaceExisting) {
+                        return $this->redirectUploadFailure("Chapter {$this->displayChapterNumber($resolvedNumber)} already exists.", $request, true, 409);
                     }
                 } else {
-                    while (isset($usedNumbers[$this->normalizeChapterNumber((float) $nextFallbackNumber)])) {
+                    while (
+                        isset($usedNumbers[$this->normalizeChapterNumber((float) $nextFallbackNumber)])
+                        || isset($plannedNumberKeys[$this->normalizeChapterNumber((float) $nextFallbackNumber)])
+                    ) {
                         $nextFallbackNumber++;
                     }
 
                     $resolvedNumber = (float) $nextFallbackNumber;
+                    $numberKey = $this->normalizeChapterNumber($resolvedNumber);
+                }
+
+                if (isset($plannedNumberKeys[$numberKey])) {
+                    throw new \RuntimeException("Chapter {$this->displayChapterNumber($resolvedNumber)} appears more than once in the ZIP.");
+                }
+
+                if ($replacementChapter) {
+                    $replacedChapters[$replacementChapter->id] = $replacementChapter;
                 }
 
                 $resolvedTitle = trim((string) ($import['title'] ?? ''));
@@ -101,12 +126,17 @@ class ChapterController extends Controller
                 }
 
                 $titleKey = mb_strtolower($resolvedTitle);
-                if (isset($usedTitles[$titleKey])) {
+                $existingTitleChapter = $existingByTitle[$titleKey] ?? null;
+                if ($existingTitleChapter && (!$replacementChapter || $existingTitleChapter->id !== $replacementChapter->id)) {
                     throw new \RuntimeException("Chapter '{$resolvedTitle}' already exists.");
                 }
 
-                $usedNumbers[$this->normalizeChapterNumber($resolvedNumber)] = true;
-                $usedTitles[$titleKey] = true;
+                if (isset($plannedTitleKeys[$titleKey])) {
+                    throw new \RuntimeException("Chapter '{$resolvedTitle}' appears more than once in the ZIP.");
+                }
+
+                $plannedNumberKeys[$numberKey] = true;
+                $plannedTitleKeys[$titleKey] = true;
                 $nextFallbackNumber = max($nextFallbackNumber, (int) $resolvedNumber + 1);
 
                 $imports[$index]['resolved_number'] = $resolvedNumber;
@@ -114,17 +144,45 @@ class ChapterController extends Controller
             }
 
             $firstImportedPage = null;
+            $replacedChapterIds = array_keys($replacedChapters);
+            $replacedFiles = [];
+            $replacedDirectories = [];
+            $coverNeedsRefresh = false;
+            $currentCoverPath = is_string($media->cover_url) ? $media->cover_url : null;
+
+            foreach ($replacedChapters as $chapter) {
+                foreach ($chapter->pages as $page) {
+                    if (!$page->file_path) {
+                        continue;
+                    }
+
+                    $replacedFiles[] = $page->file_path;
+                    $replacedDirectories[preg_replace('#/[^/]+$#', '', $page->file_path) ?: ''] = true;
+
+                    if ($currentCoverPath !== null && $currentCoverPath === $page->file_path) {
+                        $coverNeedsRefresh = true;
+                    }
+                }
+            }
 
             DB::transaction(function () use (
                 $imports,
                 $uploadedArchive,
                 $disk,
                 $targetRelRoot,
+                $replacedChapterIds,
+                $coverNeedsRefresh,
                 $media,
+                $mediaType,
                 &$createdFiles,
                 &$createdDirectories,
                 &$firstImportedPage
             ) {
+                if ($replacedChapterIds !== []) {
+                    ChapterPage::whereIn('chapter_id', $replacedChapterIds)->delete();
+                    Chapter::whereIn('id', $replacedChapterIds)->delete();
+                }
+
                 foreach ($imports as $import) {
                     $chapterNumber = (float) $import['resolved_number'];
                     $chapterTitle = (string) $import['resolved_title'];
@@ -133,7 +191,7 @@ class ChapterController extends Controller
                     $createdDirectories[] = $targetRelDir;
 
                     $chapter = Chapter::create([
-                        'item_type' => strtoupper((string) $media->type),
+                        'item_type' => $mediaType === 'doujin' ? 'doujin' : strtoupper((string) $media->type),
                         'item_id' => $media->id,
                         'media_fk' => $media->id,
                         'chapter_number' => $chapterNumber,
@@ -178,13 +236,16 @@ class ChapterController extends Controller
                 }
 
                 $media->chapters_cnt = Chapter::where('media_fk', $media->id)->count();
-                if (!$media->cover_url && $firstImportedPage !== null) {
+                if (($coverNeedsRefresh || !$media->cover_url) && $firstImportedPage !== null) {
                     $media->cover_url = $firstImportedPage;
                 }
                 $media->save();
             });
 
-            return back();
+            $this->cleanupCreatedFiles($disk, $replacedFiles);
+            $this->cleanupCreatedDirectories($disk, array_keys(array_filter($replacedDirectories)));
+
+            return $this->uploadSuccessResponse($request);
         } catch (Throwable $e) {
             report($e);
             $this->cleanupCreatedFiles($disk, $createdFiles);
@@ -205,13 +266,41 @@ class ChapterController extends Controller
 
     public function resetUploaded(Request $request, Media $media)
     {
-        abort_unless(in_array(strtolower((string) $media->type), ['manga', 'manwha'], true), 404);
+        $mediaType = strtolower((string) $media->type);
+
+        abort_unless(in_array($mediaType, ['manga', 'manwha', 'doujin'], true), 404);
         abort_unless(optional($request->user()?->role)->role === 'Admin', 403);
 
         $disk = Storage::disk('public');
-        $targetRelRoot = strtolower((string) $media->type).'/'.$media->id;
+        $targetRelRoot = $mediaType.'/'.$media->id;
+        $preservedCoverPath = null;
 
-        DB::transaction(function () use ($media, $targetRelRoot) {
+        if ($mediaType === 'doujin') {
+            $firstChapter = Chapter::where('media_fk', $media->id)
+                ->orderBy('chapter_number')
+                ->first();
+
+            $firstPagePath = $firstChapter
+                ? ChapterPage::where('chapter_id', $firstChapter->id)
+                    ->orderBy('page_number')
+                    ->value('file_path')
+                : null;
+
+            if ($firstPagePath && $disk->exists($firstPagePath)) {
+                $ext = strtolower(pathinfo($firstPagePath, PATHINFO_EXTENSION) ?: 'jpg');
+                $coverDir = 'doujin-covers/'.$media->id;
+                $preservedCoverPath = $coverDir.'/cover.'.$ext;
+
+                if ($disk->exists($coverDir)) {
+                    $disk->deleteDirectory($coverDir);
+                }
+
+                File::ensureDirectoryExists($disk->path($coverDir));
+                $disk->copy($firstPagePath, $preservedCoverPath);
+            }
+        }
+
+        DB::transaction(function () use ($media, $targetRelRoot, $mediaType, $preservedCoverPath) {
             $chapterIds = Chapter::where('media_fk', $media->id)->pluck('id');
 
             if ($chapterIds->isNotEmpty()) {
@@ -221,7 +310,9 @@ class ChapterController extends Controller
 
             $media->chapters_cnt = 0;
 
-            if (is_string($media->cover_url) && str_starts_with($media->cover_url, $targetRelRoot.'/')) {
+            if ($mediaType === 'doujin' && $preservedCoverPath !== null) {
+                $media->cover_url = $preservedCoverPath;
+            } elseif (is_string($media->cover_url) && str_starts_with($media->cover_url, $targetRelRoot.'/')) {
                 $media->cover_url = null;
             }
 
@@ -232,7 +323,7 @@ class ChapterController extends Controller
             $disk->deleteDirectory($targetRelRoot);
         }
 
-        return back();
+        return $this->uploadSuccessResponse($request);
     }
 
     private function buildChapterImports(string $contentRoot, UploadedFile $archive, UploadedArchive $uploadedArchive): array
@@ -299,12 +390,28 @@ class ChapterController extends Controller
         return 'chapter-'.$numberSegment.'-'.$titleSegment;
     }
 
-    private function redirectUploadFailure(string $message, Request $request)
+    private function redirectUploadFailure(string $message, Request $request, bool $canReplace = false, int $status = 422)
     {
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => $message,
+                'can_replace' => $canReplace,
+            ], $status);
+        }
+
         return back()
             ->withInput($request->except('archive'))
             ->with('open_media_content_upload_modal', true)
             ->with('media_content_upload_error', $message);
+    }
+
+    private function uploadSuccessResponse(Request $request)
+    {
+        if ($request->expectsJson()) {
+            return response()->json(['ok' => true]);
+        }
+
+        return back();
     }
 
     private function cleanupCreatedFiles($disk, array $paths): void

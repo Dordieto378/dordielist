@@ -111,7 +111,7 @@
                         </svg>
                     </button>
 
-                    <div class="relative group ml-4 py-1 px-2 pr-5 rounded hover:bg-red-600">
+                    <div id="accountToggleWrap" class="relative group ml-4 py-1 px-2 pr-5 rounded hover:bg-red-600">
                         <button
                         id="accountToggle"
                         class="menu-link-text relative flex items-center js-my-account-links"
@@ -145,7 +145,7 @@
                             </svg>
 
                             @if(!$isViewer && $navbarUnreadNotificationCount > 0)
-                                <span class="absolute right-0 top-0 inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#08875b] text-[10px] font-bold leading-none tabular-nums text-white"
+                                <span id="navbarNotificationBadge" class="absolute right-0 top-0 inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#08875b] text-[10px] font-bold leading-none tabular-nums text-white"
                                       style="transform: translate(82%, -64%);">
                                     {{ $navbarUnreadNotificationLabel }}
                                 </span>
@@ -183,7 +183,7 @@
                                 <span>Notification</span>
                                 @if($navbarUnreadNotificationCount > 0)
                                     <span class="absolute right-0 top-0 inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#08875b] text-[10px] font-bold leading-none tabular-nums text-white"
-                                          style="transform: translate(-60%, -24%);">
+                                          style="transform: translate(48%, -30%);">
                                         {{ $navbarUnreadNotificationLabel }}
                                     </span>
                                 @endif
@@ -277,6 +277,8 @@
             const searchResults = document.getElementById("searchResults");
             const toggleBtn = document.getElementById('accountToggle');
             const menu      = document.getElementById('my-account-drop-links');
+            const toggleWrap = document.getElementById('accountToggleWrap');
+            const navbarNotificationBadge = document.getElementById('navbarNotificationBadge');
 
             let aborter = null;
             let debTimer = null;
@@ -411,9 +413,15 @@
 
             function openMenu() {
                 menu.classList.remove('opacity-0', 'pointer-events-none');
+                toggleBtn.setAttribute('aria-expanded', 'true');
+                toggleWrap?.classList.add('bg-red-600');
+                navbarNotificationBadge?.classList.add('hidden');
             }
             function closeMenu() {
                 menu.classList.add('opacity-0', 'pointer-events-none');
+                toggleBtn.setAttribute('aria-expanded', 'false');
+                toggleWrap?.classList.remove('bg-red-600');
+                navbarNotificationBadge?.classList.remove('hidden');
             }
             function isOpen() {
                 return !menu.classList.contains('opacity-0');

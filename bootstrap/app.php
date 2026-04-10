@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Http\Exceptions\PostTooLargeException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Routing;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -31,11 +32,25 @@ return Application::configure(basePath: dirname(__DIR__))
 
     // 3) Exception handling customization
     ->withExceptions(function (Exceptions $exceptions) {
-        // For example, you could bind a custom exception handler:
-        // $exceptions->singleton(
-        //     Illuminate\Contracts\Debug\ExceptionHandler::class,
-        //     App\Exceptions\Handler::class
-        // );
+        $exceptions->render(function (PostTooLargeException $exception, $request) {
+            if ($request->is('vn/*/game/upload')) {
+                return back()
+                    ->withInput()
+                    ->with('open_vn_game_upload_modal', true)
+                    ->with('vn_game_upload_error', 'The ZIP is too large for this server.');
+            }
+
+            if ($request->is('media/*/episodes/upload') || $request->is('media/*/chapters/upload')) {
+                return back()
+                    ->withInput()
+                    ->with('open_media_content_upload_modal', true)
+                    ->with('media_content_upload_error', 'The ZIP is too large for this server.');
+            }
+
+            return back()
+                ->withInput()
+                ->with('error', 'The upload is too large for this server.');
+        });
     })
 
     // 4) Scheduled tasks

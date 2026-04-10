@@ -18,10 +18,6 @@ class EpisodeController extends Controller
 {
     public function storeUploaded(Request $request, Media $media, UploadedArchive $uploadedArchive)
     {
-        abort_unless(in_array(strtolower((string) $media->type), ['anime', 'hentai'], true), 404);
-        abort_unless(optional($request->user()?->role)->role === 'Admin', 403);
-        $replaceExisting = $request->boolean('replace_existing');
-
         $validator = Validator::make($request->all(), [
             'archive' => ['required', 'file', 'max:1048576'],
         ]);
@@ -32,6 +28,119 @@ class EpisodeController extends Controller
 
         /** @var UploadedFile $archive */
         $archive = $request->file('archive');
+
+        return $this->processUploadedArchive($request, $media, $uploadedArchive, $archive);
+    }
+
+    public function uploadChunk(Request $request, Media $media)
+    {
+        abort_unless(in_array(strtolower((string) $media->type), ['anime', 'hentai'], true), 404);
+        abort_unless(optional($request->user()?->role)->role === 'Admin', 403);
+
+        $uploadId = $this->normalizeUploadId($request->input('upload_id'));
+        $chunkIndex = filter_var($request->input('chunk_index'), FILTER_VALIDATE_INT, ['options' => ['min_range' => 0]]);
+        $totalChunks = filter_var($request->input('total_chunks'), FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        $chunk = $request->file('archive_chunk');
+
+        if (!$uploadId || $chunkIndex === false || $totalChunks === false) {
+            return response()->json(['message' => 'Invalid upload request.'], 422);
+        }
+
+        if (!$chunk instanceof UploadedFile || !$chunk->isValid()) {
+            return response()->json(['message' => 'Upload chunk is missing.'], 422);
+        }
+
+        if ($chunkIndex >= $totalChunks) {
+            return response()->json(['message' => 'Invalid chunk index.'], 422);
+        }
+
+        $storedPath = Storage::disk('local')->putFileAs(
+            $this->chunkDirectory($media, $uploadId),
+            $chunk,
+            $this->chunkFilename($chunkIndex)
+        );
+
+        if (!$storedPath) {
+            return response()->json(['message' => 'Chunk upload failed.'], 500);
+        }
+
+        return response()->json(['ok' => true, 'chunk_index' => $chunkIndex]);
+    }
+
+    public function completeUpload(Request $request, Media $media, UploadedArchive $uploadedArchive)
+    {
+        abort_unless(in_array(strtolower((string) $media->type), ['anime', 'hentai'], true), 404);
+        abort_unless(optional($request->user()?->role)->role === 'Admin', 403);
+
+        $uploadId = $this->normalizeUploadId($request->input('upload_id'));
+        $totalChunks = filter_var($request->input('total_chunks'), FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        $originalName = trim((string) $request->input('original_name'));
+
+        if (!$uploadId || $totalChunks === false) {
+            return response()->json(['message' => 'Invalid upload request.'], 422);
+        }
+
+        if (strtolower(pathinfo($originalName, PATHINFO_EXTENSION)) !== 'zip') {
+            return response()->json(['message' => 'Upload a ZIP archive.'], 422);
+        }
+
+        $disk = Storage::disk('local');
+        $chunkDirectory = $this->chunkDirectory($media, $uploadId);
+        $tempRelativePath = $chunkDirectory.'/archive.zip';
+        $tempAbsolutePath = $disk->path($tempRelativePath);
+        $output = @fopen($tempAbsolutePath, 'wb');
+
+        if ($output === false) {
+            return response()->json(['message' => 'Episode ZIP upload failed.'], 500);
+        }
+
+        try {
+            for ($index = 0; $index < $totalChunks; $index++) {
+                $chunkRelativePath = $chunkDirectory.'/'.$this->chunkFilename($index);
+                if (!$disk->exists($chunkRelativePath)) {
+                    throw new \RuntimeException('Upload is incomplete. Retry the upload.');
+                }
+
+                $input = @fopen($disk->path($chunkRelativePath), 'rb');
+                if ($input === false) {
+                    throw new \RuntimeException('Episode ZIP upload failed.');
+                }
+
+                stream_copy_to_stream($input, $output);
+                fclose($input);
+            }
+
+            fclose($output);
+            $archive = new UploadedFile($tempAbsolutePath, $originalName, 'application/zip', null, true);
+            $response = $this->processUploadedArchive($request, $media, $uploadedArchive, $archive);
+
+            if (method_exists($response, 'getStatusCode') && $response->getStatusCode() < 400) {
+                $disk->deleteDirectory($chunkDirectory);
+            }
+
+            return $response;
+        } catch (Throwable $e) {
+            if (is_resource($output)) {
+                fclose($output);
+            }
+
+            report($e);
+
+            return response()->json([
+                'message' => trim($e->getMessage()) !== '' ? $e->getMessage() : 'Episode ZIP upload failed.',
+            ], 500);
+        } finally {
+            if (is_file($tempAbsolutePath)) {
+                @unlink($tempAbsolutePath);
+            }
+        }
+    }
+
+    private function processUploadedArchive(Request $request, Media $media, UploadedArchive $uploadedArchive, UploadedFile $archive)
+    {
+        abort_unless(in_array(strtolower((string) $media->type), ['anime', 'hentai'], true), 404);
+        abort_unless(optional($request->user()?->role)->role === 'Admin', 403);
+        $replaceExisting = $request->boolean('replace_existing');
 
         if (strtolower((string) $archive->getClientOriginalExtension()) !== 'zip') {
             return $this->redirectUploadFailure('Upload a ZIP archive.', $request);
@@ -193,6 +302,27 @@ class EpisodeController extends Controller
                 File::deleteDirectory($extractRoot);
             }
         }
+    }
+
+    private function chunkDirectory(Media $media, string $uploadId): string
+    {
+        return 'media-upload-chunks/episodes/'.$media->id.'/'.$uploadId;
+    }
+
+    private function chunkFilename(int $chunkIndex): string
+    {
+        return 'chunk-'.str_pad((string) $chunkIndex, 6, '0', STR_PAD_LEFT).'.part';
+    }
+
+    private function normalizeUploadId(mixed $uploadId): ?string
+    {
+        $uploadId = trim((string) $uploadId);
+
+        if ($uploadId === '' || !preg_match('/\A[a-zA-Z0-9_-]{1,80}\z/', $uploadId)) {
+            return null;
+        }
+
+        return $uploadId;
     }
 
     public function resetUploaded(Request $request, Media $media)

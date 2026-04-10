@@ -53,6 +53,8 @@
         $currentAuthor = old('author', $authors->first());
         $isAdmin = optional(auth()->user()?->role)->role === 'Admin';
         $contentUploadRoute = route('chapters.upload', ['media' => $media->id]);
+        $contentUploadChunkRoute = route('chapters.upload.chunk', ['media' => $media->id]);
+        $contentUploadCompleteRoute = route('chapters.upload.complete', ['media' => $media->id]);
         $contentResetRoute = route('chapters.reset', ['media' => $media->id]);
         $contentUploadTitle = 'Upload Chapters';
         $contentResetLabel = 'Reset Chapters';
@@ -661,6 +663,10 @@
                 const uploadErrorText = document.getElementById('mediaContentUploadErrorText');
                 const replaceExistingInput = document.getElementById('mediaContentReplaceExisting');
                 const submitUploadBtn = document.getElementById('submitMediaContentUploadBtn');
+                const uploadChunkRoute = @json($contentUploadChunkRoute);
+                const uploadCompleteRoute = @json($contentUploadCompleteRoute);
+                const uploadChunkSizeBytes = 8 * 1024 * 1024;
+                let currentUploadSession = null;
                 const shouldOpenEditModal = @json(session('open_edit_doujin_modal', false));
                 const shouldOpenUploadModal = @json(session('open_media_content_upload_modal', false));
 
@@ -724,11 +730,16 @@
                     archiveName.classList.toggle('text-gray-500', !selectedFile);
                     archiveName.classList.toggle('text-gray-800', Boolean(selectedFile));
                 };
-                const setUploadBusy = (isBusy) => {
+                const setUploadBusy = (isBusy, label = null) => {
                     if (!submitUploadBtn) return;
                     submitUploadBtn.disabled = isBusy;
                     submitUploadBtn.classList.toggle('opacity-60', isBusy);
                     submitUploadBtn.classList.toggle('cursor-not-allowed', isBusy);
+                    if (isBusy && label) {
+                        submitUploadBtn.textContent = label;
+                    } else if (!isBusy) {
+                        setReplaceMode(replaceExistingInput?.value === '1');
+                    }
                 };
                 const setReplaceMode = (canReplace) => {
                     if (replaceExistingInput) {
@@ -764,9 +775,79 @@
                 const resetUploadState = (keepError = false) => {
                     setUploadBusy(false);
                     setReplaceMode(false);
+                    currentUploadSession = null;
                     if (!keepError) {
                         clearUploadError();
                     }
+                };
+                const createUploadId = () => {
+                    const fallback = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+                    const value = window.crypto?.randomUUID ? window.crypto.randomUUID() : fallback;
+                    return value.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 80);
+                };
+                const uploadFileKey = (file) => [file.name, file.size, file.lastModified].join(':');
+                const parseUploadResponse = async (response) => {
+                    let payload = {};
+                    try {
+                        payload = await response.json();
+                    } catch (err) {
+                        payload = {};
+                    }
+
+                    if (!response.ok) {
+                        throw {
+                            message: payload.message || 'Upload failed.',
+                            canReplace: Boolean(payload.can_replace),
+                        };
+                    }
+
+                    return payload;
+                };
+                const uploadChunks = async (file, session, token) => {
+                    for (let chunkIndex = 0; chunkIndex < session.totalChunks; chunkIndex++) {
+                        const start = chunkIndex * uploadChunkSizeBytes;
+                        const end = Math.min(file.size, start + uploadChunkSizeBytes);
+                        const chunk = file.slice(start, end);
+                        const formData = new FormData();
+                        formData.append('upload_id', session.uploadId);
+                        formData.append('chunk_index', String(chunkIndex));
+                        formData.append('total_chunks', String(session.totalChunks));
+                        formData.append('archive_chunk', chunk, `${file.name}.part${chunkIndex}`);
+
+                        const res = await fetch(uploadChunkRoute, {
+                            method: 'POST',
+                            headers: {
+                                'Accept': 'application/json',
+                                'X-Requested-With': 'XMLHttpRequest',
+                                ...(token ? { 'X-CSRF-TOKEN': token } : {}),
+                            },
+                            body: formData,
+                        });
+
+                        await parseUploadResponse(res);
+
+                        const percent = Math.max(1, Math.min(99, Math.round(((chunkIndex + 1) / session.totalChunks) * 100)));
+                        setUploadBusy(true, `Uploading ${percent}%`);
+                    }
+                };
+                const completeUpload = async (session, file, token) => {
+                    const formData = new FormData();
+                    formData.append('upload_id', session.uploadId);
+                    formData.append('total_chunks', String(session.totalChunks));
+                    formData.append('original_name', file.name);
+                    formData.append('replace_existing', replaceExistingInput?.value === '1' ? '1' : '0');
+
+                    const res = await fetch(uploadCompleteRoute, {
+                        method: 'POST',
+                        headers: {
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                            ...(token ? { 'X-CSRF-TOKEN': token } : {}),
+                        },
+                        body: formData,
+                    });
+
+                    return parseUploadResponse(res);
                 };
 
                 if (openEditBtn) {
@@ -829,41 +910,36 @@
                         }
 
                         const token = document.querySelector('meta[name="csrf-token"]')?.content;
-                        const formData = new FormData(mediaContentUploadForm);
-                        setUploadBusy(true);
+                        const selectedFile = archiveInput.files[0];
+                        const fileKey = uploadFileKey(selectedFile);
+                        const canReuseUpload = currentUploadSession
+                            && currentUploadSession.fileKey === fileKey;
+                        setUploadBusy(true, submitUploadBtn?.dataset.defaultLabel || 'Upload ZIP');
 
                         try {
-                            const res = await fetch(mediaContentUploadForm.action, {
-                                method: 'POST',
-                                headers: {
-                                    'Accept': 'application/json',
-                                    'X-Requested-With': 'XMLHttpRequest',
-                                    ...(token ? { 'X-CSRF-TOKEN': token } : {}),
-                                },
-                                body: formData,
-                            });
-
-                            if (res.ok) {
-                                window.location.reload();
-                                return;
+                            if (!canReuseUpload) {
+                                currentUploadSession = {
+                                    uploadId: createUploadId(),
+                                    totalChunks: Math.max(1, Math.ceil(selectedFile.size / uploadChunkSizeBytes)),
+                                    fileKey,
+                                };
+                                await uploadChunks(selectedFile, currentUploadSession, token);
                             }
 
-                            let payload = {};
-                            try {
-                                payload = await res.json();
-                            } catch (err) {
-                                payload = {};
-                            }
-
-                            const canReplace = Boolean(payload.can_replace);
-                            const message = canReplace
-                                ? `${payload.message || 'This number already exists.'} Click Replace Existing to overwrite it, or Cancel to keep the current one.`
-                                : (payload.message || 'Upload failed.');
-
-                            setUploadError(message, canReplace);
-                            showUpload();
+                            await completeUpload(currentUploadSession, selectedFile, token);
+                            currentUploadSession = null;
+                            window.location.reload();
+                            return;
                         } catch (err) {
-                            setUploadError('Upload failed.');
+                            const canReplace = Boolean(err?.canReplace);
+                            const message = canReplace
+                                ? `${err?.message || 'This number already exists.'} Click Replace Existing to overwrite it, or Cancel to keep the current one.`
+                                : (err?.message || 'Upload failed.');
+
+                            if (!canReplace) {
+                                currentUploadSession = null;
+                            }
+                            setUploadError(message, canReplace);
                             showUpload();
                         } finally {
                             setUploadBusy(false);

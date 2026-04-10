@@ -125,6 +125,12 @@
     $contentUploadRoute = $isEpisodeBased
         ? route('episodes.upload', ['media' => $item['id']])
         : route('chapters.upload', ['media' => $item['id']]);
+    $contentUploadChunkRoute = $isEpisodeBased
+        ? route('episodes.upload.chunk', ['media' => $item['id']])
+        : route('chapters.upload.chunk', ['media' => $item['id']]);
+    $contentUploadCompleteRoute = $isEpisodeBased
+        ? route('episodes.upload.complete', ['media' => $item['id']])
+        : route('chapters.upload.complete', ['media' => $item['id']]);
     $contentResetRoute = $isEpisodeBased
         ? route('episodes.reset', ['media' => $item['id']])
         : route('chapters.reset', ['media' => $item['id']]);
@@ -1038,6 +1044,10 @@ const mediaContentUploadError = document.getElementById('mediaContentUploadError
 const mediaContentUploadErrorText = document.getElementById('mediaContentUploadErrorText');
 const mediaContentReplaceExisting = document.getElementById('mediaContentReplaceExisting');
 const submitMediaContentUploadBtn = document.getElementById('submitMediaContentUploadBtn');
+const mediaContentUploadChunkRoute = @json($contentUploadChunkRoute);
+const mediaContentUploadCompleteRoute = @json($contentUploadCompleteRoute);
+const mediaContentChunkSizeBytes = 8 * 1024 * 1024;
+let currentMediaContentUploadSession = null;
 
 // helpers
 const shouldOpenEditModal = @json(session('open_edit_entry_modal', false));
@@ -1062,11 +1072,16 @@ const hideUpload = ()=> { if (!uploadModal) return; uploadModal.classList.add('h
 const showCreate = ()=> { if (!createModal) return; createModal.classList.remove('hidden'); lockBody(); };
 const hideCreate = ()=> { if (!createModal) return; createModal.classList.add('hidden'); unlockBody(); };
 
-function setMediaContentUploadBusy(isBusy) {
+function setMediaContentUploadBusy(isBusy, label = null) {
   if (!submitMediaContentUploadBtn) return;
   submitMediaContentUploadBtn.disabled = isBusy;
   submitMediaContentUploadBtn.classList.toggle('opacity-60', isBusy);
   submitMediaContentUploadBtn.classList.toggle('cursor-not-allowed', isBusy);
+  if (isBusy && label) {
+    submitMediaContentUploadBtn.textContent = label;
+  } else if (!isBusy) {
+    setMediaContentReplaceMode(mediaContentReplaceExisting?.value === '1');
+  }
 }
 
 function setMediaContentReplaceMode(canReplace) {
@@ -1106,9 +1121,86 @@ function clearMediaContentUploadError() {
 function resetMediaContentUploadState(keepError = false) {
   setMediaContentUploadBusy(false);
   setMediaContentReplaceMode(false);
+  currentMediaContentUploadSession = null;
   if (!keepError) {
     clearMediaContentUploadError();
   }
+}
+
+function createMediaContentUploadId() {
+  const fallback = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const value = window.crypto?.randomUUID ? window.crypto.randomUUID() : fallback;
+  return value.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 80);
+}
+
+function mediaContentFileKey(file) {
+  return [file.name, file.size, file.lastModified].join(':');
+}
+
+async function parseMediaContentUploadResponse(response) {
+  let payload = {};
+  try {
+    payload = await response.json();
+  } catch (err) {
+    payload = {};
+  }
+
+  if (!response.ok) {
+    throw {
+      message: payload.message || 'Upload failed.',
+      canReplace: Boolean(payload.can_replace),
+    };
+  }
+
+  return payload;
+}
+
+async function uploadMediaContentChunks(file, session, token) {
+  for (let chunkIndex = 0; chunkIndex < session.totalChunks; chunkIndex++) {
+    const start = chunkIndex * mediaContentChunkSizeBytes;
+    const end = Math.min(file.size, start + mediaContentChunkSizeBytes);
+    const chunk = file.slice(start, end);
+    const formData = new FormData();
+    formData.append('upload_id', session.uploadId);
+    formData.append('chunk_index', String(chunkIndex));
+    formData.append('total_chunks', String(session.totalChunks));
+    formData.append('archive_chunk', chunk, `${file.name}.part${chunkIndex}`);
+
+    const res = await fetch(mediaContentUploadChunkRoute, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+        ...(token ? { 'X-CSRF-TOKEN': token } : {}),
+      },
+      body: formData,
+    });
+
+    await parseMediaContentUploadResponse(res);
+
+    const percent = Math.max(1, Math.min(99, Math.round(((chunkIndex + 1) / session.totalChunks) * 100)));
+    setMediaContentUploadBusy(true, `Uploading ${percent}%`);
+  }
+}
+
+async function completeMediaContentUpload(session, file, token) {
+  const formData = new FormData();
+  formData.append('upload_id', session.uploadId);
+  formData.append('total_chunks', String(session.totalChunks));
+  formData.append('original_name', file.name);
+  formData.append('replace_existing', mediaContentReplaceExisting?.value === '1' ? '1' : '0');
+
+  const res = await fetch(mediaContentUploadCompleteRoute, {
+    method: 'POST',
+    headers: {
+      'Accept': 'application/json',
+      'X-Requested-With': 'XMLHttpRequest',
+      ...(token ? { 'X-CSRF-TOKEN': token } : {}),
+    },
+    body: formData,
+  });
+
+  return parseMediaContentUploadResponse(res);
 }
 
 function updateMediaContentArchiveName() {
@@ -1182,41 +1274,36 @@ if (mediaContentUploadForm) {
     }
 
     const token = document.querySelector('meta[name="csrf-token"]')?.content;
-    const formData = new FormData(mediaContentUploadForm);
-    setMediaContentUploadBusy(true);
+    const selectedFile = mediaContentArchiveInput.files[0];
+    const fileKey = mediaContentFileKey(selectedFile);
+    const canReuseUpload = currentMediaContentUploadSession
+      && currentMediaContentUploadSession.fileKey === fileKey;
+    setMediaContentUploadBusy(true, submitMediaContentUploadBtn?.dataset.defaultLabel || 'Upload ZIP');
 
     try {
-      const res = await fetch(mediaContentUploadForm.action, {
-        method: 'POST',
-        headers: {
-          'Accept': 'application/json',
-          'X-Requested-With': 'XMLHttpRequest',
-          ...(token ? { 'X-CSRF-TOKEN': token } : {}),
-        },
-        body: formData,
-      });
-
-      if (res.ok) {
-        window.location.reload();
-        return;
+      if (!canReuseUpload) {
+        currentMediaContentUploadSession = {
+          uploadId: createMediaContentUploadId(),
+          totalChunks: Math.max(1, Math.ceil(selectedFile.size / mediaContentChunkSizeBytes)),
+          fileKey,
+        };
+        await uploadMediaContentChunks(selectedFile, currentMediaContentUploadSession, token);
       }
 
-      let payload = {};
-      try {
-        payload = await res.json();
-      } catch (err) {
-        payload = {};
-      }
-
-      const canReplace = Boolean(payload.can_replace);
-      const message = canReplace
-        ? `${payload.message || 'This number already exists.'} Click Replace Existing to overwrite it, or Cancel to keep the current one.`
-        : (payload.message || 'Upload failed.');
-
-      setMediaContentUploadError(message, canReplace);
-      showUpload();
+      await completeMediaContentUpload(currentMediaContentUploadSession, selectedFile, token);
+      currentMediaContentUploadSession = null;
+      window.location.reload();
+      return;
     } catch (err) {
-      setMediaContentUploadError('Upload failed.');
+      const canReplace = Boolean(err?.canReplace);
+      const message = canReplace
+        ? `${err?.message || 'This number already exists.'} Click Replace Existing to overwrite it, or Cancel to keep the current one.`
+        : (err?.message || 'Upload failed.');
+
+      if (!canReplace) {
+        currentMediaContentUploadSession = null;
+      }
+      setMediaContentUploadError(message, canReplace);
       showUpload();
     } finally {
       setMediaContentUploadBusy(false);

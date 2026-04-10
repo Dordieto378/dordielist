@@ -155,17 +155,27 @@ Route::middleware('auth')->group(function () {
     Route::delete('/media/{media}', [AnilistController::class, 'destroy'])->name('media.destroy');
     Route::patch('/doujin/{media}/entry', [DoujinController::class, 'updateEntry'])->name('doujin.entry.update');
     Route::delete('/doujin/{media}', [DoujinController::class, 'destroy'])->name('doujin.destroy');
+    Route::post('/doujin/upload/chunk', [DoujinController::class, 'uploadChunk'])->name('doujin.upload.chunk');
+    Route::post('/doujin/upload/complete', [DoujinController::class, 'completeUpload'])->name('doujin.upload.complete');
     Route::post('/doujin/upload', [DoujinController::class, 'storeUploaded'])->name('doujin.upload');
     // Episode & Chapter management
+    Route::post('/media/{media}/episodes/upload/chunk', [EpisodeController::class, 'uploadChunk'])->name('episodes.upload.chunk');
+    Route::post('/media/{media}/episodes/upload/complete', [EpisodeController::class, 'completeUpload'])->name('episodes.upload.complete');
     Route::post('/media/{media}/episodes/upload', [EpisodeController::class, 'storeUploaded'])->name('episodes.upload');
     Route::delete('/media/{media}/episodes/reset', [EpisodeController::class, 'resetUploaded'])->name('episodes.reset');
     Route::get('/media/{media}/episodes/{episode}', [EpisodeController::class, 'show'])->name('episodes.show');
 
+    Route::post('/media/{media}/chapters/upload/chunk', [ChapterController::class, 'uploadChunk'])->name('chapters.upload.chunk');
+    Route::post('/media/{media}/chapters/upload/complete', [ChapterController::class, 'completeUpload'])->name('chapters.upload.complete');
     Route::post('/media/{media}/chapters/upload', [ChapterController::class, 'storeUploaded'])->name('chapters.upload');
     Route::delete('/media/{media}/chapters/reset', [ChapterController::class, 'resetUploaded'])->name('chapters.reset');
     Route::get('/media/{media}/chapters/{chapter}/{page?}', [ChapterController::class, 'readPage'])->name('chapters.page');
 
     // VN tools + NSFW mark
+    Route::post('/vn/{media}/game/upload/chunk', [VndbController::class, 'uploadGameChunk'])->name('vn.game.upload.chunk');
+    Route::post('/vn/{media}/game/upload/complete', [VndbController::class, 'completeGameUpload'])->name('vn.game.upload.complete');
+    Route::post('/vn/{media}/game/upload', [VndbController::class, 'uploadGame'])->name('vn.game.upload');
+    Route::get('/vn/{media}/game/download', [VndbController::class, 'downloadGame'])->name('vn.game.download');
     Route::post('/vn/{media}/nsfw',   [VndbController::class,     'markNsfw'])->name('vn.markNsfw');
 
     //sync with API

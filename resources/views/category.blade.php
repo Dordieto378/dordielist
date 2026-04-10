@@ -637,7 +637,7 @@ if (!function_exists('shortTitle')) {
                 <button id="cancelAddDoujinModal" type="button" class="px-5 py-3 rounded border border-gray-200 text-gray-700 font-medium hover:bg-gray-100 transition-colors">
                     Cancel
                 </button>
-                <button form="addDoujinForm" type="submit" class="flatGreen transition-200 text-white px-5 py-3 rounded">
+                <button id="submitAddDoujinBtn" form="addDoujinForm" type="submit" class="flatGreen transition-200 text-white px-5 py-3 rounded" data-default-label="Add Doujin" data-uploading-label="Uploading...">
                     Add Doujin
                 </button>
             </div>
@@ -967,6 +967,12 @@ const addDoujinForm = document.getElementById('addDoujinForm');
 const addDoujinInlineError = document.getElementById('addDoujinInlineError');
 const doujinArchiveInput = document.getElementById('doujinArchiveInput');
 const doujinArchiveName = document.getElementById('doujinArchiveName');
+const submitAddDoujinBtn = document.getElementById('submitAddDoujinBtn');
+const doujinUploadChunkRoute = @json(route('doujin.upload.chunk'));
+const doujinUploadCompleteRoute = @json(route('doujin.upload.complete'));
+const doujinUploadChunkSizeBytes = 8 * 1024 * 1024;
+let currentDoujinUploadSession = null;
+let isUploadingDoujin = false;
 
 function updateDoujinArchiveName() {
     if (!doujinArchiveInput || !doujinArchiveName) return;
@@ -981,6 +987,7 @@ function updateDoujinArchiveName() {
 
 function setAddDoujinModal(open) {
     if (!addDoujinModal) return;
+    if (!open && isUploadingDoujin) return;
     addDoujinModal.classList.toggle('hidden', !open);
     addDoujinModal.classList.toggle('flex', open);
 }
@@ -998,21 +1005,156 @@ function setAddDoujinInlineError(message) {
     addDoujinInlineError.classList.remove('hidden');
 }
 
+function setAddDoujinBusy(isBusy, label = null) {
+    isUploadingDoujin = isBusy;
+
+    if (submitAddDoujinBtn) {
+        submitAddDoujinBtn.disabled = isBusy;
+        submitAddDoujinBtn.classList.toggle('opacity-60', isBusy);
+        submitAddDoujinBtn.classList.toggle('cursor-not-allowed', isBusy);
+        submitAddDoujinBtn.textContent = isBusy
+            ? (label || submitAddDoujinBtn.dataset.uploadingLabel || 'Uploading...')
+            : (submitAddDoujinBtn.dataset.defaultLabel || 'Add Doujin');
+    }
+
+    if (cancelAddDoujinModalButton) {
+        cancelAddDoujinModalButton.disabled = isBusy;
+    }
+
+    if (closeAddDoujinModalButton) {
+        closeAddDoujinModalButton.disabled = isBusy;
+    }
+}
+
+function createDoujinUploadId() {
+    const fallback = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const value = window.crypto?.randomUUID ? window.crypto.randomUUID() : fallback;
+    return value.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 80);
+}
+
+function doujinFileKey(file) {
+    return [file.name, file.size, file.lastModified].join(':');
+}
+
+async function parseDoujinUploadResponse(response) {
+    let payload = {};
+    try {
+        payload = await response.json();
+    } catch (err) {
+        payload = {};
+    }
+
+    if (!response.ok) {
+        throw new Error(payload.message || 'Upload failed. Check the ZIP structure and try again.');
+    }
+
+    return payload;
+}
+
+async function uploadDoujinChunks(file, session, token) {
+    for (let chunkIndex = 0; chunkIndex < session.totalChunks; chunkIndex++) {
+        const start = chunkIndex * doujinUploadChunkSizeBytes;
+        const end = Math.min(file.size, start + doujinUploadChunkSizeBytes);
+        const chunk = file.slice(start, end);
+        const formData = new FormData();
+        formData.append('upload_id', session.uploadId);
+        formData.append('chunk_index', String(chunkIndex));
+        formData.append('total_chunks', String(session.totalChunks));
+        formData.append('archive_chunk', chunk, `${file.name}.part${chunkIndex}`);
+
+        const response = await fetch(doujinUploadChunkRoute, {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                ...(token ? { 'X-CSRF-TOKEN': token } : {}),
+            },
+            body: formData,
+        });
+
+        await parseDoujinUploadResponse(response);
+
+        const percent = Math.max(1, Math.min(99, Math.round(((chunkIndex + 1) / session.totalChunks) * 100)));
+        setAddDoujinBusy(true, `Uploading ${percent}%`);
+    }
+}
+
+async function completeDoujinUpload(session, file, token) {
+    const formData = new FormData(addDoujinForm);
+    formData.delete('archive');
+    formData.append('upload_id', session.uploadId);
+    formData.append('total_chunks', String(session.totalChunks));
+    formData.append('original_name', file.name);
+
+    const response = await fetch(doujinUploadCompleteRoute, {
+        method: 'POST',
+        headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+            ...(token ? { 'X-CSRF-TOKEN': token } : {}),
+        },
+        body: formData,
+    });
+
+    return parseDoujinUploadResponse(response);
+}
+
 openAddDoujinModalButton?.addEventListener('click', () => setAddDoujinModal(true));
 closeAddDoujinModalButton?.addEventListener('click', () => setAddDoujinModal(false));
 cancelAddDoujinModalButton?.addEventListener('click', () => setAddDoujinModal(false));
 doujinArchiveInput?.addEventListener('change', () => {
     updateDoujinArchiveName();
-
-    if (doujinArchiveInput.files?.length) {
-        setAddDoujinInlineError('');
-    }
+    currentDoujinUploadSession = null;
+    setAddDoujinInlineError('');
 });
-addDoujinForm?.addEventListener('submit', (event) => {
+addDoujinForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+
+    if (isUploadingDoujin) {
+        return;
+    }
+
     if (!doujinArchiveInput?.files?.length) {
         event.preventDefault();
         setAddDoujinInlineError('Upload a ZIP archive.');
         setAddDoujinModal(true);
+        return;
+    }
+
+    const selectedFile = doujinArchiveInput.files[0];
+    if (!selectedFile.name.toLowerCase().endsWith('.zip')) {
+        setAddDoujinInlineError('Upload a ZIP archive.');
+        setAddDoujinModal(true);
+        return;
+    }
+
+    const token = document.querySelector('meta[name="csrf-token"]')?.content;
+    const fileKey = doujinFileKey(selectedFile);
+    const canReuseUpload = currentDoujinUploadSession
+        && currentDoujinUploadSession.fileKey === fileKey;
+
+    setAddDoujinInlineError('');
+    setAddDoujinBusy(true, submitAddDoujinBtn?.dataset.uploadingLabel || 'Uploading...');
+
+    try {
+        if (!canReuseUpload) {
+            currentDoujinUploadSession = {
+                uploadId: createDoujinUploadId(),
+                totalChunks: Math.max(1, Math.ceil(selectedFile.size / doujinUploadChunkSizeBytes)),
+                fileKey,
+            };
+            await uploadDoujinChunks(selectedFile, currentDoujinUploadSession, token);
+        }
+
+        const payload = await completeDoujinUpload(currentDoujinUploadSession, selectedFile, token);
+        currentDoujinUploadSession = null;
+        window.location.href = payload.redirect_url || window.location.href;
+    } catch (error) {
+        currentDoujinUploadSession = null;
+        setAddDoujinInlineError(error instanceof Error ? error.message : 'Upload failed. Check the ZIP structure and try again.');
+        setAddDoujinModal(true);
+    } finally {
+        setAddDoujinBusy(false);
     }
 });
 addDoujinModal?.addEventListener('click', (event) => {

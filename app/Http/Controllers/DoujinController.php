@@ -174,8 +174,6 @@ class DoujinController extends Controller
 
     public function storeUploaded(Request $request)
     {
-        abort_unless(optional($request->user()?->role)->role === 'Admin', 403);
-
         $validator = Validator::make($request->all(), [
             'title_english' => ['nullable', 'string', 'max:255'],
             'title_romaji' => ['nullable', 'string', 'max:255'],
@@ -191,6 +189,128 @@ class DoujinController extends Controller
 
         /** @var UploadedFile $archive */
         $archive = $request->file('archive');
+
+        return $this->processUploadedArchive($request, $archive);
+    }
+
+    public function uploadChunk(Request $request)
+    {
+        abort_unless(optional($request->user()?->role)->role === 'Admin', 403);
+
+        $uploadId = $this->normalizeUploadId($request->input('upload_id'));
+        $chunkIndex = filter_var($request->input('chunk_index'), FILTER_VALIDATE_INT, ['options' => ['min_range' => 0]]);
+        $totalChunks = filter_var($request->input('total_chunks'), FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        $chunk = $request->file('archive_chunk');
+
+        if (!$uploadId || $chunkIndex === false || $totalChunks === false) {
+            return response()->json(['message' => 'Invalid upload request.'], 422);
+        }
+
+        if (!$chunk instanceof UploadedFile || !$chunk->isValid()) {
+            return response()->json(['message' => 'Upload chunk is missing.'], 422);
+        }
+
+        if ($chunkIndex >= $totalChunks) {
+            return response()->json(['message' => 'Invalid chunk index.'], 422);
+        }
+
+        $storedPath = Storage::disk('local')->putFileAs(
+            $this->chunkDirectory($uploadId),
+            $chunk,
+            $this->chunkFilename($chunkIndex)
+        );
+
+        if (!$storedPath) {
+            return response()->json(['message' => 'Chunk upload failed.'], 500);
+        }
+
+        return response()->json(['ok' => true, 'chunk_index' => $chunkIndex]);
+    }
+
+    public function completeUpload(Request $request)
+    {
+        abort_unless(optional($request->user()?->role)->role === 'Admin', 403);
+
+        $uploadId = $this->normalizeUploadId($request->input('upload_id'));
+        $totalChunks = filter_var($request->input('total_chunks'), FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        $originalName = trim((string) $request->input('original_name'));
+
+        if (!$uploadId || $totalChunks === false) {
+            return response()->json(['message' => 'Invalid upload request.'], 422);
+        }
+
+        if (strtolower(pathinfo($originalName, PATHINFO_EXTENSION)) !== 'zip') {
+            return response()->json(['message' => 'Upload a ZIP archive.'], 422);
+        }
+
+        $disk = Storage::disk('local');
+        $chunkDirectory = $this->chunkDirectory($uploadId);
+        $tempRelativePath = $chunkDirectory.'/archive.zip';
+        $tempAbsolutePath = $disk->path($tempRelativePath);
+        $output = @fopen($tempAbsolutePath, 'wb');
+
+        if ($output === false) {
+            return response()->json(['message' => 'Upload failed. Check the ZIP structure and try again.'], 500);
+        }
+
+        try {
+            for ($index = 0; $index < $totalChunks; $index++) {
+                $chunkRelativePath = $chunkDirectory.'/'.$this->chunkFilename($index);
+                if (!$disk->exists($chunkRelativePath)) {
+                    throw new \RuntimeException('Upload is incomplete. Retry the upload.');
+                }
+
+                $input = @fopen($disk->path($chunkRelativePath), 'rb');
+                if ($input === false) {
+                    throw new \RuntimeException('Upload failed. Check the ZIP structure and try again.');
+                }
+
+                stream_copy_to_stream($input, $output);
+                fclose($input);
+            }
+
+            fclose($output);
+            $archive = new UploadedFile($tempAbsolutePath, $originalName, 'application/zip', null, true);
+            $response = $this->processUploadedArchive($request, $archive);
+
+            if (method_exists($response, 'getStatusCode') && $response->getStatusCode() < 400) {
+                $disk->deleteDirectory($chunkDirectory);
+            }
+
+            return $response;
+        } catch (Throwable $e) {
+            if (is_resource($output)) {
+                fclose($output);
+            }
+
+            report($e);
+
+            return response()->json([
+                'message' => trim($e->getMessage()) !== '' ? $e->getMessage() : 'Upload failed. Check the ZIP structure and try again.',
+            ], 500);
+        } finally {
+            if (is_file($tempAbsolutePath)) {
+                @unlink($tempAbsolutePath);
+            }
+        }
+    }
+
+    private function processUploadedArchive(Request $request, UploadedFile $archive)
+    {
+        abort_unless(optional($request->user()?->role)->role === 'Admin', 403);
+
+        $validator = Validator::make($request->all(), [
+            'title_english' => ['nullable', 'string', 'max:255'],
+            'title_romaji' => ['nullable', 'string', 'max:255'],
+            'title_native' => ['nullable', 'string', 'max:255'],
+            'existing_author' => ['nullable', 'string', 'max:255'],
+            'new_author' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        if ($validator->fails()) {
+            return $this->redirectUploadFailure($validator->errors()->first(), $request);
+        }
+
         $titleEnglish = $this->trimToNull($request->input('title_english'));
         $titleRomaji = $this->trimToNull($request->input('title_romaji'));
         $titleNative = $this->trimToNull($request->input('title_native'));
@@ -243,6 +363,13 @@ class DoujinController extends Controller
 
             $this->stageExtractedDoujin($importRoot, $targetAbs);
             $this->mirrorDoujin($disk, $targetRel, $media->id);
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'ok' => true,
+                    'redirect_url' => route('doujins.show', ['media' => $media->id]),
+                ]);
+            }
 
             return redirect()
                 ->route('doujins.show', ['media' => $media->id]);
@@ -543,10 +670,35 @@ class DoujinController extends Controller
 
     private function redirectUploadFailure(string $message, Request $request)
     {
+        if ($request->expectsJson()) {
+            return response()->json(['message' => $message], 422);
+        }
+
         return back()
             ->withInput($request->except('archive'))
             ->with('open_add_doujin_modal', true)
             ->with('doujin_upload_error', $message);
+    }
+
+    private function chunkDirectory(string $uploadId): string
+    {
+        return 'doujin-upload-chunks/'.$uploadId;
+    }
+
+    private function chunkFilename(int $chunkIndex): string
+    {
+        return 'chunk-'.str_pad((string) $chunkIndex, 6, '0', STR_PAD_LEFT).'.part';
+    }
+
+    private function normalizeUploadId(mixed $uploadId): ?string
+    {
+        $uploadId = trim((string) $uploadId);
+
+        if ($uploadId === '' || !preg_match('/\A[a-zA-Z0-9_-]{1,80}\z/', $uploadId)) {
+            return null;
+        }
+
+        return $uploadId;
     }
 
     private function extractDoujinArchive(UploadedFile $archive, string $extractRoot): void

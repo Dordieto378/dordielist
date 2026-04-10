@@ -153,6 +153,7 @@ Route::middleware('auth')->group(function () {
 
     Route::patch('/media/{media}/entry', [AnilistController::class, 'updateEntry'])->name('media.entry.update');
     Route::delete('/media/{media}', [AnilistController::class, 'destroy'])->name('media.destroy');
+    Route::patch('/vn/{media}/entry', [VndbController::class, 'updateEntry'])->name('vn.entry.update');
     Route::patch('/doujin/{media}/entry', [DoujinController::class, 'updateEntry'])->name('doujin.entry.update');
     Route::delete('/doujin/{media}', [DoujinController::class, 'destroy'])->name('doujin.destroy');
     Route::post('/doujin/upload/chunk', [DoujinController::class, 'uploadChunk'])->name('doujin.upload.chunk');

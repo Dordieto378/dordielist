@@ -27,6 +27,19 @@
         $isAdmin = optional(auth()->user()?->role)->role === 'Admin';
         $isViewer = optional(auth()->user()?->role)->role === 'Viewer';
         $hasUploadedGame = $hasUploadedGame ?? false;
+        $currentScore = old('user_score', $mediaModel?->user_score ?? '0');
+        $currentListStatus = old('list_status', $mediaModel?->list_status ?: 'WISHLIST');
+        $listOptions = [
+            'PLAYING' => 'Playing',
+            'FINISHED' => 'Finished',
+            'STALLED' => 'Stalled',
+            'DROPPED' => 'Dropped',
+            'WISHLIST' => 'Wishlist',
+        ];
+
+        if (!array_key_exists($currentListStatus, $listOptions)) {
+            $currentListStatus = 'WISHLIST';
+        }
         $parseIniBytes = static function (?string $value): int {
             $value = trim((string) $value);
 
@@ -162,6 +175,15 @@
                           </svg>
                           <span class="ml-[0.2rem]">Add to Collection</span>
                       </button>
+                      <button id="openEditEntryModal" type="button" class="flex items-center justify-start w-full text-blue-950 py-2 rounded-sm hover:text-[#08875b]">
+                          <svg xmlns="http://www.w3.org/2000/svg"
+                               class="ml-[1.4rem] h-[1.1rem] w-[1.1rem] mr-[0.5rem] mb-[0.1rem]"
+                               fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                              <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M15.232 5.232l3.536 3.536M4 21h4.586a1 1 0 00.707-.293l10-10a1 1 0 000-1.414L14.414 4.293a1 1 0 00-1.414 0l-10 10A1 1 0 004 14.586V19a2 2 0 002 2z"/>
+                          </svg>
+                          <span class="ml-1">Edit</span>
+                      </button>
                       @if($isAdmin && $mediaModel)
                       <button id="openGameUploadModal" type="button" class="flex items-center justify-start w-full text-blue-950 py-2 rounded-sm hover:text-[#08875b]">
                           <svg xmlns="http://www.w3.org/2000/svg"
@@ -228,6 +250,79 @@
         </div>
     </div>
 </div>
+
+@auth
+@unless($isViewer)
+<div
+  id="editEntryModal"
+  class="fixed inset-0 flex items-start pt-[130px] justify-center bg-black bg-opacity-50 hidden z-50"
+>
+  <div class="relative bg-white p-4 text-left shadow-2xl w-[800px] rounded-lg">
+    <div class="flex justify-between items-start pb-4 pt-2 border-b ml-4 mr-4 border-gray-200">
+      <h3 class="text-lg font-bold text-gray-800">Edit Entry</h3>
+      <button id="closeEditModal" type="button" class="text-gray-400 hover:text-gray-900" aria-label="Close Edit Modal">
+        <span class="sr-only">Close</span>
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none"
+             viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+          <path stroke-linecap="round" stroke-linejoin="round"
+                d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="border-b border-gray-200 mr-4 ml-4">
+      <form method="POST" action="{{ route('vn.entry.update', ['media' => $mediaModel->id]) }}" class="space-y-4 py-4" id="editEntryForm">
+        @csrf
+        @method('PATCH')
+
+        @if(session('vn_entry_update_error'))
+          <div class="app-alert app-alert-error px-4 py-3 text-sm">
+            {{ session('vn_entry_update_error') }}
+          </div>
+        @endif
+
+        <div class="grid grid-cols-2 gap-4">
+          <label class="block">
+            <span class="block mb-2 text-red-600 font-medium">Score</span>
+            <input
+              type="number"
+              min="0"
+              max="100"
+              name="user_score"
+              value="{{ $currentScore ?? '' }}"
+              class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
+            />
+          </label>
+
+          <label class="block">
+            <span class="block mb-2 text-red-600 font-medium">List</span>
+            <select
+              name="list_status"
+              class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
+            >
+              @foreach($listOptions as $value => $label)
+                <option value="{{ $value }}" {{ $currentListStatus === $value ? 'selected' : '' }}>
+                  {{ $label }}
+                </option>
+              @endforeach
+            </select>
+          </label>
+        </div>
+      </form>
+    </div>
+
+    <div class="mb-2 px-4 pt-4 flex items-center justify-end gap-3">
+      <button id="cancelEditModal" type="button" class="px-5 py-3 rounded border border-gray-200 text-gray-700 font-medium hover:bg-gray-100 transition-colors">
+        Cancel
+      </button>
+      <button form="editEntryForm" type="submit" class="flatGreen transition-200 text-white px-5 py-3 rounded">
+        Save Changes
+      </button>
+    </div>
+  </div>
+</div>
+@endunless
+@endauth
 
 @if($isAdmin && $mediaModel)
 <div
@@ -470,18 +565,25 @@ document.addEventListener('DOMContentLoaded', () => {
   // grab everything once
   const addModal       = document.getElementById('addToCollectionModal');
   const createModal    = document.getElementById('createCollectionModal');
+  const editModal      = document.getElementById('editEntryModal');
   const openAddBtn     = document.getElementById('openAddToCollection');
   const closeAddBtn    = document.getElementById('closeAddModal');
   const openCreateBtn  = document.getElementById('openInlineCreateCollection');
   const closeCreateBtn = document.getElementById('closeCreateModal');
+  const openEditBtn    = document.getElementById('openEditEntryModal');
+  const closeEditBtn   = document.getElementById('closeEditModal');
+  const cancelEditBtn  = document.getElementById('cancelEditModal');
   const createForm     = document.getElementById('collectionCreateForm');
   const listContainer  = document.getElementById('collectionCheckboxList');
+  const shouldOpenEditModal = @json(session('open_vn_edit_modal', false));
 
   // helpers
   const showAdd    = ()=> addModal.classList.remove('hidden');
   const hideAdd    = ()=> addModal.classList.add('hidden');
   const showCreate = ()=> createModal.classList.remove('hidden');
   const hideCreate = ()=> createModal.classList.add('hidden');
+  const showEdit   = ()=> editModal?.classList.remove('hidden');
+  const hideEdit   = ()=> editModal?.classList.add('hidden');
 
   // open/close Add→Collection
   openAddBtn.addEventListener('click', showAdd);
@@ -501,6 +603,21 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('keyup', e => { if(e.key==='Escape' && !createModal.classList.contains('hidden')) hideCreate(); });
 
   // AJAX create‐collection
+  if (openEditBtn) {
+    openEditBtn.addEventListener('click', showEdit);
+  }
+  if (closeEditBtn && editModal) {
+    closeEditBtn.addEventListener('click', hideEdit);
+    editModal.addEventListener('click', e => { if (e.target === editModal) hideEdit(); });
+    document.addEventListener('keyup', e => { if (e.key === 'Escape' && !editModal.classList.contains('hidden')) hideEdit(); });
+  }
+  if (cancelEditBtn) {
+    cancelEditBtn.addEventListener('click', hideEdit);
+  }
+  if (shouldOpenEditModal) {
+    showEdit();
+  }
+
   createForm.addEventListener('submit', async e => {
     e.preventDefault();
     const token = document.querySelector('meta[name="csrf-token"]').content;

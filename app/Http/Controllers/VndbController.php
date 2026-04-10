@@ -13,10 +13,19 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 
 class VndbController extends Controller
 {
+    private array $labelIdsByStatus = [
+        'PLAYING' => 1,
+        'FINISHED' => 2,
+        'STALLED' => 3,
+        'DROPPED' => 4,
+        'WISHLIST' => 5,
+    ];
+
     private array $labelMapDb = [
         'playing' => 'PLAYING',
         'finished' => 'FINISHED',
@@ -168,6 +177,76 @@ class VndbController extends Controller
             'hasUploadedGame' => $hasUploadedGame,
             'gameDownloadFilename' => $gameDownloadFilename,
         ]);
+    }
+
+    public function updateEntry(Request $request, Media $media)
+    {
+        abort_unless($media->type === 'vn', 404);
+
+        $validator = Validator::make($request->all(), [
+            'list_status' => ['required', 'in:PLAYING,FINISHED,STALLED,DROPPED,WISHLIST'],
+            'user_score' => ['nullable', 'integer', 'min:0', 'max:100'],
+        ]);
+
+        if ($validator->fails()) {
+            return back()
+                ->withInput()
+                ->with('open_vn_edit_modal', true)
+                ->with('vn_entry_update_error', $validator->errors()->first());
+        }
+
+        $token = Auth::user()?->vndb_api_token;
+        if (!$token) {
+            return back()
+                ->withInput()
+                ->with('open_vn_edit_modal', true)
+                ->with('vn_entry_update_error', 'Add your VNDB API token in API settings first.');
+        }
+
+        $vndbId = (int) ($media->source_id ?: $media->id);
+        if ($vndbId <= 0) {
+            return back()
+                ->withInput()
+                ->with('open_vn_edit_modal', true)
+                ->with('vn_entry_update_error', 'This entry is not linked to a VNDB record.');
+        }
+
+        $listStatus = (string) $request->input('list_status');
+        $labelId = $this->labelIdsByStatus[$listStatus] ?? null;
+        if (!$labelId) {
+            return back()
+                ->withInput()
+                ->with('open_vn_edit_modal', true)
+                ->with('vn_entry_update_error', 'Invalid list status.');
+        }
+
+        $scoreInput = $request->input('user_score');
+        $scoreRaw = $scoreInput === null || $scoreInput === ''
+            ? null
+            : (int) $scoreInput;
+
+        $response = $this->vndbClient($token)->patch('ulist/v'.$vndbId, [
+            'labels' => [$labelId],
+            'vote' => $scoreRaw === null || $scoreRaw === 0 ? null : $scoreRaw,
+        ]);
+
+        if (!$response->successful()) {
+            $errorMessage = $response->json('message')
+                ?: $response->json('errors.0.message')
+                ?: $response->json('detail')
+                ?: 'VNDB update failed.';
+
+            return back()
+                ->withInput()
+                ->with('open_vn_edit_modal', true)
+                ->with('vn_entry_update_error', $errorMessage);
+        }
+
+        $media->list_status = $listStatus;
+        $media->user_score = $scoreRaw === 0 ? null : $scoreRaw;
+        $media->save();
+
+        return back();
     }
 
     public function uploadGame(Request $request, Media $media)

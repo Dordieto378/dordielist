@@ -13,6 +13,26 @@
         .thumb-wrapper { position: relative; overflow: hidden; }
         .thumb-img { width: 100%; height: 100%; object-fit: cover; }
         .thumb-landscape { height: 190px !important; }
+        .chapter-thumb-frame {
+            position: relative;
+            width: 100%;
+            overflow: hidden;
+            border-radius: 0.5rem;
+            background: rgb(243 244 246);
+            aspect-ratio: 3 / 4;
+        }
+        .chapter-thumb-frame.chapter-thumb-landscape {
+            aspect-ratio: 16 / 9;
+        }
+        .chapter-thumb-img {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center top;
+            background: rgb(243 244 246);
+        }
         .app-alert {
             border: 1px solid transparent;
             border-radius: 0.375rem;
@@ -424,6 +444,22 @@
               wrap.classList.remove('thumb-landscape');
             }
           };
+          if (img.complete) apply();
+          else img.addEventListener('load', apply, { once: true });
+        });
+
+        document.querySelectorAll('.chapter-thumb-frame').forEach(frame => {
+          const img = frame.querySelector('.chapter-thumb-img');
+          if (!img) return;
+
+          const apply = () => {
+            if (img.naturalWidth > img.naturalHeight) {
+              frame.classList.add('chapter-thumb-landscape');
+            } else {
+              frame.classList.remove('chapter-thumb-landscape');
+            }
+          };
+
           if (img.complete) apply();
           else img.addEventListener('load', apply, { once: true });
         });

@@ -32,37 +32,85 @@
         // View switcher base params
         $baseParams = ['media' => $chapter->item_id, 'chapter' => $chapter->chapter_number];
 
-        // For Double view we still compute the pair (used only when !$isManwha)
-        $pageNums      = $chapter->pages->pluck('page_number')->sort()->values();
-        $nums          = $pageNums->all();
-        $currentIndex  = array_search($pageNumber, $nums, true);
-        $pairStart     = ($currentIndex % 2 === 0) ? $currentIndex : ($currentIndex - 1);
+        // Build landscape-aware spreads for double-page mode.
+        $pageObjectsByNumber = $chapter->pages->sortBy('page_number')->keyBy('page_number');
+        $pageNums = $pageObjectsByNumber->keys()->values();
+        $nums = $pageNums->all();
 
-        $a = $nums[$pairStart]     ?? null;
-        $b = $nums[$pairStart + 1] ?? null;
+        $getChapterPageDimensions = static function (?string $filePath): ?array {
+            if (!$filePath) {
+                return null;
+            }
+
+            $absolutePath = public_path('storage/' . ltrim($filePath, '/'));
+            if (!is_file($absolutePath)) {
+                return null;
+            }
+
+            $size = @getimagesize($absolutePath);
+            if ($size === false || empty($size[0]) || empty($size[1])) {
+                return null;
+            }
+
+            return [(int) $size[0], (int) $size[1]];
+        };
+
+        $pageIsLandscape = [];
+        foreach ($pageObjectsByNumber as $number => $page) {
+            $dimensions = $getChapterPageDimensions($page->file_path ?? null);
+            $pageIsLandscape[$number] = $dimensions ? ($dimensions[0] > $dimensions[1]) : false;
+        }
+
+        $spreads = [];
+        for ($i = 0; $i < count($nums);) {
+            $currentNum = $nums[$i] ?? null;
+            if ($currentNum === null) {
+                break;
+            }
+
+            if ($pageIsLandscape[$currentNum] ?? false) {
+                $spreads[] = ['pages' => [$currentNum]];
+                $i++;
+                continue;
+            }
+
+            $nextNum = $nums[$i + 1] ?? null;
+            if ($nextNum !== null && !($pageIsLandscape[$nextNum] ?? false)) {
+                $spreads[] = ['pages' => [$currentNum, $nextNum]];
+                $i += 2;
+                continue;
+            }
+
+            $spreads[] = ['pages' => [$currentNum]];
+            $i++;
+        }
+
+        $currentSpreadIndex = 0;
+        foreach ($spreads as $index => $spread) {
+            if (in_array($pageNumber, $spread['pages'], true)) {
+                $currentSpreadIndex = $index;
+                break;
+            }
+        }
+
+        $currentSpreadPages = $spreads[$currentSpreadIndex]['pages'] ?? [$pageNumber];
+        $spreadA = $currentSpreadPages[0] ?? null;
+        $spreadB = $currentSpreadPages[1] ?? null;
 
         // Right-to-left style swap (larger page left, smaller right)
-        if ($a !== null && $b !== null && $a < $b) {
-            $leftNum  = $b;
-            $rightNum = $a;
+        if ($spreadA !== null && $spreadB !== null && $spreadA < $spreadB) {
+            $leftNum = $spreadB;
+            $rightNum = $spreadA;
         } else {
-            $leftNum  = $a;
-            $rightNum = $b;
+            $leftNum = $spreadA;
+            $rightNum = $spreadB;
         }
 
-        // Pair nav targets (for double view)
-        $prevPairPage = null;
-        $nextPairPage = null;
+        $prevSpread = $currentSpreadIndex > 0 ? ($spreads[$currentSpreadIndex - 1] ?? null) : null;
+        $nextSpread = ($currentSpreadIndex + 1) < count($spreads) ? ($spreads[$currentSpreadIndex + 1] ?? null) : null;
 
-        $prevPairStart = $pairStart - 2;
-        if ($prevPairStart >= 0) {
-            $prevPairPage = $nums[$prevPairStart] ?? null;
-        }
-
-        $nextPairStart = $pairStart + 2;
-        if ($nextPairStart < count($nums)) {
-            $nextPairPage = $nums[$nextPairStart] ?? null;
-        }
+        $prevPairPage = $prevSpread['pages'][0] ?? null;
+        $nextPairPage = $nextSpread['pages'][0] ?? null;
 
         // Pair links (fallback to controller links if needed)
         $prevPairLink = $prevPairPage
@@ -826,4 +874,3 @@
 
     </script>
 @endsection
-

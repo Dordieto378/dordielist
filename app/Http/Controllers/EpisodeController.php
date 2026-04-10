@@ -148,6 +148,30 @@ class EpisodeController extends Controller
         }
     }
 
+    public function resetUploaded(Request $request, Media $media)
+    {
+        abort_unless(in_array(strtolower((string) $media->type), ['anime', 'hentai'], true), 404);
+        abort_unless(optional($request->user()?->role)->role === 'Admin', 403);
+
+        $disk = Storage::disk('public');
+        $targetRelDir = strtolower((string) $media->type).'/'.$media->id;
+
+        DB::transaction(function () use ($media) {
+            Episode::where('media_fk', $media->id)->delete();
+            $media->episodes_cnt = 0;
+            $media->save();
+        });
+
+        if ($disk->exists($targetRelDir)) {
+            $disk->deleteDirectory($targetRelDir);
+        }
+
+        return back()->with([
+            'status' => 'All uploaded episodes were removed.',
+            'status_color' => 'green',
+        ]);
+    }
+
     private function redirectUploadFailure(string $message, Request $request)
     {
         return back()

@@ -96,12 +96,6 @@ if (!function_exists('shortTitle')) {
                 </form>
 
                 <div class="mt-6">
-                    @if(session('doujin_upload_error'))
-                        <div class="app-alert app-alert-error mb-3 px-3 py-2 text-sm">
-                            {{ session('doujin_upload_error') }}
-                        </div>
-                    @endif
-
                     @if(session('status'))
                         <div class="app-alert app-alert-success mb-3 px-3 py-2 text-sm">
                             {{ session('status') }}
@@ -552,6 +546,11 @@ if (!function_exists('shortTitle')) {
                 <form method="POST" action="{{ route('doujin.upload') }}" enctype="multipart/form-data" class="space-y-4 py-4" id="addDoujinForm">
                     @csrf
 
+                    <div id="addDoujinInlineError"
+                         class="app-alert app-alert-error {{ session('doujin_upload_error') ? '' : 'hidden' }}">
+                        {{ session('doujin_upload_error') }}
+                    </div>
+
                     <div class="grid grid-cols-2 gap-4">
                         <label class="block">
                             <span class="block mb-2 text-red-600 font-medium">English Title</span>
@@ -967,6 +966,8 @@ const addDoujinModal = document.getElementById('addDoujinModal');
 const openAddDoujinModalButton = document.getElementById('openAddDoujinModal');
 const closeAddDoujinModalButton = document.getElementById('closeAddDoujinModal');
 const cancelAddDoujinModalButton = document.getElementById('cancelAddDoujinModal');
+const addDoujinForm = document.getElementById('addDoujinForm');
+const addDoujinInlineError = document.getElementById('addDoujinInlineError');
 const doujinArchiveInput = document.getElementById('doujinArchiveInput');
 const doujinArchiveName = document.getElementById('doujinArchiveName');
 
@@ -987,10 +988,36 @@ function setAddDoujinModal(open) {
     addDoujinModal.classList.toggle('flex', open);
 }
 
+function setAddDoujinInlineError(message) {
+    if (!addDoujinInlineError) return;
+
+    if (!message) {
+        addDoujinInlineError.textContent = '';
+        addDoujinInlineError.classList.add('hidden');
+        return;
+    }
+
+    addDoujinInlineError.textContent = message;
+    addDoujinInlineError.classList.remove('hidden');
+}
+
 openAddDoujinModalButton?.addEventListener('click', () => setAddDoujinModal(true));
 closeAddDoujinModalButton?.addEventListener('click', () => setAddDoujinModal(false));
 cancelAddDoujinModalButton?.addEventListener('click', () => setAddDoujinModal(false));
-doujinArchiveInput?.addEventListener('change', updateDoujinArchiveName);
+doujinArchiveInput?.addEventListener('change', () => {
+    updateDoujinArchiveName();
+
+    if (doujinArchiveInput.files?.length) {
+        setAddDoujinInlineError('');
+    }
+});
+addDoujinForm?.addEventListener('submit', (event) => {
+    if (!doujinArchiveInput?.files?.length) {
+        event.preventDefault();
+        setAddDoujinInlineError('Upload a ZIP archive.');
+        setAddDoujinModal(true);
+    }
+});
 addDoujinModal?.addEventListener('click', (event) => {
     if (event.target === addDoujinModal) {
         setAddDoujinModal(false);

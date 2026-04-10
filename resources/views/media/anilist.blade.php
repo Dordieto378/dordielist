@@ -125,8 +125,15 @@
     $contentUploadRoute = $isEpisodeBased
         ? route('episodes.upload', ['media' => $item['id']])
         : route('chapters.upload', ['media' => $item['id']]);
+    $contentResetRoute = $isEpisodeBased
+        ? route('episodes.reset', ['media' => $item['id']])
+        : route('chapters.reset', ['media' => $item['id']]);
     $contentUploadLabel = $isEpisodeBased ? 'Upload Episode(s)' : 'Upload Chapter(s)';
     $contentUploadTitle = $isEpisodeBased ? 'Upload Episodes' : 'Upload Chapters';
+    $contentResetLabel = $isEpisodeBased ? 'Reset Episodes' : 'Reset Chapters';
+    $contentResetConfirm = $isEpisodeBased
+        ? 'Remove all uploaded episodes for this title?'
+        : 'Remove all uploaded chapters for this title?';
 @endphp
 
 <div class="flex flex-col items-center py-[8.5rem]">
@@ -598,12 +605,11 @@
 
                         <div onclick="window.location.href='{{ route('chapters.page', ['media' => $chapter->item_id, 'chapter' => $chapterParam, 'page' => 1]) }}'"
                              class="cursor-pointer">
-                            <div class="relative w-full rounded-lg overflow-hidden shadow-lg bg-gray-100"
-                                 style="aspect-ratio: 3 / 4;">
+                            <div class="chapter-thumb-frame shadow-lg">
                                 <img
                                     src="{{ $thumb }}"
                                     alt="{{ $chapter->chapter_title }}"
-                                    class="absolute inset-0 w-full h-full object-cover object-top"
+                                    class="chapter-thumb-img"
                                 >
                                 <span class="absolute inset-0 z-10 pointer-events-none"
                                       style="background: linear-gradient(to top, rgba(0, 0, 0, 0.76) 0%, rgba(0, 0, 0, 0.46) 9%, rgba(0, 0, 0, 0.22) 18%, rgba(0, 0, 0, 0.08) 28%, rgba(0, 0, 0, 0.02) 36%, rgba(0, 0, 0, 0) 46%);"></span>
@@ -819,13 +825,23 @@
       </form>
     </div>
 
-    <div class="mb-2 px-4 pt-4 flex items-center justify-end gap-3">
-      <button id="cancelMediaContentUploadModal" type="button" class="px-5 py-3 rounded border border-gray-200 text-gray-700 font-medium hover:bg-gray-100 transition-colors">
-        Cancel
-      </button>
-      <button form="mediaContentUploadForm" type="submit" class="flatGreen transition-200 text-white px-5 py-3 rounded">
-        Upload ZIP
-      </button>
+    <div class="mb-2 px-4 pt-4 flex items-center justify-between gap-3">
+      <form method="POST" action="{{ $contentResetRoute }}" onsubmit="return confirm(@js($contentResetConfirm));">
+        @csrf
+        @method('DELETE')
+        <button type="submit" class="rounded bg-red-600 px-5 py-3 text-white transition-colors hover:bg-red-700">
+          {{ $contentResetLabel }}
+        </button>
+      </form>
+
+      <div class="flex items-center gap-3">
+        <button id="cancelMediaContentUploadModal" type="button" class="px-5 py-3 rounded border border-gray-200 text-gray-700 font-medium hover:bg-gray-100 transition-colors">
+          Cancel
+        </button>
+        <button form="mediaContentUploadForm" type="submit" class="flatGreen transition-200 text-white px-5 py-3 rounded">
+          Upload ZIP
+        </button>
+      </div>
     </div>
   </div>
 </div>

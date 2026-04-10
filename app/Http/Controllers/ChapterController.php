@@ -206,6 +206,41 @@ class ChapterController extends Controller
         }
     }
 
+    public function resetUploaded(Request $request, Media $media)
+    {
+        abort_unless(in_array(strtolower((string) $media->type), ['manga', 'manwha'], true), 404);
+        abort_unless(optional($request->user()?->role)->role === 'Admin', 403);
+
+        $disk = Storage::disk('public');
+        $targetRelRoot = strtolower((string) $media->type).'/'.$media->id;
+
+        DB::transaction(function () use ($media, $targetRelRoot) {
+            $chapterIds = Chapter::where('media_fk', $media->id)->pluck('id');
+
+            if ($chapterIds->isNotEmpty()) {
+                ChapterPage::whereIn('chapter_id', $chapterIds)->delete();
+                Chapter::whereIn('id', $chapterIds)->delete();
+            }
+
+            $media->chapters_cnt = 0;
+
+            if (is_string($media->cover_url) && str_starts_with($media->cover_url, $targetRelRoot.'/')) {
+                $media->cover_url = null;
+            }
+
+            $media->save();
+        });
+
+        if ($disk->exists($targetRelRoot)) {
+            $disk->deleteDirectory($targetRelRoot);
+        }
+
+        return back()->with([
+            'status' => 'All uploaded chapters were removed.',
+            'status_color' => 'green',
+        ]);
+    }
+
     private function buildChapterImports(string $contentRoot, UploadedFile $archive, UploadedArchive $uploadedArchive): array
     {
         $chapterDirs = $uploadedArchive->listDirectories($contentRoot);

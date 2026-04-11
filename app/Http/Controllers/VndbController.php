@@ -413,6 +413,18 @@ class VndbController extends Controller
         );
     }
 
+    public function deleteGame(Request $request, Media $media)
+    {
+        abort_unless($media->type === 'vn', 404);
+        abort_unless(optional($request->user()?->role)->role === 'Admin', 403);
+
+        $disk = Storage::disk('local');
+        $disk->deleteDirectory($this->vnGameStorageDirectory($media));
+        $disk->deleteDirectory('vn-games/tmp/'.$media->id);
+
+        return back();
+    }
+
     public function fetchVnById(int $id): ?array
     {
         $media = Media::with(['vnTags:id,name', 'vnLanguages:id,name', 'vnDevelopers:id,name'])

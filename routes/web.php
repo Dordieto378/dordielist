@@ -176,6 +176,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/vn/{media}/game/upload/chunk', [VndbController::class, 'uploadGameChunk'])->name('vn.game.upload.chunk');
     Route::post('/vn/{media}/game/upload/complete', [VndbController::class, 'completeGameUpload'])->name('vn.game.upload.complete');
     Route::post('/vn/{media}/game/upload', [VndbController::class, 'uploadGame'])->name('vn.game.upload');
+    Route::delete('/vn/{media}/game', [VndbController::class, 'deleteGame'])->name('vn.game.delete');
     Route::get('/vn/{media}/game/download', [VndbController::class, 'downloadGame'])->name('vn.game.download');
     Route::post('/vn/{media}/nsfw',   [VndbController::class,     'markNsfw'])->name('vn.markNsfw');
 

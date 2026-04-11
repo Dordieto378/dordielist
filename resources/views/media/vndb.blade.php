@@ -379,13 +379,26 @@
       </form>
     </div>
 
-    <div class="mb-2 px-4 pt-4 flex items-center justify-end gap-3">
-      <button id="cancelGameUploadBtn" type="button" class="px-5 py-3 rounded border border-gray-200 text-gray-700 font-medium hover:bg-gray-100 transition-colors">
-        Cancel
-      </button>
-      <button id="submitGameUploadBtn" form="gameUploadForm" type="submit" class="flatGreen transition-200 text-white px-5 py-3 rounded" data-default-label="Upload ZIP" data-uploading-label="Uploading...">
-        Upload ZIP
-      </button>
+    <div class="mb-2 px-4 pt-4 flex items-center justify-between gap-3">
+      @if($hasUploadedGame)
+      <form method="POST" action="{{ route('vn.game.delete', ['media' => $mediaModel->id]) }}" onsubmit="return confirm('Delete the uploaded game ZIP?');">
+        @csrf
+        @method('DELETE')
+        <button type="submit" class="bg-red-600 text-white px-5 py-3 rounded hover:bg-red-700 transition-colors">
+          Delete Game
+        </button>
+      </form>
+      @else
+      <div></div>
+      @endif
+      <div class="flex items-center gap-3">
+        <button id="cancelGameUploadBtn" type="button" class="px-5 py-3 rounded border border-gray-200 text-gray-700 font-medium hover:bg-gray-100 transition-colors">
+          Cancel
+        </button>
+        <button id="submitGameUploadBtn" form="gameUploadForm" type="submit" class="flatGreen transition-200 text-white px-5 py-3 rounded" data-default-label="Upload ZIP" data-uploading-label="Uploading...">
+          Upload ZIP
+        </button>
+      </div>
     </div>
   </div>
 </div>

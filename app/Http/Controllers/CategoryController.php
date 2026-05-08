@@ -77,6 +77,15 @@ class CategoryController extends Controller
         ];
     }
 
+    private function eraLabel(int $decade): string
+    {
+        if ($decade >= 1900 && $decade < 2000) {
+            return substr((string) $decade, 2, 2).'s';
+        }
+
+        return $decade.'s';
+    }
+
     public function show(Request $request, $category, $listFilter = 'all', $mediaStatus = 'all', $titleOrder = 'none', $scoreOrder = 'none', $dateOrder = 'none')
     {
         $normalized = strtoupper($category);
@@ -269,22 +278,15 @@ class CategoryController extends Controller
             ? array_filter($authorParam)
             : array_filter(array_map('trim', explode(',', (string) $authorParam)));
 
-        switch ($normalized) {
-            case 'ANIMES':
-                $q->where('type', 'anime');
-                break;
-            case 'HENTAIS':
-                $q->where('type', 'hentai');
-                break;
-            case 'MANGAS':
-                $q->where('type', 'manga');
-                break;
-            case 'MANWHAS':
-                $q->where('type', 'manwha');
-                break;
-            default:
-                break;
-        }
+        $categoryTypes = match ($normalized) {
+            'ANIMES' => ['anime'],
+            'HENTAIS' => ['hentai'],
+            'MANGAS' => ['manga'],
+            'MANWHAS' => ['manwha'],
+            default => ['anime', 'hentai', 'manga', 'manwha'],
+        };
+
+        $q->whereIn('type', $categoryTypes);
 
         if (in_array($normalized, ['ANIMES', 'HENTAIS'], true)) {
             foreach ($selectedStudio as $studio) {
@@ -300,6 +302,14 @@ class CategoryController extends Controller
                     $q->whereHas('anilistAuthors', fn ($query) => $query->where('name', $author));
                 }
             }
+        }
+
+        $selectedEra = (string) $request->query('era', '');
+        if ($selectedEra !== '' && preg_match('/^\d+$/', $selectedEra)) {
+            $eraStart = (int) $selectedEra;
+            $q->whereBetween('year', [$eraStart, $eraStart + 9]);
+        } else {
+            $selectedEra = '';
         }
 
         if ($year = $request->query('year')) {
@@ -368,11 +378,25 @@ class CategoryController extends Controller
             ->pluck('name')
             ->all();
 
-        $allYears = Media::whereNotNull('year')
+        $allYears = Media::whereIn('type', $categoryTypes)
+            ->whereNotNull('year')
             ->distinct()
             ->orderBy('year')
             ->pluck('year')
+            ->map(fn ($year) => (int) $year)
+            ->filter(fn ($year) => $year > 0)
             ->toArray();
+
+        $allEras = collect($allYears)
+            ->map(fn ($year) => intdiv((int) $year, 10) * 10)
+            ->unique()
+            ->sort()
+            ->values()
+            ->map(fn ($decade) => [
+                'value' => (string) $decade,
+                'label' => $this->eraLabel((int) $decade),
+            ])
+            ->all();
 
         $allStudios = [];
         if ($normalized === 'ANIMES') {
@@ -422,6 +446,8 @@ class CategoryController extends Controller
             'selectedGenres' => $genreParams,
             'allYears' => $allYears,
             'selectedYears' => (array) $request->query('year', []),
+            'allEras' => $allEras,
+            'selectedEra' => $selectedEra,
             'allStudios' => $allStudios,
             'selectedStudio' => $selectedStudio,
             'allAuthors' => $allAuthors,

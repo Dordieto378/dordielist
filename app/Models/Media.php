@@ -13,6 +13,7 @@ class Media extends Model
         'anilistStudios:id,name',
         'anilistAuthors:id,name',
         'doujinAuthors:id,name',
+        'doujinTags:id,name',
         'vnTags:id,name',
         'vnLanguages:id,name',
         'vnDevelopers:id,name',
@@ -44,6 +45,11 @@ class Media extends Model
     public function doujinAuthors(): BelongsToMany
     {
         return $this->belongsToMany(DoujinAuthor::class, 'doujin_item_author', 'media_id', 'author_id');
+    }
+
+    public function doujinTags(): BelongsToMany
+    {
+        return $this->belongsToMany(DoujinTag::class, 'doujin_item_tag', 'media_id', 'tag_id');
     }
 
     public function vnTags(): BelongsToMany

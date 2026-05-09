@@ -349,11 +349,12 @@ GQL;
         $genres = in_array($canonicalType, ['anime', 'hentai', 'manga', 'manwha'], true)
             ? $media->metadataNamesFrom('anilistGenres')
             : [];
-        $tags = $canonicalType === 'vn'
-            ? $media->metadataNamesFrom('vnTags')
-            : (in_array($canonicalType, ['anime', 'hentai', 'manga', 'manwha'], true)
-                ? $media->metadataNamesFrom('anilistTags')
-                : []);
+        $tags = match (true) {
+            $canonicalType === 'vn' => $media->metadataNamesFrom('vnTags'),
+            $canonicalType === 'doujin' => $media->metadataNamesFrom('doujinTags'),
+            in_array($canonicalType, ['anime', 'hentai', 'manga', 'manwha'], true) => $media->metadataNamesFrom('anilistTags'),
+            default => [],
+        };
         $studios = in_array($canonicalType, ['anime', 'hentai'], true)
             ? $media->metadataNamesFrom('anilistStudios')
             : [];

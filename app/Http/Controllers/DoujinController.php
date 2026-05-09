@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Chapter;
 use App\Models\ChapterPage;
 use App\Models\DoujinAuthor;
+use App\Models\DoujinTag;
 use App\Models\Media;
 use App\Support\DoujinFolderIndex;
 use App\Support\MediaMetadataSyncer;
@@ -29,7 +30,7 @@ class DoujinController extends Controller
 
     public function show(int $mediaId)
     {
-        $media = Media::with('doujinAuthors:id,name')
+        $media = Media::with(['doujinAuthors', 'doujinTags:id,name'])
             ->where('type', 'doujin')
             ->findOrFail($mediaId);
 
@@ -66,7 +67,20 @@ class DoujinController extends Controller
         $allCollections = \App\Models\Collection::orderBy('is_system', 'desc')
             ->orderBy('name')
             ->get();
-        $allAuthors = DoujinAuthor::query()
+        $allAuthorRows = DoujinAuthor::query()
+            ->orderBy('name')
+            ->get(['name', 'twitter_url', 'patreon_url', 'fanbox_url', 'pixiv_url']);
+        $allAuthors = $allAuthorRows->pluck('name');
+        $allAuthorLinks = $allAuthorRows
+            ->mapWithKeys(fn (DoujinAuthor $author) => [
+                $author->name => [
+                    'twitter' => $author->twitter_url,
+                    'patreon' => $author->patreon_url,
+                    'fanbox' => $author->fanbox_url,
+                    'pixiv' => $author->pixiv_url,
+                ],
+            ]);
+        $allTags = DoujinTag::query()
             ->orderBy('name')
             ->pluck('name');
 
@@ -82,6 +96,8 @@ class DoujinController extends Controller
             'isFavorited' => $isFavorited,
             'allCollections' => $allCollections,
             'allAuthors' => $allAuthors,
+            'allAuthorLinks' => $allAuthorLinks,
+            'allTags' => $allTags,
             'attachedIds' => $attachedIds,
         ]);
     }
@@ -95,6 +111,13 @@ class DoujinController extends Controller
             'title_romaji' => ['nullable', 'string', 'max:255'],
             'title_native' => ['nullable', 'string', 'max:255'],
             'author' => ['nullable', 'string', 'max:255'],
+            'tags' => ['nullable', 'string'],
+            'new_tags' => ['nullable', 'string'],
+            'author_twitter_url' => ['nullable', 'string', 'max:2048'],
+            'author_patreon_url' => ['nullable', 'string', 'max:2048'],
+            'author_fanbox_url' => ['nullable', 'string', 'max:2048'],
+            'author_pixiv_url' => ['nullable', 'string', 'max:2048'],
+            'doujin_source' => ['nullable', 'in:official,unofficial'],
         ]);
 
         if ($validator->fails()) {
@@ -109,6 +132,10 @@ class DoujinController extends Controller
         $titleRomaji = $this->trimToNull($data['title_romaji'] ?? null);
         $titleNative = $this->trimToNull($data['title_native'] ?? null);
         $authors = $this->parseAuthorNames($data['author'] ?? null);
+        $tags = array_merge(
+            $this->parseNames($data['tags'] ?? null),
+            $this->parseNames($data['new_tags'] ?? null)
+        );
 
         if (!$titleEnglish && !$titleRomaji && !$titleNative) {
             return back()
@@ -120,13 +147,15 @@ class DoujinController extends Controller
         $media->title_english = $titleEnglish;
         $media->title_romaji = $titleRomaji;
         $media->title_native = $titleNative;
+        $media->doujin_source = $this->trimToNull($data['doujin_source'] ?? null);
         $media->slug = $this->makeUniqueMediaSlug(
             $media,
             $titleRomaji ?: ($titleEnglish ?: ($titleNative ?: ($media->slug ?: 'doujin-'.$media->id)))
         );
         $media->save();
 
-        $this->metadataSyncer->syncDoujin($media, $authors);
+        $this->metadataSyncer->syncDoujin($media, $authors, $tags);
+        $this->syncDoujinAuthorLinks($authors, $data);
 
         return back();
     }
@@ -305,17 +334,29 @@ class DoujinController extends Controller
             'title_native' => ['nullable', 'string', 'max:255'],
             'existing_author' => ['nullable', 'string', 'max:255'],
             'new_author' => ['nullable', 'string', 'max:255'],
+            'tags' => ['nullable', 'string'],
+            'new_tags' => ['nullable', 'string'],
+            'author_twitter_url' => ['nullable', 'string', 'max:2048'],
+            'author_patreon_url' => ['nullable', 'string', 'max:2048'],
+            'author_fanbox_url' => ['nullable', 'string', 'max:2048'],
+            'author_pixiv_url' => ['nullable', 'string', 'max:2048'],
+            'doujin_source' => ['nullable', 'in:official,unofficial'],
         ]);
 
         if ($validator->fails()) {
             return $this->redirectUploadFailure($validator->errors()->first(), $request);
         }
 
-        $titleEnglish = $this->trimToNull($request->input('title_english'));
-        $titleRomaji = $this->trimToNull($request->input('title_romaji'));
-        $titleNative = $this->trimToNull($request->input('title_native'));
-        $author = $this->trimToNull($request->input('new_author'))
-            ?: $this->trimToNull($request->input('existing_author'));
+        $data = $validator->validated();
+        $titleEnglish = $this->trimToNull($data['title_english'] ?? null);
+        $titleRomaji = $this->trimToNull($data['title_romaji'] ?? null);
+        $titleNative = $this->trimToNull($data['title_native'] ?? null);
+        $author = $this->trimToNull($data['new_author'] ?? null)
+            ?: $this->trimToNull($data['existing_author'] ?? null);
+        $tags = array_merge(
+            $this->parseNames($data['tags'] ?? null),
+            $this->parseNames($data['new_tags'] ?? null)
+        );
 
         if (!$titleEnglish && !$titleRomaji && !$titleNative) {
             return $this->redirectUploadFailure('Add at least one title.', $request);
@@ -346,6 +387,7 @@ class DoujinController extends Controller
             $media->title_english = $titleEnglish;
             $media->title_romaji = $titleRomaji;
             $media->title_native = $titleNative;
+            $media->doujin_source = $this->trimToNull($data['doujin_source'] ?? null);
             $media->slug = $this->makeUniqueMediaSlug(
                 $media,
                 $titleRomaji ?: ($titleEnglish ?: ($titleNative ?: 'doujin'))
@@ -354,7 +396,8 @@ class DoujinController extends Controller
             $media->chapters_cnt = 0;
             $media->save();
 
-            $this->metadataSyncer->syncDoujin($media, [$author]);
+            $this->metadataSyncer->syncDoujin($media, [$author], $tags);
+            $this->syncDoujinAuthorLinks([$author], $data, false);
 
             $disk = Storage::disk('public');
             $targetRel = 'doujin/'.$media->id;
@@ -893,12 +936,41 @@ class DoujinController extends Controller
         return $value === '' ? null : $value;
     }
 
+    private function syncDoujinAuthorLinks(array $authorNames, array $data, bool $clearMissing = true): void
+    {
+        $links = [
+            'twitter_url' => $this->trimToNull($data['author_twitter_url'] ?? null),
+            'patreon_url' => $this->trimToNull($data['author_patreon_url'] ?? null),
+            'fanbox_url' => $this->trimToNull($data['author_fanbox_url'] ?? null),
+            'pixiv_url' => $this->trimToNull($data['author_pixiv_url'] ?? null),
+        ];
+
+        if (!$clearMissing) {
+            $links = array_filter($links, fn (?string $value) => $value !== null);
+        }
+
+        foreach ($authorNames as $authorName) {
+            $authorName = $this->trimToNull($authorName);
+            if ($authorName === null) {
+                continue;
+            }
+
+            $author = DoujinAuthor::firstOrCreate(['name' => $authorName]);
+            $author->forceFill($links)->save();
+        }
+    }
+
     private function parseAuthorNames(?string $value): array
     {
+        return $this->parseNames($value);
+    }
+
+    private function parseNames(?string $value): array
+    {
         return collect(explode(',', (string) $value))
-            ->map(fn ($author) => trim((string) $author))
+            ->map(fn ($name) => trim((string) $name))
             ->filter()
-            ->unique(fn ($author) => mb_strtolower($author))
+            ->unique(fn ($name) => mb_strtolower($name))
             ->values()
             ->all();
     }

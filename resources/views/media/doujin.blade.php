@@ -8,8 +8,8 @@
         use App\Models\Favorite;
         use Illuminate\Support\Facades\Storage;
 
-        $title = $media->title_romaji
-              ?? $media->title_english
+        $title = $media->title_english
+              ?? $media->title_romaji
               ?? $media->title_native
               ?? $media->slug
               ?? 'No Title';
@@ -42,15 +42,41 @@
 
         $allCollections = Collection::orderBy('name')->get();
         $authors = $media->doujinAuthors->pluck('name')->filter()->unique()->values();
+        $tags = $media->doujinTags->pluck('name')->filter()->unique()->values();
         $authorOptions = collect($allAuthors ?? [])
             ->push($authors->first())
             ->filter()
             ->unique()
             ->values();
+        $submittedTags = old('tags');
+        $currentTagNames = $submittedTags !== null
+            ? collect(explode(',', (string) $submittedTags))->map(fn ($tag) => trim($tag))->filter()->unique()->values()
+            : $tags;
+        $currentNewTags = old('new_tags', '');
+        $tagOptions = collect($allTags ?? [])
+            ->merge($tags)
+            ->merge($currentTagNames)
+            ->filter()
+            ->unique()
+            ->sort()
+            ->values();
         $currentTitleEnglish = old('title_english', $media->title_english);
         $currentTitleRomaji = old('title_romaji', $media->title_romaji);
         $currentTitleNative = old('title_native', $media->title_native);
         $currentAuthor = old('author', $authors->first());
+        $currentAuthorRecord = $media->doujinAuthors->firstWhere('name', $currentAuthor)
+            ?: $media->doujinAuthors->first();
+        $currentTwitterUrl = old('author_twitter_url', $currentAuthorRecord?->twitter_url);
+        $currentPatreonUrl = old('author_patreon_url', $currentAuthorRecord?->patreon_url);
+        $currentFanboxUrl = old('author_fanbox_url', $currentAuthorRecord?->fanbox_url);
+        $currentPixivUrl = old('author_pixiv_url', $currentAuthorRecord?->pixiv_url);
+        $currentDoujinSource = old('doujin_source', $media->doujin_source);
+        $doujinLinks = collect([
+            'Twitter' => $currentAuthorRecord?->twitter_url,
+            'Patreon' => $currentAuthorRecord?->patreon_url,
+            'Fanbox' => $currentAuthorRecord?->fanbox_url,
+            'Pixiv' => $currentAuthorRecord?->pixiv_url,
+        ])->filter();
         $isAdmin = optional(auth()->user()?->role)->role === 'Admin';
         $contentUploadRoute = route('chapters.upload', ['media' => $media->id]);
         $contentUploadChunkRoute = route('chapters.upload.chunk', ['media' => $media->id]);
@@ -214,6 +240,33 @@
                                 @endforeach
                             @endif
                         </div>
+
+                        <div>Links</div>
+                        <div>
+                            @if($doujinLinks->isEmpty())
+                                N/A
+                            @else
+                                @foreach($doujinLinks as $label => $url)
+                                    <a href="{{ $url }}"
+                                       target="_blank"
+                                       rel="noopener noreferrer"
+                                       class="text-blue-600 hover:underline cursor-pointer">
+                                        {{ $label }}
+                                    </a>@if(!$loop->last), @endif
+                                @endforeach
+                            @endif
+                        </div>
+
+                    </div>
+                    <div class="mb-2 mt-2">
+                        <div class="flex flex-wrap gap-2 text-xs text-gray-700">
+                            @foreach($tags as $name)
+                                <a href="{{ category_filter_url('doujins', 'tags', $name) }}"
+                                   class="inline-block bg-gray-100 px-4 py-3 rounded-sm hover:bg-gray-200 transition">
+                                    {{ $name }}
+                                </a>
+                            @endforeach
+                        </div>
                     </div>
                 </div>
             </div>
@@ -341,7 +394,7 @@
           id="editEntryModal"
           class="fixed inset-0 flex items-start pt-[130px] justify-center bg-black bg-opacity-50 hidden z-50"
         >
-            <div class="relative bg-white p-4 text-left shadow-2xl w-[800px] rounded-lg">
+            <div class="relative bg-white p-4 text-left shadow-2xl w-[800px] max-h-[calc(100vh-170px)] overflow-visible rounded-lg">
                 <div class="flex justify-between items-start pb-4 pt-2 border-b ml-4 mr-4 border-gray-200">
                     <h3 class="text-lg font-bold text-gray-800">Edit Doujin</h3>
                     <button id="closeEditModal" type="button" class="text-gray-400 hover:text-gray-900" aria-label="Close Edit Modal">
@@ -399,6 +452,7 @@
                             <label class="block">
                                 <span class="block mb-2 text-red-600 font-medium">Author</span>
                                 <select
+                                  id="doujinAuthorSelect"
                                   name="author"
                                   class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
                                 >
@@ -410,6 +464,130 @@
                                     @endforeach
                                 </select>
                             </label>
+
+                            <div class="block space-y-4 self-start">
+                                <label class="block">
+                                    <span class="block mb-2 text-red-600 font-medium">New Tags</span>
+                                    <input
+                                      type="text"
+                                      name="new_tags"
+                                      value="{{ $currentNewTags }}"
+                                      class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
+                                    />
+                                </label>
+
+                                <div class="block relative">
+                                    <span class="block mb-2 text-red-600 font-medium">Tags</span>
+                                    <input
+                                      type="hidden"
+                                      name="tags"
+                                      id="doujinTagsInput"
+                                      value="{{ $currentTagNames->implode(',') }}"
+                                    />
+                                    <button id="doujinTagDropdownButton" type="button"
+                                            class="w-full min-h-[2.5rem] px-3 py-2 border rounded-sm bg-white text-left flex flex-wrap items-center gap-2">
+                                        <div id="doujinSelectedTags" class="flex flex-wrap gap-2 flex-1">
+                                            @if($currentTagNames->isEmpty())
+                                                <span class="text-gray-900 font-medium text-sm">Select Tags</span>
+                                            @else
+                                                @foreach($currentTagNames as $tag)
+                                                    <span class="px-3 py-2 rounded-[0.2rem] bg-gray-200 text-gray-900 text-sm flex items-center transition-all duration-200 ease-in-out">
+                                                        {{ $tag }}
+                                                        <span role="button" tabindex="0"
+                                                              data-remove-doujin-tag="{{ $tag }}"
+                                                              class="ml-2 cursor-pointer text-gray-500 hover:text-gray-800 select-none">
+                                                            &times;
+                                                        </span>
+                                                    </span>
+                                                @endforeach
+                                            @endif
+                                        </div>
+                                        <svg class="pointer-events-none h-3 w-3 text-gray-400" xmlns="http://www.w3.org/2000/svg"
+                                             fill="none" viewBox="0 0 24 24" stroke-width="4" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                                        </svg>
+                                    </button>
+                                    <div id="doujinTagDropdownMenu"
+                                         class="absolute left-0 w-full bg-white border rounded-sm shadow-lg hidden z-50 max-h-[400px] overflow-y-auto">
+                                        <div class="p-2 sticky top-0 bg-white border-b border-gray-100">
+                                            <input
+                                              id="doujinTagSearch"
+                                              type="search"
+                                              placeholder="Search tags"
+                                              class="w-full rounded-sm border border-gray-200 px-3 py-2 text-sm bg-gray-100 focus:outline-none focus:ring-2 focus:ring-red-600 text-gray-800 font-medium"
+                                            />
+                                        </div>
+                                        <ul id="doujinTagOptions">
+                                            @foreach($tagOptions as $tagName)
+                                                <li class="px-1.5 py-[1px] cursor-pointer text-gray-900 font-medium text-sm transition-all duration-200 ease-in-out bg-white"
+                                                    data-doujin-tag-name="{{ $tagName }}">
+                                                    <span class="block w-full h-full px-3 py-2 rounded-[0.2rem] transition-all duration-200 ease-in-out hover:bg-red-600 hover:text-white hover:font-semibold">
+                                                        {{ $tagName }}
+                                                    </span>
+                                                </li>
+                                            @endforeach
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="block space-y-4">
+                                <label class="block">
+                                    <span class="block mb-2 text-red-600 font-medium">Twitter</span>
+                                    <input
+                                      type="text"
+                                      id="authorTwitterUrl"
+                                      name="author_twitter_url"
+                                      value="{{ $currentTwitterUrl ?? '' }}"
+                                      class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
+                                    />
+                                </label>
+
+                                <label class="block">
+                                    <span class="block mb-2 text-red-600 font-medium">Patreon</span>
+                                    <input
+                                      type="text"
+                                      id="authorPatreonUrl"
+                                      name="author_patreon_url"
+                                      value="{{ $currentPatreonUrl ?? '' }}"
+                                      class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
+                                    />
+                                </label>
+
+                                <label class="block">
+                                    <span class="block mb-2 text-red-600 font-medium">Fanbox</span>
+                                    <input
+                                      type="text"
+                                      id="authorFanboxUrl"
+                                      name="author_fanbox_url"
+                                      value="{{ $currentFanboxUrl ?? '' }}"
+                                      class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
+                                    />
+                                </label>
+
+                                <label class="block">
+                                    <span class="block mb-2 text-red-600 font-medium">Pixiv</span>
+                                    <input
+                                      type="text"
+                                      id="authorPixivUrl"
+                                      name="author_pixiv_url"
+                                      value="{{ $currentPixivUrl ?? '' }}"
+                                      class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
+                                    />
+                                </label>
+
+                                <label class="block">
+                                    <span class="block mb-2 text-red-600 font-medium">Source</span>
+                                    <select
+                                      name="doujin_source"
+                                      class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
+                                    >
+                                        <option value="" {{ empty($currentDoujinSource) ? 'selected' : '' }}>None</option>
+                                        <option value="official" {{ $currentDoujinSource === 'official' ? 'selected' : '' }}>Official</option>
+                                        <option value="unofficial" {{ $currentDoujinSource === 'unofficial' ? 'selected' : '' }}>Unofficial</option>
+                                    </select>
+                                </label>
+                            </div>
                         </div>
                     </form>
                 </div>
@@ -654,6 +832,7 @@
                 const cancelUploadBtn = document.getElementById('cancelMediaContentUploadModal');
                 const openCreateBtn  = document.getElementById('openInlineCreateCollection');
                 const closeCreateBtn = document.getElementById('closeCreateModal');
+                const editForm       = document.getElementById('editEntryForm');
                 const createForm     = document.getElementById('collectionCreateForm');
                 const listContainer  = document.getElementById('collectionCheckboxList');
                 const mediaContentUploadForm = document.getElementById('mediaContentUploadForm');
@@ -667,6 +846,19 @@
                 const uploadCompleteRoute = @json($contentUploadCompleteRoute);
                 const uploadChunkSizeBytes = 8 * 1024 * 1024;
                 let currentUploadSession = null;
+                const doujinTagDropdownButton = document.getElementById('doujinTagDropdownButton');
+                const doujinTagDropdownMenu = document.getElementById('doujinTagDropdownMenu');
+                const doujinSelectedTags = document.getElementById('doujinSelectedTags');
+                const doujinTagsInput = document.getElementById('doujinTagsInput');
+                const doujinTagSearch = document.getElementById('doujinTagSearch');
+                const doujinTagOptions = document.getElementById('doujinTagOptions');
+                let selectedDoujinTags = @json($currentTagNames->values()->all());
+                const doujinAuthorLinks = @json($allAuthorLinks ?? []);
+                const doujinAuthorSelect = document.getElementById('doujinAuthorSelect');
+                const authorTwitterUrl = document.getElementById('authorTwitterUrl');
+                const authorPatreonUrl = document.getElementById('authorPatreonUrl');
+                const authorFanboxUrl = document.getElementById('authorFanboxUrl');
+                const authorPixivUrl = document.getElementById('authorPixivUrl');
                 const shouldOpenEditModal = @json(session('open_edit_doujin_modal', false));
                 const shouldOpenUploadModal = @json(session('open_media_content_upload_modal', false));
 
@@ -722,6 +914,16 @@
                     resetUploadState();
                     unlockBody();
                 };
+                const fillAuthorLinkFields = (authorName) => {
+                    const links = doujinAuthorLinks[authorName] || {};
+                    if (authorTwitterUrl) authorTwitterUrl.value = links.twitter || '';
+                    if (authorPatreonUrl) authorPatreonUrl.value = links.patreon || '';
+                    if (authorFanboxUrl) authorFanboxUrl.value = links.fanbox || '';
+                    if (authorPixivUrl) authorPixivUrl.value = links.pixiv || '';
+                };
+                doujinAuthorSelect?.addEventListener('change', () => {
+                    fillAuthorLinkFields(doujinAuthorSelect.value);
+                });
                 const syncArchiveName = () => {
                     if (!archiveInput || !archiveName) return;
                     const selectedFile = archiveInput.files?.[0];
@@ -754,6 +956,57 @@
                     submitUploadBtn.classList.toggle('flatGreen', !canReplace);
                     submitUploadBtn.classList.toggle('bg-red-600', canReplace);
                     submitUploadBtn.classList.toggle('hover:bg-red-700', canReplace);
+                };
+                const syncDoujinTagInput = () => {
+                    if (doujinTagsInput) {
+                        doujinTagsInput.value = selectedDoujinTags.join(',');
+                    }
+                };
+                const renderDoujinTags = () => {
+                    if (!doujinSelectedTags) return;
+                    doujinSelectedTags.innerHTML = '';
+                    if (selectedDoujinTags.length === 0) {
+                        const placeholder = document.createElement('span');
+                        placeholder.className = 'text-gray-900 font-medium text-sm';
+                        placeholder.textContent = 'Select Tags';
+                        doujinSelectedTags.appendChild(placeholder);
+                        syncDoujinTagInput();
+                        return;
+                    }
+
+                    selectedDoujinTags.forEach((name) => {
+                        const tagElement = document.createElement('span');
+                        tagElement.className = 'px-3 py-2 rounded-[0.2rem] bg-gray-200 text-gray-900 text-sm flex items-center transition-all duration-200 ease-in-out';
+
+                        const label = document.createElement('span');
+                        label.textContent = name;
+
+                        const removeButton = document.createElement('span');
+                        removeButton.setAttribute('role', 'button');
+                        removeButton.tabIndex = 0;
+                        removeButton.className = 'ml-2 cursor-pointer text-gray-500 hover:text-gray-800 select-none';
+                        removeButton.innerHTML = '&times;';
+                        removeButton.addEventListener('click', (event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            selectedDoujinTags = selectedDoujinTags.filter((tag) => tag !== name);
+                            renderDoujinTags();
+                        });
+
+                        tagElement.appendChild(label);
+                        tagElement.appendChild(removeButton);
+                        doujinSelectedTags.appendChild(tagElement);
+                    });
+
+                    syncDoujinTagInput();
+                };
+                const filterDoujinTags = () => {
+                    if (!doujinTagOptions || !doujinTagSearch) return;
+                    const query = doujinTagSearch.value.trim().toLowerCase();
+                    doujinTagOptions.querySelectorAll('[data-doujin-tag-name]').forEach((item) => {
+                        const name = (item.dataset.doujinTagName || '').toLowerCase();
+                        item.classList.toggle('hidden', query !== '' && !name.includes(query));
+                    });
                 };
                 const setUploadError = (message, canReplace = false) => {
                     if (uploadErrorText) {
@@ -868,6 +1121,38 @@
                 if (shouldOpenEditModal) {
                     showEdit();
                 }
+                if (doujinTagDropdownButton && doujinTagDropdownMenu) {
+                    renderDoujinTags();
+                    doujinTagDropdownButton.addEventListener('click', (event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        doujinTagDropdownMenu.classList.toggle('hidden');
+                        if (!doujinTagDropdownMenu.classList.contains('hidden')) {
+                            doujinTagSearch?.focus();
+                        }
+                    });
+                    doujinTagDropdownMenu.querySelectorAll('[data-doujin-tag-name]').forEach((item) => {
+                        item.addEventListener('click', (event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            const name = item.dataset.doujinTagName || '';
+                            if (name === '') return;
+                            if (selectedDoujinTags.includes(name)) {
+                                selectedDoujinTags = selectedDoujinTags.filter((tag) => tag !== name);
+                            } else {
+                                selectedDoujinTags.push(name);
+                            }
+                            renderDoujinTags();
+                        });
+                    });
+                    doujinTagSearch?.addEventListener('input', filterDoujinTags);
+                    document.addEventListener('click', (event) => {
+                        if (!doujinTagDropdownButton.contains(event.target) && !doujinTagDropdownMenu.contains(event.target)) {
+                            doujinTagDropdownMenu.classList.add('hidden');
+                        }
+                    });
+                }
+                editForm?.addEventListener('submit', syncDoujinTagInput);
 
                 if (openUploadBtn) {
                     openUploadBtn.addEventListener('click', () => {

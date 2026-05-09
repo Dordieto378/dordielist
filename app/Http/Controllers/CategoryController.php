@@ -7,6 +7,7 @@ use App\Models\AnilistGenre;
 use App\Models\AnilistStudio;
 use App\Models\AnilistTag;
 use App\Models\DoujinAuthor;
+use App\Models\DoujinTag;
 use App\Models\Media;
 use App\Models\VnDeveloper;
 use App\Models\VnLanguage;
@@ -93,9 +94,13 @@ class CategoryController extends Controller
         if ($normalized === 'DOUJINS') {
             $q = Media::query()
                 ->where('type', 'doujin')
-                ->with('doujinAuthors:id,name');
+                ->with(['doujinAuthors:id,name', 'doujinTags:id,name']);
 
             $nameOrder = $request->query('name_order', 'none');
+            $selectedSource = strtolower((string) $request->query('source', ''));
+            if (!in_array($selectedSource, ['official', 'unofficial'], true)) {
+                $selectedSource = '';
+            }
 
             $selectedAuthors = $request->query('author', []);
             if (!is_array($selectedAuthors)) {
@@ -105,6 +110,15 @@ class CategoryController extends Controller
 
             foreach ($selectedAuthors as $author) {
                 $q->whereHas('doujinAuthors', fn ($query) => $query->where('name', $author));
+            }
+
+            if ($selectedSource !== '') {
+                $q->where('doujin_source', $selectedSource);
+            }
+
+            $selectedTags = array_values(array_filter(array_map('trim', explode(',', (string) $request->query('tags', '')))));
+            foreach ($selectedTags as $tag) {
+                $q->whereHas('doujinTags', fn ($query) => $query->where('name', $tag));
             }
 
             $titleExpr = 'COALESCE(NULLIF(title_romaji,""), NULLIF(title_english,""), NULLIF(title_native,""), slug)';
@@ -121,7 +135,21 @@ class CategoryController extends Controller
             $perPage = 40;
             $p = $q->paginate($perPage)->appends($request->query());
 
-            $allAuthors = DoujinAuthor::query()
+            $allAuthorRows = DoujinAuthor::query()
+                ->whereHas('media', fn ($query) => $query->where('type', 'doujin'))
+                ->orderBy('name')
+                ->get(['name', 'twitter_url', 'patreon_url', 'fanbox_url', 'pixiv_url']);
+            $allAuthors = $allAuthorRows->pluck('name')->all();
+            $allAuthorLinks = $allAuthorRows
+                ->mapWithKeys(fn (DoujinAuthor $author) => [
+                    $author->name => [
+                        'twitter' => $author->twitter_url,
+                        'patreon' => $author->patreon_url,
+                        'fanbox' => $author->fanbox_url,
+                        'pixiv' => $author->pixiv_url,
+                    ],
+                ]);
+            $allTags = DoujinTag::query()
                 ->whereHas('media', fn ($query) => $query->where('type', 'doujin'))
                 ->orderBy('name')
                 ->pluck('name')
@@ -139,7 +167,11 @@ class CategoryController extends Controller
                 'paginatedMedia' => $p,
                 'nameOrder' => $nameOrder,
                 'allAuthors' => $allAuthors,
+                'allAuthorLinks' => $allAuthorLinks,
                 'selectedAuthors' => $selectedAuthors,
+                'selectedSource' => $selectedSource,
+                'allTags' => $allTags,
+                'selectedTags' => $selectedTags,
             ]);
         }
 

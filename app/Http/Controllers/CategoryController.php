@@ -101,6 +101,10 @@ class CategoryController extends Controller
             if (!in_array($selectedSource, ['official', 'unofficial'], true)) {
                 $selectedSource = '';
             }
+            $selectedDoujinMeta = strtolower((string) $request->query('doujin_meta', ''));
+            if (!in_array($selectedDoujinMeta, ['has_source', 'has_tags', 'has_source_and_tags', 'has_source_or_tags'], true)) {
+                $selectedDoujinMeta = '';
+            }
 
             $selectedAuthors = $request->query('author', []);
             if (!is_array($selectedAuthors)) {
@@ -114,6 +118,20 @@ class CategoryController extends Controller
 
             if ($selectedSource !== '') {
                 $q->where('doujin_source', $selectedSource);
+            }
+
+            if ($selectedDoujinMeta === 'has_source') {
+                $q->whereIn('doujin_source', ['official', 'unofficial']);
+            } elseif ($selectedDoujinMeta === 'has_tags') {
+                $q->has('doujinTags');
+            } elseif ($selectedDoujinMeta === 'has_source_and_tags') {
+                $q->whereIn('doujin_source', ['official', 'unofficial'])
+                    ->has('doujinTags');
+            } elseif ($selectedDoujinMeta === 'has_source_or_tags') {
+                $q->where(function ($query) {
+                    $query->whereIn('doujin_source', ['official', 'unofficial'])
+                        ->orWhereHas('doujinTags');
+                });
             }
 
             $selectedTags = array_values(array_filter(array_map('trim', explode(',', (string) $request->query('tags', '')))));
@@ -170,6 +188,7 @@ class CategoryController extends Controller
                 'allAuthorLinks' => $allAuthorLinks,
                 'selectedAuthors' => $selectedAuthors,
                 'selectedSource' => $selectedSource,
+                'selectedDoujinMeta' => $selectedDoujinMeta,
                 'allTags' => $allTags,
                 'selectedTags' => $selectedTags,
             ]);

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Episode;
 use App\Models\Media;
 use App\Support\EpisodeThumbnailer;
+use App\Support\MediaStoragePath;
 use App\Support\UploadedArchive;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -147,7 +148,7 @@ class EpisodeController extends Controller
         }
 
         $disk = Storage::disk('public');
-        $targetRelDir = strtolower((string) $media->type).'/'.$media->id;
+        $targetRelDir = MediaStoragePath::episodeDirectory($media);
         $createdFiles = [];
         $createdThumbs = [];
         $extractRoot = null;
@@ -158,7 +159,7 @@ class EpisodeController extends Controller
             $videoFiles = $uploadedArchive->listVideoFiles($contentRoot, true);
 
             if ($videoFiles === []) {
-                throw new \RuntimeException('ZIP must contain .mp4 or .webm files.');
+                throw new \RuntimeException('ZIP must contain .mp4, .webm, or .mkv files.');
             }
 
             File::ensureDirectoryExists($disk->path($targetRelDir));
@@ -232,7 +233,7 @@ class EpisodeController extends Controller
 
                 $createdFiles[] = $targetRelPath;
 
-                $thumb = EpisodeThumbnailer::generate($media->id, $episodeNumber, $targetRelPath, $existingEpisode !== null);
+                $thumb = EpisodeThumbnailer::generate($media, $episodeNumber, $targetRelPath, $existingEpisode !== null);
                 if ($thumb !== null && $disk->exists($thumb)) {
                     $createdThumbs[] = $thumb;
                 }
@@ -331,7 +332,7 @@ class EpisodeController extends Controller
         abort_unless(optional($request->user()?->role)->role === 'Admin', 403);
 
         $disk = Storage::disk('public');
-        $targetRelDir = strtolower((string) $media->type).'/'.$media->id;
+        $targetRelDir = MediaStoragePath::episodeDirectory($media);
 
         DB::transaction(function () use ($media) {
             Episode::where('media_fk', $media->id)->delete();
@@ -339,7 +340,7 @@ class EpisodeController extends Controller
             $media->save();
         });
 
-        if ($disk->exists($targetRelDir)) {
+        if ($disk->directoryExists($targetRelDir)) {
             $disk->deleteDirectory($targetRelDir);
         }
 

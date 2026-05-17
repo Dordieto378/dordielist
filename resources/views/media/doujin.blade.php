@@ -6,6 +6,7 @@
         use App\Models\Collection;
         use App\Models\CollectionItem;
         use App\Models\Favorite;
+        use App\Support\DoujinAuthorLinks;
         use Illuminate\Support\Facades\Storage;
 
         $title = $media->title_english
@@ -66,17 +67,14 @@
         $currentAuthor = old('author', $authors->first());
         $currentAuthorRecord = $media->doujinAuthors->firstWhere('name', $currentAuthor)
             ?: $media->doujinAuthors->first();
-        $currentTwitterUrl = old('author_twitter_url', $currentAuthorRecord?->twitter_url);
-        $currentPatreonUrl = old('author_patreon_url', $currentAuthorRecord?->patreon_url);
-        $currentFanboxUrl = old('author_fanbox_url', $currentAuthorRecord?->fanbox_url);
-        $currentPixivUrl = old('author_pixiv_url', $currentAuthorRecord?->pixiv_url);
+        $doujinAuthorLinkValues = fn (string $field, mixed $default = null) => DoujinAuthorLinks::urls(old($field, $default)) ?: [''];
+        $currentTwitterUrls = $doujinAuthorLinkValues('author_twitter_url', $currentAuthorRecord?->twitter_url);
+        $currentPatreonUrls = $doujinAuthorLinkValues('author_patreon_url', $currentAuthorRecord?->patreon_url);
+        $currentFanboxUrls = $doujinAuthorLinkValues('author_fanbox_url', $currentAuthorRecord?->fanbox_url);
+        $currentPixivUrls = $doujinAuthorLinkValues('author_pixiv_url', $currentAuthorRecord?->pixiv_url);
         $currentDoujinSource = old('doujin_source', $media->doujin_source);
-        $doujinLinks = collect([
-            'Twitter' => $currentAuthorRecord?->twitter_url,
-            'Patreon' => $currentAuthorRecord?->patreon_url,
-            'Fanbox' => $currentAuthorRecord?->fanbox_url,
-            'Pixiv' => $currentAuthorRecord?->pixiv_url,
-        ])->filter();
+        $currentDoujinLanguage = old('doujin_language', $media->doujin_language);
+        $doujinLinks = collect(DoujinAuthorLinks::displayRows($currentAuthorRecord));
         $isAdmin = optional(auth()->user()?->role)->role === 'Admin';
         $contentUploadRoute = route('chapters.upload', ['media' => $media->id]);
         $contentUploadChunkRoute = route('chapters.upload.chunk', ['media' => $media->id]);
@@ -246,12 +244,12 @@
                             @if($doujinLinks->isEmpty())
                                 N/A
                             @else
-                                @foreach($doujinLinks as $label => $url)
-                                    <a href="{{ $url }}"
+                                @foreach($doujinLinks as $link)
+                                    <a href="{{ $link['url'] }}"
                                        target="_blank"
                                        rel="noopener noreferrer"
                                        class="text-blue-600 hover:underline cursor-pointer">
-                                        {{ $label }}
+                                        {{ $link['label'] }}
                                     </a>@if(!$loop->last), @endif
                                 @endforeach
                             @endif
@@ -509,7 +507,7 @@
                                     </button>
                                     <div id="doujinTagDropdownMenu"
                                          class="absolute left-0 w-full bg-white border rounded-sm shadow-lg hidden z-50 max-h-[400px] overflow-y-auto">
-                                        <div class="p-2 sticky top-0 bg-white border-b border-gray-100">
+                                        <div class="p-2 sticky top-0 z-10 bg-white border-b border-gray-100">
                                             <input
                                               id="doujinTagSearch"
                                               type="search"
@@ -532,49 +530,40 @@
                             </div>
 
                             <div class="block space-y-4">
-                                <label class="block">
-                                    <span class="block mb-2 text-red-600 font-medium">Twitter</span>
-                                    <input
-                                      type="text"
-                                      id="authorTwitterUrl"
-                                      name="author_twitter_url"
-                                      value="{{ $currentTwitterUrl ?? '' }}"
-                                      class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
-                                    />
-                                </label>
-
-                                <label class="block">
-                                    <span class="block mb-2 text-red-600 font-medium">Patreon</span>
-                                    <input
-                                      type="text"
-                                      id="authorPatreonUrl"
-                                      name="author_patreon_url"
-                                      value="{{ $currentPatreonUrl ?? '' }}"
-                                      class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
-                                    />
-                                </label>
-
-                                <label class="block">
-                                    <span class="block mb-2 text-red-600 font-medium">Fanbox</span>
-                                    <input
-                                      type="text"
-                                      id="authorFanboxUrl"
-                                      name="author_fanbox_url"
-                                      value="{{ $currentFanboxUrl ?? '' }}"
-                                      class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
-                                    />
-                                </label>
-
-                                <label class="block">
-                                    <span class="block mb-2 text-red-600 font-medium">Pixiv</span>
-                                    <input
-                                      type="text"
-                                      id="authorPixivUrl"
-                                      name="author_pixiv_url"
-                                      value="{{ $currentPixivUrl ?? '' }}"
-                                      class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
-                                    />
-                                </label>
+                                @foreach([
+                                    'author_twitter_url' => ['label' => 'Twitter', 'values' => $currentTwitterUrls],
+                                    'author_patreon_url' => ['label' => 'Patreon', 'values' => $currentPatreonUrls],
+                                    'author_fanbox_url' => ['label' => 'Fanbox', 'values' => $currentFanboxUrls],
+                                    'author_pixiv_url' => ['label' => 'Pixiv', 'values' => $currentPixivUrls],
+                                ] as $field => $linkField)
+                                    <div class="block" data-author-link-group data-field-name="{{ $field }}" data-label="{{ $linkField['label'] }}">
+                                        <span class="block mb-2 text-red-600 font-medium">{{ $linkField['label'] }}</span>
+                                        <div class="space-y-2" data-author-link-list>
+                                            @foreach($linkField['values'] as $url)
+                                                <div class="flex items-center gap-2" data-author-link-row>
+                                                    <input
+                                                      type="text"
+                                                      name="{{ $field }}[]"
+                                                      value="{{ $url }}"
+                                                      class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
+                                                    />
+                                                    <button type="button"
+                                                            data-add-author-link
+                                                            aria-label="Add {{ $linkField['label'] }} link"
+                                                            class="shrink-0 rounded-md border border-gray-200 bg-gray-100 px-3 py-2 text-base font-bold text-red-600 hover:bg-red-600 hover:text-white">
+                                                        +
+                                                    </button>
+                                                    <button type="button"
+                                                            data-remove-author-link
+                                                            aria-label="Remove {{ $linkField['label'] }} link"
+                                                            class="hidden shrink-0 rounded-md border border-gray-200 bg-gray-100 px-3 py-2 text-base font-bold text-gray-500 hover:bg-gray-200">
+                                                        &times;
+                                                    </button>
+                                                </div>
+                                            @endforeach
+                                        </div>
+                                    </div>
+                                @endforeach
 
                                 <label class="block">
                                     <span class="block mb-2 text-red-600 font-medium">Source</span>
@@ -585,6 +574,18 @@
                                         <option value="" {{ empty($currentDoujinSource) ? 'selected' : '' }}>None</option>
                                         <option value="official" {{ $currentDoujinSource === 'official' ? 'selected' : '' }}>Official</option>
                                         <option value="unofficial" {{ $currentDoujinSource === 'unofficial' ? 'selected' : '' }}>Unofficial</option>
+                                    </select>
+                                </label>
+
+                                <label class="block">
+                                    <span class="block mb-2 text-red-600 font-medium">Language</span>
+                                    <select
+                                      name="doujin_language"
+                                      class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
+                                    >
+                                        <option value="" {{ empty($currentDoujinLanguage) ? 'selected' : '' }}>None</option>
+                                        <option value="japanese" {{ $currentDoujinLanguage === 'japanese' ? 'selected' : '' }}>Japanese</option>
+                                        <option value="english" {{ $currentDoujinLanguage === 'english' ? 'selected' : '' }}>English</option>
                                     </select>
                                 </label>
                             </div>
@@ -855,12 +856,67 @@
                 let selectedDoujinTags = @json($currentTagNames->values()->all());
                 const doujinAuthorLinks = @json($allAuthorLinks ?? []);
                 const doujinAuthorSelect = document.getElementById('doujinAuthorSelect');
-                const authorTwitterUrl = document.getElementById('authorTwitterUrl');
-                const authorPatreonUrl = document.getElementById('authorPatreonUrl');
-                const authorFanboxUrl = document.getElementById('authorFanboxUrl');
-                const authorPixivUrl = document.getElementById('authorPixivUrl');
+                const doujinAuthorLinkGroups = document.querySelectorAll('#editEntryForm [data-author-link-group]');
                 const shouldOpenEditModal = @json(session('open_edit_doujin_modal', false));
                 const shouldOpenUploadModal = @json(session('open_media_content_upload_modal', false));
+
+                const normalizeAuthorLinkValues = (values) => {
+                    if (Array.isArray(values)) {
+                        return values.map((value) => String(value || '').trim()).filter(Boolean);
+                    }
+
+                    if (typeof values === 'string') {
+                        return values.split(/\r?\n/).map((value) => value.trim()).filter(Boolean);
+                    }
+
+                    return [];
+                };
+
+                const refreshAuthorLinkGroupButtons = (group) => {
+                    const rows = group.querySelectorAll('[data-author-link-row]');
+                    rows.forEach((row, index) => {
+                        row.querySelector('[data-add-author-link]')?.classList.toggle('hidden', index !== rows.length - 1);
+                        row.querySelector('[data-remove-author-link]')?.classList.toggle('hidden', rows.length <= 1);
+                    });
+                };
+
+                const appendAuthorLinkRow = (group, value = '') => {
+                    const list = group.querySelector('[data-author-link-list]');
+                    const template = list?.querySelector('[data-author-link-row]');
+                    if (!list || !template) return;
+
+                    const row = template.cloneNode(true);
+                    const input = row.querySelector('input');
+                    if (input) {
+                        input.value = value;
+                        input.name = `${group.dataset.fieldName}[]`;
+                    }
+
+                    list.appendChild(row);
+                    refreshAuthorLinkGroupButtons(group);
+                };
+
+                const setAuthorLinkGroupValues = (group, values) => {
+                    const list = group.querySelector('[data-author-link-list]');
+                    const template = list?.querySelector('[data-author-link-row]');
+                    if (!list || !template) return;
+
+                    const normalized = normalizeAuthorLinkValues(values);
+                    list.innerHTML = '';
+                    (normalized.length ? normalized : ['']).forEach((value) => {
+                        const row = template.cloneNode(true);
+                        const input = row.querySelector('input');
+                        if (input) {
+                            input.value = value;
+                            input.name = `${group.dataset.fieldName}[]`;
+                        }
+                        list.appendChild(row);
+                    });
+
+                    refreshAuthorLinkGroupButtons(group);
+                };
+
+                doujinAuthorLinkGroups.forEach((group) => refreshAuthorLinkGroupButtons(group));
 
                 const lockBody = () => document.body.classList.add('overflow-hidden');
                 const unlockBody = () => {
@@ -916,13 +972,37 @@
                 };
                 const fillAuthorLinkFields = (authorName) => {
                     const links = doujinAuthorLinks[authorName] || {};
-                    if (authorTwitterUrl) authorTwitterUrl.value = links.twitter || '';
-                    if (authorPatreonUrl) authorPatreonUrl.value = links.patreon || '';
-                    if (authorFanboxUrl) authorFanboxUrl.value = links.fanbox || '';
-                    if (authorPixivUrl) authorPixivUrl.value = links.pixiv || '';
+                    const keyByField = {
+                        author_twitter_url: 'twitter',
+                        author_patreon_url: 'patreon',
+                        author_fanbox_url: 'fanbox',
+                        author_pixiv_url: 'pixiv',
+                    };
+
+                    doujinAuthorLinkGroups.forEach((group) => {
+                        setAuthorLinkGroupValues(group, links[keyByField[group.dataset.fieldName]] || []);
+                    });
                 };
                 doujinAuthorSelect?.addEventListener('change', () => {
                     fillAuthorLinkFields(doujinAuthorSelect.value);
+                });
+                editForm?.addEventListener('click', (event) => {
+                    const addButton = event.target.closest('[data-add-author-link]');
+                    const removeButton = event.target.closest('[data-remove-author-link]');
+
+                    if (addButton) {
+                        const group = addButton.closest('[data-author-link-group]');
+                        if (group) appendAuthorLinkRow(group);
+                    }
+
+                    if (removeButton) {
+                        const group = removeButton.closest('[data-author-link-group]');
+                        const row = removeButton.closest('[data-author-link-row]');
+                        if (group && row && group.querySelectorAll('[data-author-link-row]').length > 1) {
+                            row.remove();
+                            refreshAuthorLinkGroupButtons(group);
+                        }
+                    }
                 });
                 const syncArchiveName = () => {
                     if (!archiveInput || !archiveName) return;
@@ -971,6 +1051,7 @@
                         placeholder.textContent = 'Select Tags';
                         doujinSelectedTags.appendChild(placeholder);
                         syncDoujinTagInput();
+                        updateDoujinTagOptionStyles();
                         return;
                     }
 
@@ -999,6 +1080,19 @@
                     });
 
                     syncDoujinTagInput();
+                    updateDoujinTagOptionStyles();
+                };
+                const updateDoujinTagOptionStyles = () => {
+                    if (!doujinTagOptions) return;
+
+                    doujinTagOptions.querySelectorAll('[data-doujin-tag-name]').forEach((item) => {
+                        const span = item.querySelector('span');
+                        if (!span) return;
+
+                        const isSelected = selectedDoujinTags.includes(item.dataset.doujinTagName || '');
+                        span.classList.toggle('bg-gray-300', isSelected);
+                        span.classList.toggle('text-gray-700', isSelected);
+                    });
                 };
                 const filterDoujinTags = () => {
                     if (!doujinTagOptions || !doujinTagSearch) return;

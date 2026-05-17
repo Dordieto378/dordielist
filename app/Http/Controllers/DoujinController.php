@@ -8,6 +8,7 @@ use App\Models\DoujinAuthor;
 use App\Models\DoujinTag;
 use App\Models\Media;
 use App\Support\DoujinFolderIndex;
+use App\Support\DoujinAuthorLinks;
 use App\Support\MediaMetadataSyncer;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -73,12 +74,7 @@ class DoujinController extends Controller
         $allAuthors = $allAuthorRows->pluck('name');
         $allAuthorLinks = $allAuthorRows
             ->mapWithKeys(fn (DoujinAuthor $author) => [
-                $author->name => [
-                    'twitter' => $author->twitter_url,
-                    'patreon' => $author->patreon_url,
-                    'fanbox' => $author->fanbox_url,
-                    'pixiv' => $author->pixiv_url,
-                ],
+                $author->name => DoujinAuthorLinks::payload($author),
             ]);
         $allTags = DoujinTag::query()
             ->orderBy('name')
@@ -113,11 +109,16 @@ class DoujinController extends Controller
             'author' => ['nullable', 'string', 'max:255'],
             'tags' => ['nullable', 'string'],
             'new_tags' => ['nullable', 'string'],
-            'author_twitter_url' => ['nullable', 'string', 'max:2048'],
-            'author_patreon_url' => ['nullable', 'string', 'max:2048'],
-            'author_fanbox_url' => ['nullable', 'string', 'max:2048'],
-            'author_pixiv_url' => ['nullable', 'string', 'max:2048'],
+            'author_twitter_url' => ['nullable', 'array'],
+            'author_twitter_url.*' => ['nullable', 'string', 'max:2048'],
+            'author_patreon_url' => ['nullable', 'array'],
+            'author_patreon_url.*' => ['nullable', 'string', 'max:2048'],
+            'author_fanbox_url' => ['nullable', 'array'],
+            'author_fanbox_url.*' => ['nullable', 'string', 'max:2048'],
+            'author_pixiv_url' => ['nullable', 'array'],
+            'author_pixiv_url.*' => ['nullable', 'string', 'max:2048'],
             'doujin_source' => ['nullable', 'in:official,unofficial'],
+            'doujin_language' => ['nullable', 'in:japanese,english'],
         ]);
 
         if ($validator->fails()) {
@@ -148,6 +149,7 @@ class DoujinController extends Controller
         $media->title_romaji = $titleRomaji;
         $media->title_native = $titleNative;
         $media->doujin_source = $this->trimToNull($data['doujin_source'] ?? null);
+        $media->doujin_language = $this->trimToNull($data['doujin_language'] ?? null);
         $media->slug = $this->makeUniqueMediaSlug(
             $media,
             $titleRomaji ?: ($titleEnglish ?: ($titleNative ?: ($media->slug ?: 'doujin-'.$media->id)))
@@ -336,11 +338,16 @@ class DoujinController extends Controller
             'new_author' => ['nullable', 'string', 'max:255'],
             'tags' => ['nullable', 'string'],
             'new_tags' => ['nullable', 'string'],
-            'author_twitter_url' => ['nullable', 'string', 'max:2048'],
-            'author_patreon_url' => ['nullable', 'string', 'max:2048'],
-            'author_fanbox_url' => ['nullable', 'string', 'max:2048'],
-            'author_pixiv_url' => ['nullable', 'string', 'max:2048'],
+            'author_twitter_url' => ['nullable', 'array'],
+            'author_twitter_url.*' => ['nullable', 'string', 'max:2048'],
+            'author_patreon_url' => ['nullable', 'array'],
+            'author_patreon_url.*' => ['nullable', 'string', 'max:2048'],
+            'author_fanbox_url' => ['nullable', 'array'],
+            'author_fanbox_url.*' => ['nullable', 'string', 'max:2048'],
+            'author_pixiv_url' => ['nullable', 'array'],
+            'author_pixiv_url.*' => ['nullable', 'string', 'max:2048'],
             'doujin_source' => ['nullable', 'in:official,unofficial'],
+            'doujin_language' => ['nullable', 'in:japanese,english'],
         ]);
 
         if ($validator->fails()) {
@@ -388,6 +395,7 @@ class DoujinController extends Controller
             $media->title_romaji = $titleRomaji;
             $media->title_native = $titleNative;
             $media->doujin_source = $this->trimToNull($data['doujin_source'] ?? null);
+            $media->doujin_language = $this->trimToNull($data['doujin_language'] ?? null);
             $media->slug = $this->makeUniqueMediaSlug(
                 $media,
                 $titleRomaji ?: ($titleEnglish ?: ($titleNative ?: 'doujin'))
@@ -939,10 +947,10 @@ class DoujinController extends Controller
     private function syncDoujinAuthorLinks(array $authorNames, array $data, bool $clearMissing = true): void
     {
         $links = [
-            'twitter_url' => $this->trimToNull($data['author_twitter_url'] ?? null),
-            'patreon_url' => $this->trimToNull($data['author_patreon_url'] ?? null),
-            'fanbox_url' => $this->trimToNull($data['author_fanbox_url'] ?? null),
-            'pixiv_url' => $this->trimToNull($data['author_pixiv_url'] ?? null),
+            'twitter_url' => DoujinAuthorLinks::store($data['author_twitter_url'] ?? null),
+            'patreon_url' => DoujinAuthorLinks::store($data['author_patreon_url'] ?? null),
+            'fanbox_url' => DoujinAuthorLinks::store($data['author_fanbox_url'] ?? null),
+            'pixiv_url' => DoujinAuthorLinks::store($data['author_pixiv_url'] ?? null),
         ];
 
         if (!$clearMissing) {

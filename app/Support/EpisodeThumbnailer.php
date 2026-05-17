@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\Media;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\Process\Process;
 
@@ -10,7 +11,7 @@ class EpisodeThumbnailer
     /**
      * Generate (or reuse) a thumbnail for an episode video stored on the public disk.
      */
-    public static function generate(int $mediaId, int $episodeNumber, string $videoRelPath, bool $force = false): ?string
+    public static function generate(Media|int $media, int $episodeNumber, string $videoRelPath, bool $force = false): ?string
     {
         $disk = Storage::disk('public');
         $videoRelPath = ltrim($videoRelPath, '/');
@@ -19,7 +20,9 @@ class EpisodeThumbnailer
             return null;
         }
 
-        $thumbRelDir = "episode-thumbs/{$mediaId}";
+        $thumbRelDir = $media instanceof Media
+            ? MediaStoragePath::thumbnailDirectory($media)
+            : "episode-thumbs/{$media}";
         $thumbRelPath = "{$thumbRelDir}/ep-{$episodeNumber}.jpg";
         $outputPath = $disk->path($thumbRelPath);
 

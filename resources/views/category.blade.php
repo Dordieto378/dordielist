@@ -3,7 +3,9 @@
 @section('content')
 @php
 use Illuminate\Support\Str;
+use App\Support\DoujinAuthorLinks;
 $isViewer = optional(auth()->user()?->role)->role === 'Viewer';
+$doujinAuthorLinkValues = fn (string $field, mixed $default = null) => DoujinAuthorLinks::urls(old($field, $default)) ?: [''];
 
 if (!function_exists('shortTitle')) {
     function shortTitle($title, $maxLen = 25) {
@@ -65,6 +67,21 @@ if (!function_exists('shortTitle')) {
                     </div>
 
                     {{-- *** NEW *** Author drop-down – identical markup used elsewhere --}}
+                    <div class="relative mb-4">
+                        <label class="block text-sm font-medium text-gray-900 mb-2">LANGUAGE</label>
+                        <select name="doujin_language" onchange="redirectWithFilters()"
+                                class="appearance-none w-full px-3 py-2 border rounded-sm focus:border-red-600
+                                    focus:outline-none focus:ring-2 focus:ring-red-600 h-[2.5rem] text-gray-900 font-medium">
+                            <option value="" {{ empty($selectedLanguage ?? '') ? 'selected' : '' }}>All</option>
+                            <option value="japanese" {{ ($selectedLanguage ?? '') === 'japanese' ? 'selected' : '' }}>Japanese</option>
+                            <option value="english" {{ ($selectedLanguage ?? '') === 'english' ? 'selected' : '' }}>English</option>
+                        </select>
+                        <svg class="pointer-events-none absolute right-3 top-1/2 transform -translate-y-1/2 h-3 w-3 text-gray-400 mt-3.5"
+                            xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="4" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                        </svg>
+                    </div>
+
                     <div class="relative mb-4">
                         <label class="block text-sm font-medium text-gray-900 mb-2">AUTHOR</label>
 
@@ -626,6 +643,7 @@ if (!function_exists('shortTitle')) {
                             ->unique(fn ($tag) => mb_strtolower($tag))
                             ->values();
                         $addDoujinSource = old('doujin_source', '');
+                        $addDoujinLanguage = old('doujin_language', '');
                     @endphp
 
                     <div class="grid grid-cols-2 gap-4">
@@ -729,7 +747,7 @@ if (!function_exists('shortTitle')) {
                                 </button>
                                 <div id="addDoujinTagDropdownMenu"
                                      class="absolute left-0 w-full bg-white border rounded-sm shadow-lg hidden z-50 max-h-[400px] overflow-y-auto">
-                                    <div class="p-2 sticky top-0 bg-white border-b border-gray-100">
+                                    <div class="p-2 sticky top-0 z-10 bg-white border-b border-gray-100">
                                         <input
                                           id="addDoujinTagSearch"
                                           type="search"
@@ -778,49 +796,40 @@ if (!function_exists('shortTitle')) {
                         </div>
 
                         <div class="block space-y-4">
-                            <label class="block">
-                                <span class="block mb-2 text-red-600 font-medium">Twitter</span>
-                                <input
-                                  type="text"
-                                  id="addDoujinAuthorTwitterUrl"
-                                  name="author_twitter_url"
-                                  value="{{ old('author_twitter_url') }}"
-                                  class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
-                                />
-                            </label>
-
-                            <label class="block">
-                                <span class="block mb-2 text-red-600 font-medium">Patreon</span>
-                                <input
-                                  type="text"
-                                  id="addDoujinAuthorPatreonUrl"
-                                  name="author_patreon_url"
-                                  value="{{ old('author_patreon_url') }}"
-                                  class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
-                                />
-                            </label>
-
-                            <label class="block">
-                                <span class="block mb-2 text-red-600 font-medium">Fanbox</span>
-                                <input
-                                  type="text"
-                                  id="addDoujinAuthorFanboxUrl"
-                                  name="author_fanbox_url"
-                                  value="{{ old('author_fanbox_url') }}"
-                                  class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
-                                />
-                            </label>
-
-                            <label class="block">
-                                <span class="block mb-2 text-red-600 font-medium">Pixiv</span>
-                                <input
-                                  type="text"
-                                  id="addDoujinAuthorPixivUrl"
-                                  name="author_pixiv_url"
-                                  value="{{ old('author_pixiv_url') }}"
-                                  class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
-                                />
-                            </label>
+                            @foreach([
+                                'author_twitter_url' => 'Twitter',
+                                'author_patreon_url' => 'Patreon',
+                                'author_fanbox_url' => 'Fanbox',
+                                'author_pixiv_url' => 'Pixiv',
+                            ] as $field => $label)
+                                <div class="block" data-author-link-group data-field-name="{{ $field }}" data-label="{{ $label }}">
+                                    <span class="block mb-2 text-red-600 font-medium">{{ $label }}</span>
+                                    <div class="space-y-2" data-author-link-list>
+                                        @foreach($doujinAuthorLinkValues($field) as $url)
+                                            <div class="flex items-center gap-2" data-author-link-row>
+                                                <input
+                                                  type="text"
+                                                  name="{{ $field }}[]"
+                                                  value="{{ $url }}"
+                                                  class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
+                                                />
+                                                <button type="button"
+                                                        data-add-author-link
+                                                        aria-label="Add {{ $label }} link"
+                                                        class="shrink-0 rounded-md border border-gray-200 bg-gray-100 px-3 py-2 text-base font-bold text-red-600 hover:bg-red-600 hover:text-white">
+                                                    +
+                                                </button>
+                                                <button type="button"
+                                                        data-remove-author-link
+                                                        aria-label="Remove {{ $label }} link"
+                                                        class="hidden shrink-0 rounded-md border border-gray-200 bg-gray-100 px-3 py-2 text-base font-bold text-gray-500 hover:bg-gray-200">
+                                                    &times;
+                                                </button>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                </div>
+                            @endforeach
 
                             <label class="block">
                                 <span class="block mb-2 text-red-600 font-medium">Source</span>
@@ -831,6 +840,18 @@ if (!function_exists('shortTitle')) {
                                     <option value="" {{ empty($addDoujinSource) ? 'selected' : '' }}>None</option>
                                     <option value="official" {{ $addDoujinSource === 'official' ? 'selected' : '' }}>Official</option>
                                     <option value="unofficial" {{ $addDoujinSource === 'unofficial' ? 'selected' : '' }}>Unofficial</option>
+                                </select>
+                            </label>
+
+                            <label class="block">
+                                <span class="block mb-2 text-red-600 font-medium">Language</span>
+                                <select
+                                  name="doujin_language"
+                                  class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
+                                >
+                                    <option value="" {{ empty($addDoujinLanguage) ? 'selected' : '' }}>None</option>
+                                    <option value="japanese" {{ $addDoujinLanguage === 'japanese' ? 'selected' : '' }}>Japanese</option>
+                                    <option value="english" {{ $addDoujinLanguage === 'english' ? 'selected' : '' }}>English</option>
                                 </select>
                             </label>
                         </div>
@@ -1076,6 +1097,7 @@ function redirectWithFilters () {
     const year       = document.querySelector('select[name="year"]')?.value ?? '';
     const era        = document.querySelector('select[name="era"]')?.value ?? '';
     const doujinSource = document.querySelector('select[name="doujin_source"]')?.value ?? '';
+    const doujinLanguage = document.querySelector('select[name="doujin_language"]')?.value ?? '';
 
     const qp = new URLSearchParams();
     if (tags)        qp.append('tags',        tags);
@@ -1087,6 +1109,7 @@ function redirectWithFilters () {
     if (year)        qp.append('year',        year);
     if (era)         qp.append('era',         era);
     if (doujinSource) qp.append('source',     doujinSource);
+    if (doujinLanguage) qp.append('language', doujinLanguage);
 
     if (yearOrder  !== 'none') qp.append('year_order',  yearOrder);
     if (titleOrder !== 'none') qp.append('title_order', titleOrder);
@@ -1203,17 +1226,82 @@ const addDoujinTagChipTemplate = document.getElementById('addDoujinTagChipTempla
 let selectedAddDoujinTags = @json(isset($addDoujinSelectedTags) ? $addDoujinSelectedTags->values()->all() : []);
 const addDoujinAuthorLinks = @json($allAuthorLinks ?? []);
 const addDoujinExistingAuthor = document.getElementById('addDoujinExistingAuthor');
-const addDoujinAuthorTwitterUrl = document.getElementById('addDoujinAuthorTwitterUrl');
-const addDoujinAuthorPatreonUrl = document.getElementById('addDoujinAuthorPatreonUrl');
-const addDoujinAuthorFanboxUrl = document.getElementById('addDoujinAuthorFanboxUrl');
-const addDoujinAuthorPixivUrl = document.getElementById('addDoujinAuthorPixivUrl');
+const addDoujinAuthorLinkGroups = document.querySelectorAll('#addDoujinForm [data-author-link-group]');
+
+function normalizeAuthorLinkValues(values) {
+    if (Array.isArray(values)) {
+        return values.map((value) => String(value || '').trim()).filter(Boolean);
+    }
+
+    if (typeof values === 'string') {
+        return values.split(/\r?\n/).map((value) => value.trim()).filter(Boolean);
+    }
+
+    return [];
+}
+
+function refreshAuthorLinkGroupButtons(group) {
+    const rows = group.querySelectorAll('[data-author-link-row]');
+    rows.forEach((row, index) => {
+        row.querySelector('[data-add-author-link]')?.classList.toggle('hidden', index !== rows.length - 1);
+        row.querySelector('[data-remove-author-link]')?.classList.toggle('hidden', rows.length <= 1);
+    });
+}
+
+function appendAuthorLinkRow(group, value = '') {
+    const list = group.querySelector('[data-author-link-list]');
+    const template = list?.querySelector('[data-author-link-row]');
+    if (!list || !template) return;
+
+    const row = template.cloneNode(true);
+    const input = row.querySelector('input');
+    if (input) {
+        input.value = value;
+        input.name = `${group.dataset.fieldName}[]`;
+    }
+
+    list.appendChild(row);
+    refreshAuthorLinkGroupButtons(group);
+}
+
+function setAuthorLinkGroupValues(group, values) {
+    const list = group.querySelector('[data-author-link-list]');
+    const template = list?.querySelector('[data-author-link-row]');
+    if (!list || !template) return;
+
+    const normalized = normalizeAuthorLinkValues(values);
+    list.innerHTML = '';
+    const rowValues = normalized.length ? normalized : [''];
+
+    rowValues.forEach((value) => {
+        const row = template.cloneNode(true);
+        const input = row.querySelector('input');
+        if (input) {
+            input.value = value;
+            input.name = `${group.dataset.fieldName}[]`;
+        }
+        list.appendChild(row);
+    });
+
+    refreshAuthorLinkGroupButtons(group);
+}
+
+function initAuthorLinkGroups(groups) {
+    groups.forEach((group) => refreshAuthorLinkGroupButtons(group));
+}
 
 function fillAddDoujinAuthorLinkFields(authorName) {
     const links = addDoujinAuthorLinks[authorName] || {};
-    if (addDoujinAuthorTwitterUrl) addDoujinAuthorTwitterUrl.value = links.twitter || '';
-    if (addDoujinAuthorPatreonUrl) addDoujinAuthorPatreonUrl.value = links.patreon || '';
-    if (addDoujinAuthorFanboxUrl) addDoujinAuthorFanboxUrl.value = links.fanbox || '';
-    if (addDoujinAuthorPixivUrl) addDoujinAuthorPixivUrl.value = links.pixiv || '';
+    const keyByField = {
+        author_twitter_url: 'twitter',
+        author_patreon_url: 'patreon',
+        author_fanbox_url: 'fanbox',
+        author_pixiv_url: 'pixiv',
+    };
+
+    addDoujinAuthorLinkGroups.forEach((group) => {
+        setAuthorLinkGroupValues(group, links[keyByField[group.dataset.fieldName]] || []);
+    });
 }
 
 function syncAddDoujinTagInput() {
@@ -1232,6 +1320,7 @@ function renderAddDoujinTags() {
         placeholder.textContent = 'Select Tags';
         addDoujinSelectedTags.appendChild(placeholder);
         syncAddDoujinTagInput();
+        updateAddDoujinTagOptionStyles();
         return;
     }
 
@@ -1257,6 +1346,20 @@ function renderAddDoujinTags() {
     });
 
     syncAddDoujinTagInput();
+    updateAddDoujinTagOptionStyles();
+}
+
+function updateAddDoujinTagOptionStyles() {
+    if (!addDoujinTagOptions) return;
+
+    addDoujinTagOptions.querySelectorAll('[data-add-doujin-tag-name]').forEach((item) => {
+        const span = item.querySelector('span');
+        if (!span) return;
+
+        const isSelected = selectedAddDoujinTags.includes(item.dataset.addDoujinTagName || '');
+        span.classList.toggle('bg-gray-300', isSelected);
+        span.classList.toggle('text-gray-700', isSelected);
+    });
 }
 
 function filterAddDoujinTags() {
@@ -1397,6 +1500,25 @@ async function completeDoujinUpload(session, file, token) {
 openAddDoujinModalButton?.addEventListener('click', () => setAddDoujinModal(true));
 closeAddDoujinModalButton?.addEventListener('click', () => setAddDoujinModal(false));
 cancelAddDoujinModalButton?.addEventListener('click', () => setAddDoujinModal(false));
+initAuthorLinkGroups(addDoujinAuthorLinkGroups);
+addDoujinForm?.addEventListener('click', (event) => {
+    const addButton = event.target.closest('[data-add-author-link]');
+    const removeButton = event.target.closest('[data-remove-author-link]');
+
+    if (addButton) {
+        const group = addButton.closest('[data-author-link-group]');
+        if (group) appendAuthorLinkRow(group);
+    }
+
+    if (removeButton) {
+        const group = removeButton.closest('[data-author-link-group]');
+        const row = removeButton.closest('[data-author-link-row]');
+        if (group && row && group.querySelectorAll('[data-author-link-row]').length > 1) {
+            row.remove();
+            refreshAuthorLinkGroupButtons(group);
+        }
+    }
+});
 addDoujinExistingAuthor?.addEventListener('change', () => {
     fillAddDoujinAuthorLinkFields(addDoujinExistingAuthor.value);
 });

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Chapter;
 use App\Models\ChapterPage;
 use App\Models\Media;
+use App\Support\MediaStoragePath;
 use App\Support\UploadedArchive;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -153,7 +154,7 @@ class ChapterController extends Controller
         }
 
         $disk = Storage::disk('public');
-        $targetRelRoot = $mediaType.'/'.$media->id;
+        $targetRelRoot = MediaStoragePath::chapterDirectory($media);
         $createdFiles = [];
         $createdDirectories = [];
         $extractRoot = null;
@@ -419,7 +420,7 @@ class ChapterController extends Controller
         abort_unless(optional($request->user()?->role)->role === 'Admin', 403);
 
         $disk = Storage::disk('public');
-        $targetRelRoot = $mediaType.'/'.$media->id;
+        $targetRelRoot = MediaStoragePath::chapterDirectory($media);
         $preservedCoverPath = null;
 
         if ($mediaType === 'doujin') {
@@ -466,7 +467,7 @@ class ChapterController extends Controller
             $media->save();
         });
 
-        if ($disk->exists($targetRelRoot)) {
+        if ($disk->directoryExists($targetRelRoot)) {
             $disk->deleteDirectory($targetRelRoot);
         }
 

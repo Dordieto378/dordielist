@@ -16,6 +16,8 @@ class Kernel extends ConsoleKernel
         \App\Console\Commands\ImportAniList::class,
         \App\Console\Commands\ImportDoujin::class,
         \App\Console\Commands\GenerateEpisodeThumbnails::class,
+        \App\Console\Commands\StabilizeEpisodeStorage::class,
+        \App\Console\Commands\StabilizeChapterStorage::class,
     ];
 
     /**

@@ -9,6 +9,7 @@ use App\Models\AnilistTag;
 use App\Models\DoujinAuthor;
 use App\Models\DoujinTag;
 use App\Models\Media;
+use App\Support\DoujinAuthorLinks;
 use App\Models\VnDeveloper;
 use App\Models\VnLanguage;
 use App\Models\VnTag;
@@ -101,6 +102,10 @@ class CategoryController extends Controller
             if (!in_array($selectedSource, ['official', 'unofficial'], true)) {
                 $selectedSource = '';
             }
+            $selectedLanguage = strtolower((string) $request->query('language', ''));
+            if (!in_array($selectedLanguage, ['japanese', 'english'], true)) {
+                $selectedLanguage = '';
+            }
             $selectedAuthors = $request->query('author', []);
             if (!is_array($selectedAuthors)) {
                 $selectedAuthors = array_filter(array_map('trim', explode(',', (string) $selectedAuthors)));
@@ -113,6 +118,10 @@ class CategoryController extends Controller
 
             if ($selectedSource !== '') {
                 $q->where('doujin_source', $selectedSource);
+            }
+
+            if ($selectedLanguage !== '') {
+                $q->where('doujin_language', $selectedLanguage);
             }
 
             $selectedTags = array_values(array_filter(array_map('trim', explode(',', (string) $request->query('tags', '')))));
@@ -141,12 +150,7 @@ class CategoryController extends Controller
             $allAuthors = $allAuthorRows->pluck('name')->all();
             $allAuthorLinks = $allAuthorRows
                 ->mapWithKeys(fn (DoujinAuthor $author) => [
-                    $author->name => [
-                        'twitter' => $author->twitter_url,
-                        'patreon' => $author->patreon_url,
-                        'fanbox' => $author->fanbox_url,
-                        'pixiv' => $author->pixiv_url,
-                    ],
+                    $author->name => DoujinAuthorLinks::payload($author),
                 ]);
             $allTags = DoujinTag::query()
                 ->whereHas('media', fn ($query) => $query->where('type', 'doujin'))
@@ -169,6 +173,7 @@ class CategoryController extends Controller
                 'allAuthorLinks' => $allAuthorLinks,
                 'selectedAuthors' => $selectedAuthors,
                 'selectedSource' => $selectedSource,
+                'selectedLanguage' => $selectedLanguage,
                 'allTags' => $allTags,
                 'selectedTags' => $selectedTags,
             ]);

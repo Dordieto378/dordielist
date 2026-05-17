@@ -4,8 +4,10 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Validator;
+use App\Models\DoujinTag;
 use App\Models\User;
 use App\Models\Role;
 
@@ -166,6 +168,124 @@ class SettingsController extends Controller
 
         return redirect()
             ->route('settings.users');
+    }
+
+    public function doujinTags(Request $request)
+    {
+        $this->abortIfViewer();
+
+        $query = trim((string) $request->query('q', ''));
+
+        $tags = DoujinTag::query()
+            ->withCount('media')
+            ->when($query !== '', fn ($builder) => $builder->where('name', 'like', '%'.$query.'%'))
+            ->orderBy('name')
+            ->paginate(50)
+            ->withQueryString();
+
+        return view('settings.doujin-tags', [
+            'tags' => $tags,
+            'query' => $query,
+        ]);
+    }
+
+    public function storeDoujinTag(Request $request)
+    {
+        $this->abortIfViewer();
+        $request->merge(['name' => trim((string) $request->input('name'))]);
+
+        $validator = Validator::make($request->all(), [
+            'name' => ['required', 'string', 'max:255', Rule::unique('doujin_tags', 'name')],
+        ]);
+
+        if ($validator->fails()) {
+            return redirect()
+                ->route('settings.doujin-tags')
+                ->withInput()
+                ->with('status', $validator->errors()->first())
+                ->with('status_color', 'red');
+        }
+
+        $name = trim($validator->validated()['name']);
+
+        DoujinTag::create([
+            'name' => $name,
+            'slug' => $this->makeUniqueDoujinTagSlug($name),
+        ]);
+
+        return redirect()
+            ->route('settings.doujin-tags')
+            ->with('status', 'Doujin tag added.')
+            ->with('status_color', 'green');
+    }
+
+    public function updateDoujinTag(Request $request, DoujinTag $doujinTag)
+    {
+        $this->abortIfViewer();
+        $request->merge(['name' => trim((string) $request->input('name'))]);
+
+        $validator = Validator::make($request->all(), [
+            'name' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('doujin_tags', 'name')->ignore($doujinTag->id),
+            ],
+        ]);
+
+        if ($validator->fails()) {
+            return redirect()
+                ->route('settings.doujin-tags', $request->only('q', 'page'))
+                ->withInput()
+                ->with('editing_tag_id', $doujinTag->id)
+                ->with('status', $validator->errors()->first())
+                ->with('status_color', 'red');
+        }
+
+        $name = trim($validator->validated()['name']);
+
+        $doujinTag->name = $name;
+        $doujinTag->slug = $this->makeUniqueDoujinTagSlug($name, $doujinTag);
+        $doujinTag->save();
+
+        return redirect()
+            ->route('settings.doujin-tags', $request->only('q', 'page'))
+            ->with('status', 'Doujin tag updated.')
+            ->with('status_color', 'green');
+    }
+
+    public function destroyDoujinTag(Request $request, DoujinTag $doujinTag)
+    {
+        $this->abortIfViewer();
+
+        $doujinTag->delete();
+
+        return redirect()
+            ->route('settings.doujin-tags', $request->only('q', 'page'))
+            ->with('status', 'Doujin tag deleted.')
+            ->with('status_color', 'green');
+    }
+
+    private function makeUniqueDoujinTagSlug(string $name, ?DoujinTag $tag = null): ?string
+    {
+        $base = Str::slug($name);
+        if ($base === '') {
+            return null;
+        }
+
+        $slug = $base;
+        $index = 2;
+
+        while (
+            DoujinTag::query()
+                ->where('slug', $slug)
+                ->when($tag?->exists, fn ($query) => $query->whereKeyNot($tag->getKey()))
+                ->exists()
+        ) {
+            $slug = $base.'-'.$index++;
+        }
+
+        return $slug;
     }
 
 }

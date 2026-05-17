@@ -204,6 +204,8 @@ class AnilistSyncService
             if ($seenIds !== []) {
                 $deleted = Media::where('source', 'anilist')
                     ->whereNotIn('source_id', $seenIds)
+                    ->whereNotIn('id', DB::table('episodes')->whereNotNull('media_fk')->select('media_fk'))
+                    ->whereNotIn('id', DB::table('chapters')->whereNotNull('media_fk')->select('media_fk'))
                     ->delete();
             }
 

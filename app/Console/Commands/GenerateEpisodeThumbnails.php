@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\Episode;
+use App\Models\Media;
 use App\Support\EpisodeThumbnailer;
 use Illuminate\Console\Command;
 
@@ -42,9 +43,15 @@ class GenerateEpisodeThumbnails extends Command
         $bar->start();
 
         $query->chunkById(100, function ($episodes) use (&$generated, &$failed, $force, $bar) {
+            $mediaById = Media::whereIn('id', $episodes->pluck('media_fk')->filter()->unique())
+                ->get()
+                ->keyBy('id');
+
             foreach ($episodes as $ep) {
+                $media = $mediaById->get($ep->media_fk);
+
                 $thumb = EpisodeThumbnailer::generate(
-                    (int) $ep->media_fk,
+                    $media ?: (int) $ep->media_fk,
                     (int) $ep->episode_number,
                     (string) $ep->file_path,
                     $force
@@ -69,4 +76,3 @@ class GenerateEpisodeThumbnails extends Command
         return self::SUCCESS;
     }
 }
-

@@ -76,7 +76,7 @@ class UploadedArchive
 
     public function listVideoFiles(string $path, bool $recursive = false): array
     {
-        return $this->listFilesByExtension($path, ['mp4', 'webm'], $recursive);
+        return $this->listFilesByExtension($path, ['mp4', 'webm', 'mkv'], $recursive);
     }
 
     public function sanitizePathSegment(string $value, string $fallback): string

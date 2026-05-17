@@ -123,6 +123,12 @@ Route::middleware('auth')->group(function () {
         Route::get('/users', [SettingsController::class, 'users'])->name('users');
         Route::put('/users/{user}', [SettingsController::class, 'updateManagedUser'])->name('users.update');
 
+        // Doujin tags
+        Route::get('/doujin-tags', [SettingsController::class, 'doujinTags'])->name('doujin-tags');
+        Route::post('/doujin-tags', [SettingsController::class, 'storeDoujinTag'])->name('doujin-tags.store');
+        Route::put('/doujin-tags/{doujinTag}', [SettingsController::class, 'updateDoujinTag'])->name('doujin-tags.update');
+        Route::delete('/doujin-tags/{doujinTag}', [SettingsController::class, 'destroyDoujinTag'])->name('doujin-tags.destroy');
+
         // Security / 2FA
         Route::view('/security', 'settings.security')->name('security');
     });

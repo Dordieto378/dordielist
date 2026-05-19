@@ -14,6 +14,15 @@
               ?? $media->title_native
               ?? $media->slug
               ?? 'No Title';
+        $romajiTitle = $media->title_romaji;
+        $englishTitle = $media->title_english;
+        $nativeTitle = $media->title_native;
+        $showRomajiTitle = filled($romajiTitle) && (
+            blank($englishTitle)
+                ? $romajiTitle !== $title
+                : $romajiTitle !== $englishTitle
+        );
+        $showNativeTitle = filled($nativeTitle) && $nativeTitle !== $title;
 
         $type = 'DOUJIN';
 
@@ -219,11 +228,15 @@
                 <div class="flex flex-col justify-start ml-8 mt-4 md:mt-2 text-gray-900 font-medium">
                     <h1 class="text-2xl font-bold text-red-600 mb-2">{{ $title }}</h1>
                     <div class="grid grid-cols-[7rem,1fr] gap-x-3 gap-y-4 text-sm mt-2 mb-2">
-                        <div>Romaji</div>
-                        <div>{{ $media->title_romaji ?? 'N/A' }}</div>
+                        @if($showRomajiTitle)
+                            <div>Romaji</div>
+                            <div>{{ $romajiTitle }}</div>
+                        @endif
 
-                        <div>Native</div>
-                        <div>{{ $media->title_native ?? 'N/A' }}</div>
+                        @if($showNativeTitle)
+                            <div>Native</div>
+                            <div>{{ $nativeTitle }}</div>
+                        @endif
 
                         <div>Author</div>
                         <div>

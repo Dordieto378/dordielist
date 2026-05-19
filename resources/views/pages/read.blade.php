@@ -74,6 +74,20 @@
   body.reader-mode footer {
     display: none !important;
   }
+  body.reader-mode,
+  body.reader-mode .doujin-reader,
+  body.reader-mode .doujin-scroll-stack,
+  body.reader-mode .doujin-fixed-page,
+  body.reader-mode img {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+  body.reader-mode img {
+    -webkit-user-drag: none;
+    user-drag: none;
+  }
   body.reader-mode.reader-fixed {
     overflow: hidden;
   }
@@ -272,9 +286,25 @@
   .doujin-scroll-stack img {
     display: block;
   }
+  .reader-fullscreen-btn [data-fullscreen-exit] {
+    display: none;
+  }
+  .reader-fullscreen-btn.is-fullscreen [data-fullscreen-enter] {
+    display: none;
+  }
+  .reader-fullscreen-btn.is-fullscreen [data-fullscreen-exit] {
+    display: block;
+  }
 </style>
 
-<div class="{{ $isFixedView ? 'doujin-reader fixed-mode' : 'flex flex-col items-center py-[4rem] mt-12' }}">
+<div
+  data-reader-root
+  data-reader-protected
+  data-reader-kind="doujin"
+  data-reader-fixed="{{ $isFixedView ? '1' : '0' }}"
+  data-reader-view="{{ $view }}"
+  class="doujin-reader {{ $isFixedView ? 'fixed-mode' : 'flex flex-col items-center py-[4rem] mt-12' }}"
+>
   <div class="{{ $isFixedView ? 'doujin-reader-frame bg-white space-y-6' : 'w-[1280px] bg-white shadow-sm rounded-md p-6 ml-[0.5rem] space-y-6' }}">
     <div class="{{ $isFixedView ? 'doujin-topbar relative flex items-center' : 'relative flex items-center mb-4' }}">
       <div class="flex-1">
@@ -325,6 +355,27 @@
         $baseParams = ['doujin' => $doujin->id];
       @endphp
       <div class="flex-1 flex justify-end space-x-4">
+        <button
+          type="button"
+          class="reader-fullscreen-btn mr-6 p-2 rounded bg-gray-200 text-gray-700 transition hover:bg-white hover:text-black"
+          data-fullscreen-toggle
+          aria-label="Enter fullscreen"
+          title="Fullscreen"
+        >
+          <span class="sr-only">Fullscreen</span>
+          <svg data-fullscreen-enter xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M8 3H3v5" />
+            <path d="M16 3h5v5" />
+            <path d="M21 16v5h-5" />
+            <path d="M3 16v5h5" />
+          </svg>
+          <svg data-fullscreen-exit xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M9 3v6H3" />
+            <path d="M15 3v6h6" />
+            <path d="M15 21v-6h6" />
+            <path d="M9 21v-6H3" />
+          </svg>
+        </button>
         <a
           href="{{ route('media.doujin.page', array_merge($baseParams, ['page' => $pageNumber, 'view' => 'scroll'])) }}"
           class="p-2 rounded {{ $view === 'scroll' ? 'bg-gray-800 text-white' : 'bg-gray-200 text-gray-700' }} transition hover:bg-white hover:text-black"
@@ -372,6 +423,7 @@
                 src="{{ $url }}"
                 alt="Page {{ $p->page_number }}"
                 class="zoomable block w-full h-auto object-contain mx-auto"
+                draggable="false"
             >
             </div>
         @endif
@@ -391,6 +443,7 @@
                     src="{{ $singleUrl }}"
                     alt="Page {{ $pageNumber }}"
                     class="{{ $isFixedView ? 'doujin-fixed-img z-10' : 'zoomable w-full h-auto object-contain mx-auto z-10' }}"
+                    draggable="false"
                 >
 
                 @if($next)
@@ -441,6 +494,7 @@
             src="{{ $singleSpreadUrl }}"
             alt="Page {{ $singleSpreadNum }}"
             class="{{ $isFixedView ? 'doujin-fixed-img z-10' : 'zoomable w-full h-auto object-contain mx-auto z-10' }}"
+            draggable="false"
           >
         @else
           <div class="{{ $isFixedView ? 'doujin-fixed-double' : 'flex justify-center space-x-2' }}">
@@ -450,6 +504,7 @@
                   src="{{ $leftUrl }}"
                   alt="Page {{ $leftNum }}"
                   class="{{ $isFixedView ? 'doujin-fixed-img' : 'zoomable h-auto object-contain mx-auto' }}"
+                  draggable="false"
               >
               </div>
           @endif
@@ -459,6 +514,7 @@
                   src="{{ $rightUrl }}"
                   alt="Page {{ $rightNum }}"
                   class="{{ $isFixedView ? 'doujin-fixed-img' : 'zoomable h-auto object-contain mx-auto' }}"
+                  draggable="false"
               >
               </div>
           @endif
@@ -608,70 +664,211 @@
 </div>
 
 <script>
-  const zoomEnabled = @json($view === 'scroll');
-  const isFixedView = @json($isFixedView);
-  let zoomLevel = parseFloat(localStorage.getItem('doujinZoom')) || 1.0;
+  (() => {
+    const fullscreenElement = () => document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement;
+    const supportsFullscreen = () => document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen || document.documentElement.msRequestFullscreen;
+    const readerRoot = () => document.querySelector('[data-reader-root]');
+    const isReaderUrl = (url) => url.origin === window.location.origin
+      && url.searchParams.has('view')
+      && (/\/chapters\//.test(url.pathname) || /\/page\/\d+/.test(url.pathname));
+    const zoomEnabled = () => {
+      const root = readerRoot();
+      return root && root.dataset.readerView === 'scroll';
+    };
 
-  function updateZoom() {
-    if (!zoomEnabled) return;
-    document.querySelectorAll('.zoomable').forEach(img => {
-      if (!img.dataset.originalHeight) {
-        img.dataset.originalHeight = img.clientHeight;
+    let zoomLevel = parseFloat(localStorage.getItem('doujinZoom')) || 1.0;
+    let navigating = false;
+
+    function updateZoom() {
+      if (!zoomEnabled()) return;
+      document.querySelectorAll('.zoomable').forEach(img => {
+        if (!img.dataset.originalHeight) {
+          img.dataset.originalHeight = img.clientHeight;
+        }
+        const originalPx = parseFloat(img.dataset.originalHeight);
+        const newMaxPx = originalPx * zoomLevel;
+        img.style.maxHeight = newMaxPx + 'px';
+        img.style.width = 'auto';
+      });
+      localStorage.setItem('doujinZoom', zoomLevel);
+    }
+
+    function zoomIn() {
+      if (!zoomEnabled()) return;
+      zoomLevel = Math.min(zoomLevel + 0.05, 1.0);
+      updateZoom();
+    }
+
+    function zoomOut() {
+      if (!zoomEnabled()) return;
+      zoomLevel = Math.max(zoomLevel - 0.05, 0.2);
+      updateZoom();
+    }
+
+    const syncFullscreenButtons = () => {
+      const isFullscreen = Boolean(fullscreenElement());
+      document.querySelectorAll('[data-fullscreen-toggle]').forEach((button) => {
+        button.hidden = !supportsFullscreen();
+        button.classList.toggle('is-fullscreen', isFullscreen);
+        button.setAttribute('aria-label', isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen');
+        button.setAttribute('title', isFullscreen ? 'Exit fullscreen' : 'Fullscreen');
+      });
+    };
+
+    const toggleFullscreen = async () => {
+      try {
+        if (fullscreenElement()) {
+          const exitFullscreen = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
+          if (exitFullscreen) {
+            await exitFullscreen.call(document);
+          }
+        } else {
+          const enterFullscreen = document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen || document.documentElement.msRequestFullscreen;
+          if (enterFullscreen) {
+            await enterFullscreen.call(document.documentElement);
+          }
+        }
+      } catch (error) {
+        console.warn('Fullscreen toggle failed', error);
       }
-      const originalPx = parseFloat(img.dataset.originalHeight);
-      const newMaxPx = originalPx * zoomLevel;
-      img.style.maxHeight = newMaxPx + 'px';
-      img.style.width = 'auto';
-    });
-    localStorage.setItem('doujinZoom', zoomLevel);
-  }
+    };
 
-  function zoomIn() {
-    if (!zoomEnabled) return;
-    zoomLevel = Math.min(zoomLevel + 0.05, 1.0);
-    updateZoom();
-  }
-
-  function zoomOut() {
-    if (!zoomEnabled) return;
-    zoomLevel = Math.max(zoomLevel - 0.05, 0.2);
-    updateZoom();
-  }
-
-  document.addEventListener('DOMContentLoaded', () => {
-    if (isFixedView) {
+    const setReaderMode = () => {
+      const root = readerRoot();
       document.body.classList.add('reader-mode');
-      document.body.classList.add('reader-fixed');
+      document.body.classList.toggle('reader-fixed', root && root.dataset.readerFixed === '1');
+    };
+
+    const bindProtectedReader = () => {
+      const protectedReader = document.querySelector('[data-reader-protected]');
+      if (!protectedReader || protectedReader.dataset.readerProtectedBound === '1') return;
+      protectedReader.dataset.readerProtectedBound = '1';
+
+      protectedReader.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+      }, { capture: true });
+
+      protectedReader.addEventListener('dragstart', (e) => {
+        if (e.target instanceof Element && e.target.closest('img')) {
+          e.preventDefault();
+        }
+      }, { capture: true });
+    };
+
+    const initZoom = () => {
+      if (!zoomEnabled()) return;
+      document.querySelectorAll('.zoomable').forEach(img => {
+        img.dataset.originalHeight = img.clientHeight;
+        img.style.removeProperty('max-height');
+        img.style.width = 'auto';
+      });
+      updateZoom();
+    };
+
+    const initReaderPage = () => {
+      setReaderMode();
+      bindProtectedReader();
+      syncFullscreenButtons();
+      initZoom();
+    };
+
+    const navigateReader = async (targetUrl) => {
+      if (!fullscreenElement()) {
+        window.location.replace(targetUrl);
+        return;
+      }
+
+      if (navigating) return;
+      navigating = true;
+
+      try {
+        const response = await fetch(targetUrl, {
+          credentials: 'same-origin',
+          headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        });
+
+        if (!response.ok) {
+          throw new Error(`Reader navigation failed: ${response.status}`);
+        }
+
+        const html = await response.text();
+        const nextDocument = new DOMParser().parseFromString(html, 'text/html');
+        if (!nextDocument.querySelector('[data-reader-root]')) {
+          throw new Error('Response was not a reader page.');
+        }
+
+        document.title = nextDocument.title;
+        document.body.className = nextDocument.body.className;
+        document.body.innerHTML = nextDocument.body.innerHTML;
+        history.replaceState(null, '', response.url || targetUrl);
+        window.scrollTo(0, 0);
+        initReaderPage();
+      } catch (error) {
+        console.warn('Reader fullscreen navigation fell back to a page load', error);
+        window.location.replace(targetUrl);
+      } finally {
+        navigating = false;
+      }
+    };
+
+    if (!window.__readerGlobalEventsBound) {
+      window.__readerGlobalEventsBound = true;
+
+      document.addEventListener('fullscreenchange', syncFullscreenButtons);
+      document.addEventListener('webkitfullscreenchange', syncFullscreenButtons);
+      document.addEventListener('MSFullscreenChange', syncFullscreenButtons);
+
+      document.addEventListener('click', (e) => {
+        const fullscreenButton = e.target.closest('[data-fullscreen-toggle]');
+        if (fullscreenButton) {
+          e.preventDefault();
+          toggleFullscreen();
+          return;
+        }
+
+        const link = e.target.closest('a[href]');
+        if (!link) return;
+        if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+        if (link.target && link.target !== '_self') return;
+
+        let url;
+        try {
+          url = new URL(link.href, window.location.origin);
+        } catch (err) {
+          return;
+        }
+
+        if (!isReaderUrl(url)) return;
+
+        e.preventDefault();
+        navigateReader(url.toString());
+      });
+
+      document.addEventListener('keydown', (e) => {
+        const key = e.key.toLowerCase();
+        const commandKey = e.ctrlKey || e.metaKey;
+
+        if (
+          key === 'f12'
+          || (commandKey && ['s', 'u', 'p'].includes(key))
+          || (commandKey && e.shiftKey && ['i', 'j', 'c'].includes(key))
+        ) {
+          e.preventDefault();
+        }
+      });
     }
-    if (!zoomEnabled) return;
-    document.querySelectorAll('.zoomable').forEach(img => {
-      img.dataset.originalHeight = img.clientHeight;
-      img.style.removeProperty('max-height');
-      img.style.width = 'auto';
-    });
-    updateZoom();
-  });
-  document.addEventListener('click', (e) => {
-    const link = e.target.closest('a[href]');
-    if (!link) return;
-    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-    if (link.target && link.target !== '_self') return;
 
-    let url;
-    try {
-      url = new URL(link.href, window.location.origin);
-    } catch (err) {
-      return;
+    window.zoomIn = zoomIn;
+    window.zoomOut = zoomOut;
+    window.readerInitPage = initReaderPage;
+    window.readerNavigate = navigateReader;
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initReaderPage, { once: true });
+    } else {
+      initReaderPage();
     }
-
-    const isSameOrigin = url.origin === window.location.origin;
-    const hasReaderView = url.searchParams.has('view');
-    const isReaderPath = /\/chapters\//.test(url.pathname) || /\/page\/\d+/.test(url.pathname);
-    if (!(isSameOrigin && hasReaderView && isReaderPath)) return;
-
-    e.preventDefault();
-    window.location.replace(url.toString());
-  });
+  })();
 </script>
 @endsection
 

@@ -20,7 +20,9 @@
         $scoreValue   = $item['score'] ?? request()->query('score');
         $myScore      = (is_numeric($scoreValue) && (int)$scoreValue > 0) ? ((int)$scoreValue).'%' : 'N/A';
         $romajiTitle = $item['title_romaji'] ?? null;
+        $nativeTitle = $item['title_native'] ?? null;
         $showRomajiTitle = filled($romajiTitle) && $romajiTitle !== $title;
+        $showNativeTitle = filled($nativeTitle) && $nativeTitle !== $title;
 
         // use the actual model we passed via fetchVnById()
         $mediaModel = $item['media'] ?? null;
@@ -208,8 +210,10 @@
                         <div>{{ $romajiTitle }}</div>
                     @endif
 
-                    <div>Native</div>
-                    <div>{{ $item['title_native'] ?? 'N/A' }}</div>
+                    @if($showNativeTitle)
+                        <div>Native</div>
+                        <div>{{ $nativeTitle }}</div>
+                    @endif
 
                     <div>Release Year</div>
                     <div>{{ $releaseDate }}</div>

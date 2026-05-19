@@ -137,6 +137,20 @@
         body.reader-mode footer {
             display: none !important;
         }
+        body.reader-mode,
+        body.reader-mode .reader-shell,
+        body.reader-mode .reader-content,
+        body.reader-mode .reader-page,
+        body.reader-mode .reader-img {
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            user-select: none;
+            -webkit-touch-callout: none;
+        }
+        body.reader-mode .reader-img {
+            -webkit-user-drag: none;
+            user-drag: none;
+        }
         .reader-hover-zone {
             position: fixed;
             inset: 0 0 auto 0;
@@ -285,6 +299,18 @@
         .control-btn.active {
             color: #ffffff;
             opacity: 1;
+        }
+        .reader-fullscreen-btn {
+            margin-right: 1.75rem;
+        }
+        .reader-fullscreen-btn [data-fullscreen-exit] {
+            display: none;
+        }
+        .reader-fullscreen-btn.is-fullscreen [data-fullscreen-enter] {
+            display: none;
+        }
+        .reader-fullscreen-btn.is-fullscreen [data-fullscreen-exit] {
+            display: block;
         }
         .reader-page {
             position: relative;
@@ -526,6 +552,25 @@
                     </div>
                 </div>
                 <div class="flex items-center space-x-2 text-white text-sm">
+                    <button type="button"
+                            class="control-btn reader-fullscreen-btn"
+                            data-fullscreen-toggle
+                            aria-label="Enter fullscreen"
+                            title="Fullscreen">
+                        <span class="sr-only">Fullscreen</span>
+                        <svg data-fullscreen-enter xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M8 3H3v5" />
+                            <path d="M16 3h5v5" />
+                            <path d="M21 16v5h-5" />
+                            <path d="M3 16v5h5" />
+                        </svg>
+                        <svg data-fullscreen-exit xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M9 3v6H3" />
+                            <path d="M15 3v6h6" />
+                            <path d="M15 21v-6h6" />
+                            <path d="M9 21v-6H3" />
+                        </svg>
+                    </button>
                     @if(!$isManwha)
                         <a href="{{ route('chapters.page', array_merge($baseParams, ['page' => $pageNumber, 'view' => 'scroll'])) }}"
                            class="control-btn {{ $view === 'scroll' ? 'active' : '' }}"
@@ -559,7 +604,18 @@
         </div>
     </div>
 
-    <div class="reader-shell {{ $isFixedView ? 'reader-shell-fixed' : '' }}">
+    <div
+        data-reader-root
+        data-reader-kind="chapter"
+        data-reader-fixed="{{ $isFixedView ? '1' : '0' }}"
+        data-reader-view="{{ $view }}"
+        data-reader-is-manwha="{{ $isManwha ? '1' : '0' }}"
+        data-reader-next-page="{{ $nextLink ?? '' }}"
+        data-reader-prev-page="{{ $prevLink ?? '' }}"
+        data-reader-next-pair="{{ $nextPairLink ?? '' }}"
+        data-reader-prev-pair="{{ $prevPairLink ?? '' }}"
+        class="reader-shell {{ $isFixedView ? 'reader-shell-fixed' : '' }}"
+    >
         <div class="reader-content space-y-6 {{ $isFixedView ? 'reader-content-fixed' : '' }}">
             {{-- ============== SCROLL MODE ============== --}}
             @if($view === 'scroll')
@@ -577,6 +633,7 @@
                                     src="{{ $url }}"
                                     alt="Page {{ $p->page_number }}"
                                     class="zoomable reader-img"
+                                    draggable="false"
                                 >
                             </div>
                         @endif
@@ -598,6 +655,7 @@
                             src="{{ $singleUrl }}"
                             alt="Page {{ $pageNumber }}"
                             class="zoomable reader-img z-10"
+                            draggable="false"
                         >
 
                         {{-- Half-screen click zones: LEFT = NEXT, RIGHT = PREVIOUS --}}
@@ -647,6 +705,7 @@
                             src="{{ $singleSpreadUrl }}"
                             alt="Page {{ $singleSpreadNum }}"
                             class="zoomable reader-img z-10"
+                            draggable="false"
                         >
                     @else
                         <div class="dual-page dual-full">
@@ -656,6 +715,7 @@
                                         src="{{ $leftUrl }}"
                                         alt="Page {{ $leftNum }}"
                                         class="zoomable reader-img"
+                                        draggable="false"
                                     >
                                 </div>
                             @endif
@@ -666,6 +726,7 @@
                                         src="{{ $rightUrl }}"
                                         alt="Page {{ $rightNum }}"
                                         class="zoomable reader-img"
+                                        draggable="false"
                                     >
                                 </div>
                             @endif
@@ -801,76 +862,223 @@
     </div>
 
     <script>
-        // Arrow keys: flip for Manwha
-        document.addEventListener('keydown', (e) => {
-            const tag = (document.activeElement && document.activeElement.tagName) || '';
-            if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+        (() => {
+            const fullscreenElement = () => document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement;
+            const supportsFullscreen = () => document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen || document.documentElement.msRequestFullscreen;
+            const readerRoot = () => document.querySelector('[data-reader-root]');
+            const isReaderUrl = (url) => url.origin === window.location.origin
+                && url.searchParams.has('view')
+                && (/\/chapters\//.test(url.pathname) || /\/page\/\d+/.test(url.pathname));
 
-            const isDouble = @json($view === 'double');
-            const nextPair = @json($nextPairLink ?? null);
-            const prevPair = @json($prevPairLink ?? null);
-            const nextPage = @json($nextLink ?? null);
-            const prevPage = @json($prevLink ?? null);
-            const isManwha = @json($isManwha);
+            let hoverCount = 0;
+            let navigating = false;
 
-            // Defaults (Manga): LEFT = NEXT, RIGHT = PREV
-            let leftTarget  = isDouble ? (nextPair || nextPage) : nextPage;
-            let rightTarget = isDouble ? (prevPair || prevPage) : prevPage;
+            const syncFullscreenButtons = () => {
+                const isFullscreen = Boolean(fullscreenElement());
+                document.querySelectorAll('[data-fullscreen-toggle]').forEach((button) => {
+                    button.hidden = !supportsFullscreen();
+                    button.classList.toggle('is-fullscreen', isFullscreen);
+                    button.setAttribute('aria-label', isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen');
+                    button.setAttribute('title', isFullscreen ? 'Exit fullscreen' : 'Fullscreen');
+                });
+            };
 
-            // Flip for Manwha: LEFT = PREV, RIGHT = NEXT
-            if (isManwha) {
-                const tmp = leftTarget;
-                leftTarget  = rightTarget;
-                rightTarget = tmp;
+            const toggleFullscreen = async () => {
+                try {
+                    if (fullscreenElement()) {
+                        const exitFullscreen = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
+                        if (exitFullscreen) {
+                            await exitFullscreen.call(document);
+                        }
+                    } else {
+                        const enterFullscreen = document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen || document.documentElement.msRequestFullscreen;
+                        if (enterFullscreen) {
+                            await enterFullscreen.call(document.documentElement);
+                        }
+                    }
+                } catch (error) {
+                    console.warn('Fullscreen toggle failed', error);
+                }
+            };
+
+            const setReaderMode = () => {
+                const root = readerRoot();
+                document.body.classList.add('reader-mode');
+                document.body.classList.toggle('reader-fixed', root && root.dataset.readerFixed === '1');
+            };
+
+            const bindHoverBars = () => {
+                const updateBars = (delta) => {
+                    hoverCount = Math.max(0, hoverCount + delta);
+                    document.body.classList.toggle('reader-bars-visible', hoverCount > 0);
+                };
+
+                [
+                    document.querySelector('.reader-hover-zone'),
+                    document.querySelector('.reader-float-nav'),
+                    document.querySelector('.reader-bottom-hover'),
+                    document.querySelector('.reader-bottom-float'),
+                ].filter(Boolean).forEach((el) => {
+                    if (el.dataset.readerHoverBound === '1') return;
+                    el.dataset.readerHoverBound = '1';
+                    el.addEventListener('mouseenter', () => updateBars(1));
+                    el.addEventListener('mouseleave', () => updateBars(-1));
+                });
+            };
+
+            const bindProtectedReader = () => {
+                const protectedReader = document.querySelector('.reader-shell');
+                if (!protectedReader || protectedReader.dataset.readerProtectedBound === '1') return;
+                protectedReader.dataset.readerProtectedBound = '1';
+
+                protectedReader.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                }, { capture: true });
+
+                protectedReader.addEventListener('dragstart', (e) => {
+                    if (e.target instanceof Element && e.target.closest('img')) {
+                        e.preventDefault();
+                    }
+                }, { capture: true });
+            };
+
+            const initReaderPage = () => {
+                hoverCount = 0;
+                setReaderMode();
+                bindHoverBars();
+                bindProtectedReader();
+                syncFullscreenButtons();
+            };
+
+            const navigateReader = async (targetUrl) => {
+                if (!fullscreenElement()) {
+                    window.location.replace(targetUrl);
+                    return;
+                }
+
+                if (navigating) return;
+                navigating = true;
+
+                try {
+                    const response = await fetch(targetUrl, {
+                        credentials: 'same-origin',
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Reader navigation failed: ${response.status}`);
+                    }
+
+                    const html = await response.text();
+                    const nextDocument = new DOMParser().parseFromString(html, 'text/html');
+                    if (!nextDocument.querySelector('[data-reader-root]')) {
+                        throw new Error('Response was not a reader page.');
+                    }
+
+                    document.title = nextDocument.title;
+                    document.body.className = nextDocument.body.className;
+                    document.body.innerHTML = nextDocument.body.innerHTML;
+                    history.replaceState(null, '', response.url || targetUrl);
+                    window.scrollTo(0, 0);
+                    initReaderPage();
+                } catch (error) {
+                    console.warn('Reader fullscreen navigation fell back to a page load', error);
+                    window.location.replace(targetUrl);
+                } finally {
+                    navigating = false;
+                }
+            };
+
+            const getChapterArrowTarget = (key) => {
+                const root = readerRoot();
+                if (!root || root.dataset.readerKind !== 'chapter') return null;
+
+                const isDouble = root.dataset.readerView === 'double';
+                const isManwha = root.dataset.readerIsManwha === '1';
+                const nextPage = root.dataset.readerNextPage || '';
+                const prevPage = root.dataset.readerPrevPage || '';
+                const nextPair = root.dataset.readerNextPair || '';
+                const prevPair = root.dataset.readerPrevPair || '';
+
+                let leftTarget = isDouble ? (nextPair || nextPage) : nextPage;
+                let rightTarget = isDouble ? (prevPair || prevPage) : prevPage;
+
+                if (isManwha) {
+                    const tmp = leftTarget;
+                    leftTarget = rightTarget;
+                    rightTarget = tmp;
+                }
+
+                if (key === 'ArrowLeft') return leftTarget;
+                if (key === 'ArrowRight') return rightTarget;
+                return null;
+            };
+
+            if (!window.__readerGlobalEventsBound) {
+                window.__readerGlobalEventsBound = true;
+
+                document.addEventListener('fullscreenchange', syncFullscreenButtons);
+                document.addEventListener('webkitfullscreenchange', syncFullscreenButtons);
+                document.addEventListener('MSFullscreenChange', syncFullscreenButtons);
+
+                document.addEventListener('click', (e) => {
+                    const fullscreenButton = e.target.closest('[data-fullscreen-toggle]');
+                    if (fullscreenButton) {
+                        e.preventDefault();
+                        toggleFullscreen();
+                        return;
+                    }
+
+                    const link = e.target.closest('a[href]');
+                    if (!link) return;
+                    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+                    if (link.target && link.target !== '_self') return;
+
+                    let url;
+                    try {
+                        url = new URL(link.href, window.location.origin);
+                    } catch (err) {
+                        return;
+                    }
+
+                    if (!isReaderUrl(url)) return;
+
+                    e.preventDefault();
+                    navigateReader(url.toString());
+                });
+
+                document.addEventListener('keydown', (e) => {
+                    const key = e.key.toLowerCase();
+                    const commandKey = e.ctrlKey || e.metaKey;
+
+                    if (
+                        key === 'f12'
+                        || (commandKey && ['s', 'u', 'p'].includes(key))
+                        || (commandKey && e.shiftKey && ['i', 'j', 'c'].includes(key))
+                    ) {
+                        e.preventDefault();
+                        return;
+                    }
+
+                    const tag = (document.activeElement && document.activeElement.tagName) || '';
+                    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+
+                    const target = getChapterArrowTarget(e.key);
+                    if (!target) return;
+
+                    e.preventDefault();
+                    navigateReader(target);
+                });
             }
 
-            if (e.key === 'ArrowLeft'  && leftTarget)  window.location.replace(leftTarget);
-            if (e.key === 'ArrowRight' && rightTarget) window.location.replace(rightTarget);
-        });
+            window.readerInitPage = initReaderPage;
+            window.readerNavigate = navigateReader;
 
-        // Show top & bottom bars together when hovering either
-        const hoverTargets = [
-            document.querySelector('.reader-hover-zone'),
-            document.querySelector('.reader-float-nav'),
-            document.querySelector('.reader-bottom-hover'),
-            document.querySelector('.reader-bottom-float'),
-        ].filter(Boolean);
-
-        let hoverCount = 0;
-        const updateBars = (delta) => {
-            hoverCount = Math.max(0, hoverCount + delta);
-            if (hoverCount > 0) {
-                document.body.classList.add('reader-bars-visible');
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', initReaderPage, { once: true });
             } else {
-                document.body.classList.remove('reader-bars-visible');
+                initReaderPage();
             }
-        };
-
-        hoverTargets.forEach(el => {
-            el.addEventListener('mouseenter', () => updateBars(1));
-            el.addEventListener('mouseleave', () => updateBars(-1));
-        });
-        document.addEventListener('click', (e) => {
-            const link = e.target.closest('a[href]');
-            if (!link) return;
-            if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-            if (link.target && link.target !== '_self') return;
-
-            let url;
-            try {
-                url = new URL(link.href, window.location.origin);
-            } catch (err) {
-                return;
-            }
-
-            const isSameOrigin = url.origin === window.location.origin;
-            const hasReaderView = url.searchParams.has('view');
-            const isReaderPath = /\/chapters\//.test(url.pathname) || /\/page\/\d+/.test(url.pathname);
-            if (!(isSameOrigin && hasReaderView && isReaderPath)) return;
-
-            e.preventDefault();
-            window.location.replace(url.toString());
-        });
-
+        })();
     </script>
 @endsection

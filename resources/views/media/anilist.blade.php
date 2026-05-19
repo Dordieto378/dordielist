@@ -9,6 +9,7 @@
     use App\Models\Favorite;
     $romajiTitle = $item['title']['romaji'] ?? null;
     $englishTitle = $item['title']['english'] ?? null;
+    $nativeTitle = $item['title']['native'] ?? null;
     $title = $item['title']['english']
           ?? $item['title']['romaji']
           ?? $item['title']['native']
@@ -18,6 +19,7 @@
             ? $romajiTitle !== $title
             : $romajiTitle !== $englishTitle
     );
+    $showNativeTitle = filled($nativeTitle) && $nativeTitle !== $title;
 
     $type = strtoupper($item['type'] ?? '');
 
@@ -298,8 +300,10 @@
                         <div>{{ $romajiTitle }}</div>
                     @endif
 
-                    <div>Native</div>
-                    <div>{{ $item['title']['native'] ?? 'N/A' }}</div>
+                    @if($showNativeTitle)
+                        <div>Native</div>
+                        <div>{{ $nativeTitle }}</div>
+                    @endif
 
                 @if($isChapterBased)
                     <div>Chapters</div>

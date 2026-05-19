@@ -192,10 +192,9 @@ class SettingsController extends Controller
     public function storeDoujinTag(Request $request)
     {
         $this->abortIfViewer();
-        $request->merge(['name' => trim((string) $request->input('name'))]);
 
         $validator = Validator::make($request->all(), [
-            'name' => ['required', 'string', 'max:255', Rule::unique('doujin_tags', 'name')],
+            'name' => ['required', 'string'],
         ]);
 
         if ($validator->fails()) {
@@ -206,16 +205,62 @@ class SettingsController extends Controller
                 ->with('status_color', 'red');
         }
 
-        $name = trim($validator->validated()['name']);
+        $names = $this->parseDoujinTagNames($validator->validated()['name']);
 
-        DoujinTag::create([
-            'name' => $name,
-            'slug' => $this->makeUniqueDoujinTagSlug($name),
-        ]);
+        if ($names === []) {
+            return redirect()
+                ->route('settings.doujin-tags')
+                ->withInput()
+                ->with('status', 'Add at least one tag name.')
+                ->with('status_color', 'red');
+        }
+
+        $tooLongName = collect($names)->first(fn (string $name) => mb_strlen($name) > 255);
+
+        if ($tooLongName !== null) {
+            return redirect()
+                ->route('settings.doujin-tags')
+                ->withInput()
+                ->with('status', "Tag names must not be longer than 255 characters: {$tooLongName}")
+                ->with('status_color', 'red');
+        }
+
+        $existingNames = DoujinTag::query()
+            ->whereIn('name', $names)
+            ->pluck('name')
+            ->map(fn (string $name) => mb_strtolower($name))
+            ->all();
+
+        $existingLookup = array_flip($existingNames);
+        $created = 0;
+
+        foreach ($names as $name) {
+            if (isset($existingLookup[mb_strtolower($name)])) {
+                continue;
+            }
+
+            DoujinTag::create([
+                'name' => $name,
+                'slug' => $this->makeUniqueDoujinTagSlug($name),
+            ]);
+
+            $created++;
+        }
+
+        if ($created === 0) {
+            return redirect()
+                ->route('settings.doujin-tags')
+                ->with('status', 'Those doujin tags already exist.')
+                ->with('status_color', 'red');
+        }
+
+        $message = $created === 1
+            ? 'Doujin tag added.'
+            : "{$created} doujin tags added.";
 
         return redirect()
             ->route('settings.doujin-tags')
-            ->with('status', 'Doujin tag added.')
+            ->with('status', $message)
             ->with('status_color', 'green');
     }
 
@@ -286,6 +331,16 @@ class SettingsController extends Controller
         }
 
         return $slug;
+    }
+
+    private function parseDoujinTagNames(string $value): array
+    {
+        return collect(explode(',', $value))
+            ->map(fn (string $name) => trim($name))
+            ->filter()
+            ->unique(fn (string $name) => mb_strtolower($name))
+            ->values()
+            ->all();
     }
 
 }

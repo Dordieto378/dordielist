@@ -12,23 +12,15 @@
           <div class="flex items-center justify-between gap-4">
             <h1 class="text-2xl font-bold text-red-600">Doujin Tags</h1>
 
-            <form method="GET" action="{{ route('settings.doujin-tags') }}" class="flex items-center gap-2">
+            <div class="flex items-center gap-2">
               <input
                 type="text"
-                name="q"
+                id="doujinTagSearch"
                 value="{{ $query }}"
                 placeholder="Search tags"
                 class="w-64 rounded-md border border-gray-200 py-2 px-3 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
               />
-              <button type="submit" class="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700">
-                Search
-              </button>
-              @if($query !== '')
-                <a href="{{ route('settings.doujin-tags') }}" class="px-4 py-2 rounded-md border border-gray-200 text-gray-700 hover:bg-gray-100">
-                  Clear
-                </a>
-              @endif
-            </form>
+            </div>
           </div>
 
           @if(session('status'))
@@ -40,7 +32,7 @@
           <form method="POST" action="{{ route('settings.doujin-tags.store') }}" class="mt-6 flex items-end gap-3">
             @csrf
             <label class="flex-1" for="newTagName">
-              <span class="block mb-2 text-red-600 font-medium">Add Tag</span>
+              <span class="block mb-2 text-red-600 font-medium">Add Tags</span>
               <input
                 type="text"
                 id="newTagName"
@@ -50,8 +42,15 @@
                 required
               />
             </label>
-            <button type="submit" class="h-11 px-5 rounded-md bg-[#08875b] text-white hover:bg-emerald-700">
-              Add Tag
+            <button
+              type="submit"
+              class="h-10 w-10 shrink-0 inline-flex items-center justify-center rounded-[0.19rem] flatGreen text-white transition-200 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600"
+              aria-label="Add tag"
+              title="Add tag"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 5v14M5 12h14"/>
+              </svg>
             </button>
           </form>
 
@@ -65,14 +64,14 @@
                   <th class="px-4 py-3 font-medium text-gray-800 uppercase tracking-wider text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-gray-200 font-medium">
+              <tbody id="doujinTagRows" class="divide-y divide-gray-200 font-medium">
                 @foreach($tags as $tag)
                   @php
                     $isEditingFailedTag = (int) session('editing_tag_id') === $tag->id;
                     $editFormId = 'editDoujinTagForm'.$tag->id;
                     $deleteFormId = 'deleteDoujinTagForm'.$tag->id;
                   @endphp
-                  <tr>
+                  <tr data-doujin-tag-row data-tag-name="{{ mb_strtolower($tag->name) }}" data-tag-slug="{{ mb_strtolower((string) $tag->slug) }}">
                     <td class="px-4 py-4 align-middle">
                       <form id="{{ $editFormId }}" method="POST" action="{{ route('settings.doujin-tags.update', $tag) }}">
                         @csrf
@@ -123,18 +122,23 @@
                 @endforeach
 
                 @if($tags->isEmpty())
-                  <tr>
+                  <tr id="doujinTagEmptyRow">
                     <td colspan="4" class="px-4 py-6 text-center text-gray-800">
                       No doujin tags found.
                     </td>
                   </tr>
                 @endif
+                <tr id="doujinTagFilterEmptyRow" class="hidden">
+                  <td colspan="4" class="px-4 py-6 text-center text-gray-800">
+                    No matching doujin tags found.
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>
 
           @if($tags->lastPage() > 1)
-            <div class="flex items-center justify-center space-x-2 mt-6">
+            <div id="doujinTagPagination" class="flex items-center justify-center space-x-2 mt-6">
               <span class="text-gray-900 text-lg font-medium">Pages</span>
 
               @if($tags->currentPage() > 1)
@@ -174,4 +178,36 @@
       </main>
     </div>
   </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const search = document.getElementById('doujinTagSearch');
+      const rows = Array.from(document.querySelectorAll('[data-doujin-tag-row]'));
+      const filterEmptyRow = document.getElementById('doujinTagFilterEmptyRow');
+      const baseEmptyRow = document.getElementById('doujinTagEmptyRow');
+      const pagination = document.getElementById('doujinTagPagination');
+
+      if (!search || rows.length === 0) return;
+
+      const filterRows = () => {
+        const query = search.value.trim().toLowerCase();
+        let visibleCount = 0;
+
+        rows.forEach((row) => {
+          const haystack = `${row.dataset.tagName || ''} ${row.dataset.tagSlug || ''}`;
+          const isVisible = query === '' || haystack.includes(query);
+
+          row.classList.toggle('hidden', !isVisible);
+          if (isVisible) visibleCount++;
+        });
+
+        filterEmptyRow?.classList.toggle('hidden', query === '' || visibleCount > 0);
+        baseEmptyRow?.classList.add('hidden');
+        pagination?.classList.toggle('hidden', query !== '');
+      };
+
+      search.addEventListener('input', filterRows);
+      filterRows();
+    });
+  </script>
 @endsection

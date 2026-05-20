@@ -25,6 +25,7 @@
 
     $isEpisodeBased = in_array($type, ['ANIME', 'HENTAI']);
     $isChapterBased = in_array($type, ['MANGA', 'MANWHA']);
+    $isAniListSource = ($item['source'] ?? null) === 'anilist';
 
     $firstEpisode = null;
     if ($isEpisodeBased) {
@@ -118,8 +119,8 @@
 
     $progressFieldLabel = $isEpisodeBased ? 'Episode Progress' : 'Chapter Progress';
     $progressTotal = $isEpisodeBased
-        ? ($item['episodes'] ?? (($localEpisodeCount ?? 0) > 0 ? $localEpisodeCount : null))
-        : ($item['chapters'] ?? (($localChapterCount ?? 0) > 0 ? $localChapterCount : null));
+        ? ($item['episodes'] ?? (!$isAniListSource && ($localEpisodeCount ?? 0) > 0 ? $localEpisodeCount : null))
+        : ($item['chapters'] ?? (!$isAniListSource && ($localChapterCount ?? 0) > 0 ? $localChapterCount : null));
     $progressHardMax = $isEpisodeBased
         ? (($item['episodes'] ?? null) ?: null)
         : (($item['chapters'] ?? null) ?: null);
@@ -308,7 +309,7 @@
                 @if($isChapterBased)
                     <div>Chapters</div>
                     @php
-                        $chapTotal = $item['chapters'] ?? (($localChapterCount ?? 0) > 0 ? $localChapterCount : null);
+                        $chapTotal = $item['chapters'] ?? (!$isAniListSource && ($localChapterCount ?? 0) > 0 ? $localChapterCount : null);
                         $chapProgress  = $item['userProgress'] ?? null;
 
                         if ($chapProgress !== null && $chapProgress > 0) {
@@ -331,7 +332,7 @@
                 @elseif($isEpisodeBased)
                     <div>Episodes</div>
                     @php
-                        $epTotal = $item['episodes'] ?? (($localEpisodeCount ?? 0) > 0 ? $localEpisodeCount : null);
+                        $epTotal = $item['episodes'] ?? (!$isAniListSource && ($localEpisodeCount ?? 0) > 0 ? $localEpisodeCount : null);
                         $epProgress  = $item['userProgress'] ?? null;
 
                         if ($epProgress !== null && $epProgress > 0) {

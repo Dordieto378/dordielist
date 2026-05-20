@@ -384,6 +384,8 @@ GQL;
 
         return [
             'id' => $media->id,
+            'source' => $media->source,
+            'sourceId' => $media->source_id,
             'type' => strtoupper($canonicalType),
             'title' => [
                 'english' => $media->title_english,

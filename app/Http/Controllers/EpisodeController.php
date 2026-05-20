@@ -260,7 +260,9 @@ class EpisodeController extends Controller
                 }
 
                 Episode::insert($rows);
-                $media->episodes_cnt = Episode::where('media_fk', $media->id)->count();
+                if (($media->source ?? null) !== 'anilist') {
+                    $media->episodes_cnt = Episode::where('media_fk', $media->id)->count();
+                }
                 $media->save();
             });
 
@@ -336,7 +338,9 @@ class EpisodeController extends Controller
 
         DB::transaction(function () use ($media) {
             Episode::where('media_fk', $media->id)->delete();
-            $media->episodes_cnt = 0;
+            if (($media->source ?? null) !== 'anilist') {
+                $media->episodes_cnt = 0;
+            }
             $media->save();
         });
 

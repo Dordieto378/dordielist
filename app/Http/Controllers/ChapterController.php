@@ -360,7 +360,9 @@ class ChapterController extends Controller
                     ChapterPage::insert($pageRows);
                 }
 
-                $media->chapters_cnt = Chapter::where('media_fk', $media->id)->count();
+                if (($media->source ?? null) !== 'anilist') {
+                    $media->chapters_cnt = Chapter::where('media_fk', $media->id)->count();
+                }
                 if ($mediaType === 'doujin' && $chapterOneCoverPage !== null) {
                     $media->cover_url = $chapterOneCoverPage;
                 } elseif (($coverNeedsRefresh || !$media->cover_url) && $firstImportedPage !== null) {
@@ -456,7 +458,9 @@ class ChapterController extends Controller
                 Chapter::whereIn('id', $chapterIds)->delete();
             }
 
-            $media->chapters_cnt = 0;
+            if (($media->source ?? null) !== 'anilist') {
+                $media->chapters_cnt = 0;
+            }
 
             if ($mediaType === 'doujin' && $preservedCoverPath !== null) {
                 $media->cover_url = $preservedCoverPath;

@@ -285,7 +285,7 @@ class StabilizeEpisodeStorage extends Command
             ]);
         }
 
-        if (!$dryRun && $created > 0) {
+        if (!$dryRun && $created > 0 && ($media->source ?? null) !== 'anilist') {
             $media->episodes_cnt = Episode::where('media_fk', $media->id)->count();
             $media->save();
         }

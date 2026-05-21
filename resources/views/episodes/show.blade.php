@@ -158,13 +158,26 @@
                     return;
                 }
 
-                if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') {
+                const key = event.key.toLowerCase();
+
+                if (!['arrowleft', 'arrowright', ' ', 'spacebar', 'f'].includes(key)) {
                     return;
                 }
 
                 event.preventDefault();
                 event.stopImmediatePropagation();
-                seekBy(event.key === 'ArrowRight' ? arrowSkipSeconds : -arrowSkipSeconds);
+
+                if (key === 'arrowleft' || key === 'arrowright') {
+                    seekBy(key === 'arrowright' ? arrowSkipSeconds : -arrowSkipSeconds);
+                    return;
+                }
+
+                if (key === ' ' || key === 'spacebar') {
+                    video.paused ? video.play() : video.pause();
+                    return;
+                }
+
+                player?.fullscreen?.toggle();
             }, true);
 
             const updateSkipButtons = () => {

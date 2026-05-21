@@ -221,7 +221,7 @@ video::cue(b) {
   text-transform: none !important;
   transform: translateX(-50%);
   white-space: pre-wrap;
-  z-index: 20;
+  z-index: 2;
 }
 
 .streaming-subtitle-overlay.is-visible {

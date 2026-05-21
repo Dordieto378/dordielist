@@ -1,6 +1,15 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@font-face {
+  font-family: "Netflix Sans";
+  src: url("/fonts/netflix-sans/NetflixSans-Bold.otf") format("opentype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 @layer utilities {
   .custom-scrollbar::-webkit-scrollbar {
       height: 10px; /* Fatter scrollbar height */
@@ -139,6 +148,98 @@
   --plyr-range-thumb-background:   #ffffff;
   --plyr-range-thumb-shadow:       0 0 2px rgba(0,0,0,0.3);
   --plyr-range-thumb-border-radius: 50%;
+}
+
+.plyr video::cue,
+.plyr__video-wrapper video::cue,
+video::cue {
+  color: #fff;
+  background: transparent;
+  font-family: "Netflix Sans", "Helvetica Neue", Arial, Helvetica, sans-serif;
+  font-size: clamp(18px, 2.2vw, 34px);
+  font-weight: 700;
+  line-height: 1.35;
+  text-shadow:
+    0 0 2px #000,
+    0 0 5px #000,
+    1px 1px 2px #000,
+    -1px -1px 2px #000;
+}
+
+.plyr video::cue(b),
+.plyr__video-wrapper video::cue(b),
+video::cue(b) {
+  font-weight: 700;
+}
+
+.plyr__captions {
+  bottom: 7%;
+  padding: 0 1rem;
+}
+
+.plyr__caption {
+  background: transparent !important;
+  box-decoration-break: clone;
+  color: #fff;
+  font-family: "Netflix Sans", "Helvetica Neue", Arial, Helvetica, sans-serif;
+  font-size: clamp(18px, 2.2vw, 34px);
+  font-weight: 700;
+  line-height: 1.35;
+  padding: 0;
+  text-shadow:
+    0 0 2px #000,
+    0 0 5px #000,
+    1px 1px 2px #000,
+    -1px -1px 2px #000;
+  white-space: pre-wrap;
+}
+
+.episode-player-frame .plyr,
+.episode-player-frame .plyr__video-wrapper {
+  position: relative;
+}
+
+.streaming-subtitle-overlay {
+  -webkit-text-stroke: 1.2px #000;
+  bottom: 5%;
+  color: #fff;
+  display: none;
+  font-family: "Netflix Sans", "Helvetica Neue", Arial, Helvetica, sans-serif;
+  font-size: clamp(30px, 3vw, 52px);
+  font-weight: 700;
+  left: 50%;
+  line-height: 1.15;
+  max-width: 86%;
+  pointer-events: none;
+  position: absolute;
+  text-align: center;
+  text-shadow:
+    0 2px 1px #000,
+    2px 0 1px #000,
+    0 -2px 1px #000,
+    -2px 0 1px #000;
+  text-transform: none !important;
+  transform: translateX(-50%);
+  white-space: pre-wrap;
+  z-index: 20;
+}
+
+.streaming-subtitle-overlay.is-visible {
+  display: block;
+}
+
+.streaming-subtitle-overlay.is-top {
+  bottom: auto;
+  top: 7%;
+}
+
+.plyr-arrow-skip-setting {
+  margin: 0;
+}
+
+.plyr-arrow-skip-setting__button,
+.plyr-subtitles-setting__button {
+  width: 100%;
 }
 
 .vn-desc a{ color:#2563eb; text-decoration:none; cursor:pointer }

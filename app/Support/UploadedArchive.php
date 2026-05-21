@@ -115,11 +115,26 @@ class UploadedArchive
             return;
         }
 
-        $command = sprintf(
-            "Expand-Archive -LiteralPath '%s' -DestinationPath '%s' -Force",
-            str_replace("'", "''", $workingZip),
-            str_replace("'", "''", $extractRoot)
-        );
+        $timeout = $this->archiveExtractionTimeout();
+        $tarPath = 'C:\Windows\System32\tar.exe';
+
+        if (is_file($tarPath)) {
+            $process = new Process([
+                $tarPath,
+                '-xf',
+                $workingZip,
+                '-C',
+                $extractRoot,
+            ]);
+            $process->setTimeout($timeout);
+            $process->run();
+
+            if ($process->isSuccessful()) {
+                @unlink($workingZip);
+
+                return;
+            }
+        }
 
         $process = new Process([
             'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe',
@@ -128,9 +143,13 @@ class UploadedArchive
             '-ExecutionPolicy',
             'Bypass',
             '-Command',
-            $command,
+            sprintf(
+                "Expand-Archive -LiteralPath '%s' -DestinationPath '%s' -Force",
+                str_replace("'", "''", $workingZip),
+                str_replace("'", "''", $extractRoot)
+            ),
         ]);
-        $process->setTimeout(120);
+        $process->setTimeout($timeout);
         $process->run();
 
         if (!$process->isSuccessful()) {
@@ -141,6 +160,13 @@ class UploadedArchive
         }
 
         @unlink($workingZip);
+    }
+
+    private function archiveExtractionTimeout(): ?int
+    {
+        $timeout = (int) config('filesystems.archive_extract_timeout', 600);
+
+        return $timeout > 0 ? $timeout : null;
     }
 
     private function listFilesByExtension(string $path, array $extensions, bool $recursive): array

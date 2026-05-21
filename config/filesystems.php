@@ -15,6 +15,8 @@ return [
 
     'default' => env('FILESYSTEM_DISK', 'local'),
 
+    'archive_extract_timeout' => env('ARCHIVE_EXTRACT_TIMEOUT', 600),
+
     /*
     |--------------------------------------------------------------------------
     | Filesystem Disks

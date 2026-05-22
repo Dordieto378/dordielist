@@ -209,7 +209,7 @@ video::cue(b) {
   font-weight: 700;
   left: 50%;
   line-height: 1.15;
-  max-width: 86%;
+  max-width: none;
   pointer-events: none;
   position: absolute;
   text-align: center;
@@ -220,7 +220,7 @@ video::cue(b) {
     -2px 0 1px #000;
   text-transform: none !important;
   transform: translateX(-50%);
-  white-space: pre-wrap;
+  white-space: nowrap;
   z-index: 2;
 }
 
@@ -231,6 +231,34 @@ video::cue(b) {
 .streaming-subtitle-overlay.is-top {
   bottom: auto;
   top: 7%;
+}
+
+.streaming-subtitle-overlay.is-center {
+  bottom: auto;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.streaming-subtitle-overlay.is-positioned {
+  max-width: none;
+}
+
+.streaming-subtitle-line {
+  display: block;
+  text-align: inherit;
+  width: 100%;
+}
+
+.streaming-subtitle-line.is-left {
+  text-align: left;
+}
+
+.streaming-subtitle-line.is-center {
+  text-align: center;
+}
+
+.streaming-subtitle-line.is-right {
+  text-align: right;
 }
 
 .episode-preview-card {

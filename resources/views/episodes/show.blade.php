@@ -28,6 +28,8 @@
         $subtitleExists = $subtitlePath && file_exists(public_path('storage/'.$subtitlePath));
         $topSubtitlePath = preg_replace('/\.[^.\/\\\\]+\z/', '.top.vtt', (string) $episode->file_path);
         $topSubtitleExists = $topSubtitlePath && file_exists(public_path('storage/'.$topSubtitlePath));
+        $centerSubtitlePath = preg_replace('/\.[^.\/\\\\]+\z/', '.center.vtt', (string) $episode->file_path);
+        $centerSubtitleExists = $centerSubtitlePath && file_exists(public_path('storage/'.$centerSubtitlePath));
     @endphp
 
     <div class="w-full bg-black flex justify-center min-h-[70vh] relative">
@@ -39,7 +41,8 @@
                    class="w-full h-auto aspect-video object-contain bg-black"
                    playsinline controls preload="metadata" disablepictureinpicture
                    @if($subtitleExists) data-subtitles-src="{{ asset('storage/'.$subtitlePath) }}" @endif
-                   @if($topSubtitleExists) data-top-subtitles-src="{{ asset('storage/'.$topSubtitlePath) }}" @endif>
+                   @if($topSubtitleExists) data-top-subtitles-src="{{ asset('storage/'.$topSubtitlePath) }}" @endif
+                   @if($centerSubtitleExists) data-center-subtitles-src="{{ asset('storage/'.$centerSubtitlePath) }}" @endif>
                 <source src="{{ $src }}">
                 Your browser doesn’t support HTML5 video.
             </video>
@@ -161,6 +164,7 @@
             const video = document.getElementById('player');
             const subtitleSource = video?.dataset.subtitlesSrc;
             const topSubtitleSource = video?.dataset.topSubtitlesSrc;
+            const centerSubtitleSource = video?.dataset.centerSubtitlesSrc;
             const skipSettingKey = 'dordielist.player.arrowSkipSeconds';
             const subtitleSettingKey = 'dordielist.player.subtitlesEnabled';
             let arrowSkipSeconds = localStorage.getItem(skipSettingKey) === '10' ? 10 : 5;
@@ -326,7 +330,7 @@
                 homeMenu.appendChild(homeButton);
                 panelWrapper.appendChild(panel);
 
-                if (subtitleSource || topSubtitleSource) {
+                if (subtitleSource || topSubtitleSource || centerSubtitleSource) {
                     const subtitlesPanelId = `${menuContainer.id || 'plyr-settings'}-subtitles`;
                     const subtitlesHomeButton = document.createElement('button');
                     subtitlesHomeButton.type = 'button';
@@ -396,7 +400,7 @@
                 ?.querySelector('[data-plyr="settings"]')
                 ?.addEventListener('click', () => setTimeout(addArrowSkipSetting, 0));
 
-            if (video && (subtitleSource || topSubtitleSource) && player?.elements?.container) {
+            if (video && (subtitleSource || topSubtitleSource || centerSubtitleSource) && player?.elements?.container) {
                 const subtitleRenderers = [];
                 const videoWrapper = player.elements.container.querySelector('.plyr__video-wrapper');
                 const subtitleLayer = videoWrapper || player.elements.container;
@@ -413,21 +417,69 @@
 
                 const formatCueText = (value) => {
                     const template = document.createElement('template');
-                    template.innerHTML = value
-                        .replace(/&(?!amp;|lt;|gt;|quot;|#39;|nbsp;)/g, '&amp;')
-                        .replace(/\n/g, '<br>');
+                    const preserveLeadingSpacing = (line) => line.replace(/^[ \t]+/, (spacing) => spacing
+                        .replace(/ /g, '&nbsp;')
+                        .replace(/\t/g, '&nbsp;&nbsp;&nbsp;&nbsp;'));
+                    const formatLine = (line) => {
+                        const alignmentMatch = line.match(/^\{(left|center|right)\}\s*/i);
+                        const alignment = alignmentMatch ? alignmentMatch[1].toLowerCase() : '';
+                        const text = alignmentMatch ? line.slice(alignmentMatch[0].length) : line;
+                        const className = ['streaming-subtitle-line', alignment ? `is-${alignment}` : '']
+                            .filter(Boolean)
+                            .join(' ');
 
-                    const allowedTags = new Set(['I', 'B', 'U', 'BR']);
+                        return `<span class="${className}">${preserveLeadingSpacing(text)
+                            .replace(/&(?!amp;|lt;|gt;|quot;|#39;|nbsp;)/g, '&amp;')}</span>`;
+                    };
+
+                    template.innerHTML = value
+                        .split('\n')
+                        .map((line) => formatLine(line))
+                        .join('');
+
+                    const allowedTags = new Set(['I', 'B', 'U', 'SPAN']);
                     template.content.querySelectorAll('*').forEach((element) => {
                         if (!allowedTags.has(element.tagName)) {
                             element.replaceWith(document.createTextNode(element.textContent || ''));
                             return;
                         }
 
-                        Array.from(element.attributes).forEach((attribute) => element.removeAttribute(attribute.name));
+                        Array.from(element.attributes).forEach((attribute) => {
+                            if (element.tagName === 'SPAN' && attribute.name === 'class') {
+                                return;
+                            }
+
+                            element.removeAttribute(attribute.name);
+                        });
+
+                        if (element.tagName === 'SPAN' && !/^streaming-subtitle-line(?: is-(?:left|center|right))?$/.test(element.className)) {
+                            element.removeAttribute('class');
+                        }
                     });
 
                     return template.innerHTML;
+                };
+
+                const parseCuePayload = (value) => {
+                    const positionMatch = value.match(/^\{pos:\s*([0-9.]+(?:%|px)?)\s*,\s*([0-9.]+(?:%|px)?)\s*\}\s*/i);
+                    const normalizePositionValue = (positionValue) => /(?:%|px)$/i.test(positionValue)
+                        ? positionValue
+                        : `${positionValue}%`;
+
+                    if (!positionMatch) {
+                        return {
+                            text: formatCueText(value),
+                            position: null,
+                        };
+                    }
+
+                    return {
+                        text: formatCueText(value.slice(positionMatch[0].length)),
+                        position: {
+                            x: normalizePositionValue(positionMatch[1]),
+                            y: normalizePositionValue(positionMatch[2]),
+                        },
+                    };
                 };
 
                 const parseVtt = (text) => text
@@ -449,10 +501,13 @@
                             return null;
                         }
 
+                        const cuePayload = parseCuePayload(textLines);
+
                         return {
                             start: parseTime(start),
                             end: parseTime(end),
-                            text: formatCueText(textLines),
+                            text: cuePayload.text,
+                            position: cuePayload.position,
                         };
                     })
                     .filter(Boolean);
@@ -473,6 +528,26 @@
                         const cues = parseVtt(text);
                         let activeCueIndex = 0;
                         let currentText = '';
+                        let currentPosition = '';
+
+                        const applyCuePosition = (position) => {
+                            if (!position) {
+                                overlay.classList.remove('is-positioned');
+                                overlay.style.removeProperty('left');
+                                overlay.style.removeProperty('top');
+                                overlay.style.removeProperty('bottom');
+                                overlay.style.removeProperty('transform');
+                                overlay.style.removeProperty('text-align');
+                                return;
+                            }
+
+                            overlay.classList.add('is-positioned');
+                            overlay.style.left = position.x;
+                            overlay.style.top = position.y;
+                            overlay.style.bottom = 'auto';
+                            overlay.style.transform = 'none';
+                            overlay.style.textAlign = 'left';
+                        };
 
                         const renderCue = () => {
                             const currentTime = video.currentTime;
@@ -489,10 +564,15 @@
                             const nextText = subtitlesEnabled && candidate && currentTime >= candidate.start && currentTime <= candidate.end
                                 ? candidate.text
                                 : '';
+                            const nextPosition = nextText && candidate?.position
+                                ? `${candidate.position.x},${candidate.position.y}`
+                                : '';
 
-                            if (nextText !== currentText) {
+                            if (nextText !== currentText || nextPosition !== currentPosition) {
                                 currentText = nextText;
+                                currentPosition = nextPosition;
                                 overlay.innerHTML = currentText;
+                                applyCuePosition(nextText ? candidate?.position : null);
                                 overlay.classList.toggle('is-visible', currentText !== '');
                             }
                         };
@@ -513,6 +593,7 @@
 
                 loadSubtitleOverlay(subtitleSource);
                 loadSubtitleOverlay(topSubtitleSource, 'is-top');
+                loadSubtitleOverlay(centerSubtitleSource, 'is-center');
             }
 
             document.querySelectorAll('.episode-preview-card video').forEach((previewVideo) => {

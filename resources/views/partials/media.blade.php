@@ -15,7 +15,7 @@
                 </div>
 
                 <div class="mt-2">
-                    <p class="text-red-600 font-bold group-hover:underline">
+                    <p class="text-red-600 font-bold">
                         {{ \Illuminate\Support\Str::limit($title, 25) }}
                     </p>
                 </div>

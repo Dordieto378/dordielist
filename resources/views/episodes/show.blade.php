@@ -32,6 +32,139 @@
         $centerSubtitleExists = $centerSubtitlePath && file_exists(public_path('storage/'.$centerSubtitlePath));
     @endphp
 
+    <style>
+        @font-face {
+            font-family: "Netflix Sans";
+            src: url("/fonts/netflix-sans/NetflixSans-Bold.otf") format("opentype");
+            font-weight: 700;
+            font-style: normal;
+            font-display: swap;
+        }
+
+        .episode-player-frame .plyr,
+        .episode-player-frame .plyr__video-wrapper {
+            position: relative;
+        }
+
+        .streaming-subtitle-overlay {
+            -webkit-text-stroke: 1.2px #000;
+            bottom: 5%;
+            color: #fff;
+            display: none;
+            font-family: "Netflix Sans", "Helvetica Neue", Arial, Helvetica, sans-serif;
+            font-size: clamp(30px, 3vw, 52px);
+            font-weight: 700;
+            left: 50%;
+            line-height: 1.15;
+            max-width: none;
+            pointer-events: none;
+            position: absolute;
+            text-align: center;
+            text-shadow:
+                0 2px 1px #000,
+                2px 0 1px #000,
+                0 -2px 1px #000,
+                -2px 0 1px #000;
+            text-transform: none !important;
+            transform: translateX(-50%);
+            white-space: nowrap;
+            z-index: 2;
+        }
+
+        .streaming-subtitle-overlay.is-visible {
+            display: block;
+        }
+
+        .streaming-subtitle-overlay.is-top {
+            bottom: auto;
+            top: 7%;
+        }
+
+        .streaming-subtitle-overlay.is-center {
+            bottom: auto;
+            top: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .streaming-subtitle-overlay.is-positioned {
+            max-width: none;
+        }
+
+        .streaming-subtitle-line {
+            display: block;
+            text-align: inherit;
+            width: 100%;
+        }
+
+        .streaming-subtitle-line.is-left {
+            text-align: left;
+        }
+
+        .streaming-subtitle-line.is-center {
+            text-align: center;
+        }
+
+        .streaming-subtitle-line.is-right {
+            text-align: right;
+        }
+
+        .episode-preview-card {
+            align-items: flex-start;
+            display: flex;
+            gap: 0.75rem;
+            text-decoration: none;
+        }
+
+        .episode-preview-media {
+            background: #000;
+            border-radius: 2px;
+            display: block;
+            flex: 0 0 280px;
+            height: 158px;
+            overflow: hidden;
+            position: relative;
+            width: 280px;
+        }
+
+        .episode-preview-media img,
+        .episode-preview-media video {
+            display: block;
+            height: 100%;
+            inset: 0;
+            object-fit: cover;
+            position: absolute;
+            width: 100%;
+        }
+
+        .episode-preview-media video {
+            opacity: 0;
+            transition: opacity 0.15s ease;
+        }
+
+        .episode-preview-card.is-previewing .episode-preview-media video {
+            opacity: 1;
+        }
+
+        .episode-preview-title {
+            color: #111827;
+            display: block;
+            font-size: 1.125rem;
+            font-weight: 600;
+            line-height: 1.2;
+            padding-top: 1px;
+            white-space: nowrap;
+        }
+
+        .plyr-arrow-skip-setting {
+            margin: 0;
+        }
+
+        .plyr-arrow-skip-setting__button,
+        .plyr-subtitles-setting__button {
+            width: 100%;
+        }
+    </style>
+
     <div class="w-full bg-black flex justify-center min-h-[70vh] relative">
         <a href="{{ url()->previous() }}"
            class="absolute top-4 right-4 text-white text-3xl hover:text-gray-400 z-20">&times;</a>

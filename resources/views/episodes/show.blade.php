@@ -15,6 +15,15 @@
             : (!empty($item['startDate']['year']) ? (string) $item['startDate']['year'] : null);
         $description = (string) ($item['description'] ?? '');
         $visibleEpisodes = ($episodes ?? collect())->values();
+        $currentEpisodeIndex = $visibleEpisodes->search(
+            fn ($ep) => (int) $ep->episode_number === (int) $episodeNumber
+        );
+        $nextEpisode = $currentEpisodeIndex !== false
+            ? $visibleEpisodes->get($currentEpisodeIndex + 1)
+            : null;
+        $previousEpisode = $currentEpisodeIndex !== false && $currentEpisodeIndex > 0
+            ? $visibleEpisodes->get($currentEpisodeIndex - 1)
+            : null;
         $subtitlePath = preg_replace('/\.[^.\/\\\\]+\z/', '.vtt', (string) $episode->file_path);
         $subtitleExists = $subtitlePath && file_exists(public_path('storage/'.$subtitlePath));
         $topSubtitlePath = preg_replace('/\.[^.\/\\\\]+\z/', '.top.vtt', (string) $episode->file_path);
@@ -28,7 +37,7 @@
         <div class="episode-player-frame w-[1710px] max-w-full mx-auto mt-8 px-4">
             <video id="player"
                    class="w-full h-auto aspect-video object-contain bg-black"
-                   playsinline controls preload="metadata"
+                   playsinline controls preload="metadata" disablepictureinpicture
                    @if($subtitleExists) data-subtitles-src="{{ asset('storage/'.$subtitlePath) }}" @endif
                    @if($topSubtitleExists) data-top-subtitles-src="{{ asset('storage/'.$topSubtitlePath) }}" @endif>
                 <source src="{{ $src }}">
@@ -45,7 +54,7 @@
                         <a class="hover:underline" href="{{ $mediaUrl }}">{{ $title }}</a>
                     </h1>
                     <div class="mt-1 text-lg font-semibold text-black">
-                        E{{ $episodeNumber }}
+                        Episode {{ $episodeNumber }}
                     </div>
                     @if($releaseDate)
                         <div class="mt-1 text-sm font-normal text-black">
@@ -60,53 +69,78 @@
                 </div>
             </div>
 
-            @if($visibleEpisodes->isNotEmpty())
+            @if($nextEpisode || $previousEpisode)
                 <aside style="width:320px;flex:0 0 320px;">
-                    <div class="max-h-[460px] overflow-y-auto space-y-1.5 pr-1">
-                        @foreach($visibleEpisodes as $index => $ep)
+                    <div class="space-y-5 pr-1">
+                        @if($nextEpisode)
                             @php
-                                $isCurrentEpisode = (int) $ep->episode_number === (int) $episodeNumber;
-                                $thumbUrl = !empty($ep->thumbnail_path)
-                                    ? Storage::url($ep->thumbnail_path)
+                                $nextThumbUrl = !empty($nextEpisode->thumbnail_path)
+                                    ? Storage::url($nextEpisode->thumbnail_path)
                                     : asset('images/no-image.jpg');
-                                $rowStyle = 'display:flex;align-items:flex-start;gap:12px;text-decoration:none;';
-                                if ($index >= 12) {
-                                    $rowStyle .= 'display:none;';
-                                }
+                                $nextPreviewUrl = !empty($nextEpisode->file_path)
+                                    ? asset('storage/'.$nextEpisode->file_path)
+                                    : null;
                             @endphp
-                            <a href="{{ route('episodes.show', ['media' => $item['id'], 'episode' => $ep->episode_number]) }}"
-                               class="episode-sidebar-item rounded-sm px-2 py-1 transition {{ $isCurrentEpisode ? 'bg-gray-300' : 'hover:bg-gray-50' }}"
-                               @if($isCurrentEpisode) aria-current="page" @endif
-                               style="{{ $rowStyle }}">
-                                <img
-                                    style="width:160px;height:90px;flex:0 0 160px;display:block;object-fit:cover;border-radius:2px;"
-                                    src="{{ $thumbUrl }}"
-                                    alt="Episode {{ $ep->episode_number }} thumbnail"
-                                    loading="lazy"
-                                >
-                                <span style="display:block;flex:0 0 auto;min-width:88px;color:#111827;font-size:14px;font-weight:{{ $isCurrentEpisode ? '700' : '600' }};line-height:1.2;white-space:nowrap;">
-                                    E{{ $ep->episode_number }}
-                                </span>
-                            </a>
-                        @endforeach
-                        @if($visibleEpisodes->count() > 12)
-                            <div style="display:flex;align-items:center;justify-content:center;gap:16px;padding:8px 8px 0 8px;">
-                                <button
-                                    type="button"
-                                    id="show-more-episodes"
-                                    class="text-sm"
-                                    style="color:#111827;text-align:center;font-weight:400;"
-                                >
-                                    Show more
-                                </button>
-                                <button
-                                    type="button"
-                                    id="show-less-episodes"
-                                    class="text-sm"
-                                    style="color:#111827;text-align:center;font-weight:400;display:none;"
-                                >
-                                    Show less
-                                </button>
+                            <div>
+                                <h2 class="text-lg font-bold text-black mb-2">NEXT EPISODE</h2>
+                                <a href="{{ route('episodes.show', ['media' => $item['id'], 'episode' => $nextEpisode->episode_number]) }}"
+                                   class="episode-preview-card rounded-sm hover:opacity-90 transition"
+                                   aria-label="Next episode, Episode {{ $nextEpisode->episode_number }}">
+                                    <span class="episode-preview-media">
+                                        <img
+                                            src="{{ $nextThumbUrl }}"
+                                            alt="Episode {{ $nextEpisode->episode_number }} thumbnail"
+                                            loading="lazy"
+                                        >
+                                        @if($nextPreviewUrl)
+                                            <video
+                                                muted
+                                                playsinline
+                                                preload="metadata"
+                                                src="{{ $nextPreviewUrl }}"
+                                                data-preview-start="30"
+                                                data-preview-duration="8"
+                                            ></video>
+                                        @endif
+                                    </span>
+                                    <span class="episode-preview-title">Episode {{ $nextEpisode->episode_number }}</span>
+                                </a>
+                            </div>
+                        @endif
+
+                        @if($previousEpisode)
+                            @php
+                                $previousThumbUrl = !empty($previousEpisode->thumbnail_path)
+                                    ? Storage::url($previousEpisode->thumbnail_path)
+                                    : asset('images/no-image.jpg');
+                                $previousPreviewUrl = !empty($previousEpisode->file_path)
+                                    ? asset('storage/'.$previousEpisode->file_path)
+                                    : null;
+                            @endphp
+                            <div>
+                                <h2 class="text-lg font-bold text-black mb-2">PREVIOUS EPISODE</h2>
+                                <a href="{{ route('episodes.show', ['media' => $item['id'], 'episode' => $previousEpisode->episode_number]) }}"
+                                   class="episode-preview-card rounded-sm hover:opacity-90 transition"
+                                   aria-label="Previous episode, Episode {{ $previousEpisode->episode_number }}">
+                                    <span class="episode-preview-media">
+                                        <img
+                                            src="{{ $previousThumbUrl }}"
+                                            alt="Episode {{ $previousEpisode->episode_number }} thumbnail"
+                                            loading="lazy"
+                                        >
+                                        @if($previousPreviewUrl)
+                                            <video
+                                                muted
+                                                playsinline
+                                                preload="metadata"
+                                                src="{{ $previousPreviewUrl }}"
+                                                data-preview-start="30"
+                                                data-preview-duration="8"
+                                            ></video>
+                                        @endif
+                                    </span>
+                                    <span class="episode-preview-title">Episode {{ $previousEpisode->episode_number }}</span>
+                                </a>
                             </div>
                         @endif
                     </div>
@@ -119,6 +153,7 @@
         document.addEventListener('DOMContentLoaded', () => {
             const [player] = Plyr.setup('#player', {
                 controls: ['play-large','play','progress','current-time','duration','mute','volume','settings','fullscreen'],
+                disableContextMenu: true,
                 captions: { active: false, update: true },
                 invertTime: false
             });
@@ -480,49 +515,43 @@
                 loadSubtitleOverlay(topSubtitleSource, 'is-top');
             }
 
-            const showMoreButton = document.getElementById('show-more-episodes');
-            const showLessButton = document.getElementById('show-less-episodes');
+            document.querySelectorAll('.episode-preview-card video').forEach((previewVideo) => {
+                const card = previewVideo.closest('.episode-preview-card');
+                const previewStart = Number(previewVideo.dataset.previewStart || 30);
+                const previewDuration = Number(previewVideo.dataset.previewDuration || 8);
+                let previewEnd = previewStart + previewDuration;
 
-            const updateEpisodeToggleState = () => {
-                const items = Array.from(document.querySelectorAll('.episode-sidebar-item'));
-                const hiddenEpisodes = items.filter((item) => item.style.display === 'none');
-                const visibleCount = items.length - hiddenEpisodes.length;
+                const startPreview = () => {
+                    previewVideo.muted = true;
+                    previewVideo.currentTime = Math.min(
+                        previewStart,
+                        Number.isFinite(previewVideo.duration) && previewVideo.duration > 1
+                            ? Math.max(0, previewVideo.duration - 1)
+                            : previewStart
+                    );
+                    previewEnd = previewVideo.currentTime + previewDuration;
+                    previewVideo.play().then(() => {
+                        card?.classList.add('is-previewing');
+                    }).catch(() => {});
+                };
 
-                if (showMoreButton) {
-                    showMoreButton.style.display = hiddenEpisodes.length > 0 ? 'inline-block' : 'none';
-                }
+                const stopPreview = () => {
+                    previewVideo.pause();
+                    card?.classList.remove('is-previewing');
+                };
 
-                if (showLessButton) {
-                    showLessButton.style.display = visibleCount > 12 ? 'inline-block' : 'none';
-                }
-            };
-
-            if (showMoreButton) {
-                showMoreButton.addEventListener('click', () => {
-                    const hiddenEpisodes = Array.from(document.querySelectorAll('.episode-sidebar-item'))
-                        .filter((item) => item.style.display === 'none');
-
-                    hiddenEpisodes.forEach((item) => {
-                        item.style.display = 'flex';
-                    });
-
-                    updateEpisodeToggleState();
+                previewVideo.addEventListener('timeupdate', () => {
+                    if (previewVideo.currentTime >= previewEnd) {
+                        previewVideo.currentTime = Math.max(0, previewEnd - previewDuration);
+                    }
                 });
-            }
 
-            if (showLessButton) {
-                showLessButton.addEventListener('click', () => {
-                    const items = Array.from(document.querySelectorAll('.episode-sidebar-item'));
+                card?.addEventListener('mouseenter', startPreview);
+                card?.addEventListener('mouseleave', stopPreview);
+                card?.addEventListener('focusin', startPreview);
+                card?.addEventListener('focusout', stopPreview);
+            });
 
-                    items.forEach((item, index) => {
-                        item.style.display = index < 12 ? 'flex' : 'none';
-                    });
-
-                    updateEpisodeToggleState();
-                });
-            }
-
-            updateEpisodeToggleState();
         });
     </script>
 @endsection

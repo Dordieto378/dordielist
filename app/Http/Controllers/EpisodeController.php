@@ -494,7 +494,7 @@ class EpisodeController extends Controller
 
         $episodes = Episode::where('media_fk', $mediaId)
             ->orderBy('episode_number')
-            ->get(['episode_number', 'thumbnail_path']);
+            ->get(['episode_number', 'thumbnail_path', 'file_path']);
 
         return view('episodes.show', [
             'item' => $item,

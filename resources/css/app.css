@@ -233,6 +233,53 @@ video::cue(b) {
   top: 7%;
 }
 
+.episode-preview-card {
+  align-items: flex-start;
+  display: flex;
+  gap: 0.75rem;
+  text-decoration: none;
+}
+
+.episode-preview-media {
+  background: #000;
+  border-radius: 2px;
+  display: block;
+  flex: 0 0 280px;
+  height: 158px;
+  overflow: hidden;
+  position: relative;
+  width: 280px;
+}
+
+.episode-preview-media img,
+.episode-preview-media video {
+  display: block;
+  height: 100%;
+  inset: 0;
+  object-fit: cover;
+  position: absolute;
+  width: 100%;
+}
+
+.episode-preview-media video {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.episode-preview-card.is-previewing .episode-preview-media video {
+  opacity: 1;
+}
+
+.episode-preview-title {
+  color: #111827;
+  display: block;
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.2;
+  padding-top: 1px;
+  white-space: nowrap;
+}
+
 .plyr-arrow-skip-setting {
   margin: 0;
 }

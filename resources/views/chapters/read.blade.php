@@ -2,6 +2,7 @@
 
 @section('content')
     @php
+        use Illuminate\Support\Facades\URL;
 
         if (!function_exists('shortTitle')) {
             function shortTitle($title, $maxLen = 25) {
@@ -123,6 +124,7 @@
 
         $chapterDisplay = rtrim(rtrim((string)$chapter->chapter_number, '0'), '.');
         $readerTitleWithChapter = $itemTitle.' - Chapter '.$chapterDisplay;
+        $readerImageExpiresAt = now()->addHours(2);
     @endphp
 
     <style>
@@ -624,7 +626,9 @@
                         @php
                             $ext = strtolower(pathinfo($p->file_path, PATHINFO_EXTENSION) ?? '');
                             $isImage = in_array($ext, $allowedExts, true);
-                            $url = $isImage ? asset('storage/'.$p->file_path) : null;
+                            $url = $isImage
+                                ? URL::temporarySignedRoute('reader.page.image', $readerImageExpiresAt, ['page' => $p->id])
+                                : null;
                         @endphp
 
                         @if($isImage)
@@ -684,8 +688,12 @@
                     $isLeftImg  = in_array($extLeft,  $allowedExts, true);
                     $isRightImg = in_array($extRight, $allowedExts, true);
 
-                    $leftUrl    = $isLeftImg  ? asset('storage/'.$leftObj->file_path)  : null;
-                    $rightUrl   = $isRightImg ? asset('storage/'.$rightObj->file_path) : null;
+                    $leftUrl = $isLeftImg
+                        ? URL::temporarySignedRoute('reader.page.image', $readerImageExpiresAt, ['page' => $leftObj->id])
+                        : null;
+                    $rightUrl = $isRightImg
+                        ? URL::temporarySignedRoute('reader.page.image', $readerImageExpiresAt, ['page' => $rightObj->id])
+                        : null;
                     $hasSingleSpreadPage = ($isLeftImg xor $isRightImg);
                     $singleSpreadUrl = $isLeftImg ? $leftUrl : $rightUrl;
                     $singleSpreadNum = $isLeftImg ? $leftNum : $rightNum;
@@ -1021,6 +1029,22 @@
                 document.addEventListener('webkitfullscreenchange', syncFullscreenButtons);
                 document.addEventListener('MSFullscreenChange', syncFullscreenButtons);
 
+                document.addEventListener('contextmenu', (e) => {
+                    if (!readerRoot()) return;
+
+                    e.preventDefault();
+                    e.stopPropagation();
+                }, { capture: true });
+
+                document.addEventListener('dragstart', (e) => {
+                    if (!readerRoot()) return;
+
+                    if (e.target instanceof Element && e.target.closest('img')) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                    }
+                }, { capture: true });
+
                 document.addEventListener('click', (e) => {
                     const fullscreenButton = e.target.closest('[data-fullscreen-toggle]');
                     if (fullscreenButton) {
@@ -1053,10 +1077,13 @@
 
                     if (
                         key === 'f12'
+                        || key === 'contextmenu'
+                        || (e.shiftKey && key === 'f10')
                         || (commandKey && ['s', 'u', 'p'].includes(key))
-                        || (commandKey && e.shiftKey && ['i', 'j', 'c'].includes(key))
+                        || (commandKey && e.shiftKey && ['i', 'j', 'c', 'k'].includes(key))
                     ) {
                         e.preventDefault();
+                        e.stopPropagation();
                         return;
                     }
 

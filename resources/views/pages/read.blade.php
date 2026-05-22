@@ -3,6 +3,8 @@
 @section('content')
 @php
     use Illuminate\Support\Facades\Storage;
+    use Illuminate\Support\Facades\URL;
+
     function shortTitle($title, $maxLen = 25) {
         if (strlen($title) <= $maxLen) {
             return $title;
@@ -63,6 +65,7 @@
     $view = request('view', 'one');
     $allowedExts = ['jpg','jpeg','png','gif','webp'];
     $isFixedView = in_array($view, ['one', 'double'], true);
+    $readerImageExpiresAt = now()->addHours(2);
 @endphp
 
 <style>
@@ -414,7 +417,9 @@
         @php
             $ext = strtolower(pathinfo($p->file_path, PATHINFO_EXTENSION) ?? '');
             $isImage = in_array($ext, $allowedExts, true);
-            $url = $isImage ? Storage::disk('b2')->url($p->file_path) : null;
+            $url = $isImage
+                ? URL::temporarySignedRoute('reader.page.image', $readerImageExpiresAt, ['page' => $p->id])
+                : null;
         @endphp
 
         @if($isImage)
@@ -432,9 +437,12 @@
 
     @elseif($view === 'one')
         @php
-            $extOne = strtolower(pathinfo($doujin->pages->where('page_number', $pageNumber)->first()->file_path, PATHINFO_EXTENSION) ?? '');
+            $singlePage = $doujin->pages->where('page_number', $pageNumber)->first();
+            $extOne = strtolower(pathinfo(optional($singlePage)->file_path, PATHINFO_EXTENSION) ?? '');
             $isSingleImage = in_array($extOne, $allowedExts, true);
-            $singleUrl = $isSingleImage ? $pageUrl : null;
+            $singleUrl = $isSingleImage
+                ? URL::temporarySignedRoute('reader.page.image', $readerImageExpiresAt, ['page' => $singlePage->id])
+                : null;
         @endphp
 
         @if($isSingleImage)
@@ -477,12 +485,14 @@
                     : '';
         $isLeftImage  = in_array($extLeft,  $allowedExts, true);
         $isRightImage = in_array($extRight, $allowedExts, true);
-        $leftUrl  = $isLeftImage  ? Storage::disk('b2')->url(
-                    $doujin->pages->where('page_number', $leftNum)->first()->file_path
-                    ) : null;
-        $rightUrl = $isRightImage ? Storage::disk('b2')->url(
-                    $doujin->pages->where('page_number', $rightNum)->first()->file_path
-                    ) : null;
+        $leftPage = $leftNum !== null ? $doujin->pages->where('page_number', $leftNum)->first() : null;
+        $rightPage = $rightNum !== null ? $doujin->pages->where('page_number', $rightNum)->first() : null;
+        $leftUrl = $isLeftImage
+                    ? URL::temporarySignedRoute('reader.page.image', $readerImageExpiresAt, ['page' => $leftPage->id])
+                    : null;
+        $rightUrl = $isRightImage
+                    ? URL::temporarySignedRoute('reader.page.image', $readerImageExpiresAt, ['page' => $rightPage->id])
+                    : null;
         $hasSingleSpreadPage = ($isLeftImage xor $isRightImage);
         $singleSpreadUrl = $isLeftImage ? $leftUrl : $rightUrl;
         $singleSpreadNum = $isLeftImage ? $leftNum : $rightNum;
@@ -818,6 +828,22 @@
       document.addEventListener('webkitfullscreenchange', syncFullscreenButtons);
       document.addEventListener('MSFullscreenChange', syncFullscreenButtons);
 
+      document.addEventListener('contextmenu', (e) => {
+        if (!readerRoot()) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+      }, { capture: true });
+
+      document.addEventListener('dragstart', (e) => {
+        if (!readerRoot()) return;
+
+        if (e.target instanceof Element && e.target.closest('img')) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }, { capture: true });
+
       document.addEventListener('click', (e) => {
         const fullscreenButton = e.target.closest('[data-fullscreen-toggle]');
         if (fullscreenButton) {
@@ -850,10 +876,13 @@
 
         if (
           key === 'f12'
+          || key === 'contextmenu'
+          || (e.shiftKey && key === 'f10')
           || (commandKey && ['s', 'u', 'p'].includes(key))
-          || (commandKey && e.shiftKey && ['i', 'j', 'c'].includes(key))
+          || (commandKey && e.shiftKey && ['i', 'j', 'c', 'k'].includes(key))
         ) {
           e.preventDefault();
+          e.stopPropagation();
         }
       });
     }
@@ -871,5 +900,3 @@
   })();
 </script>
 @endsection
-
-

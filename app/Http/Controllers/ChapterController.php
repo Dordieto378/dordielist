@@ -12,6 +12,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\Validator;
 use Throwable;
 
@@ -677,7 +678,7 @@ class ChapterController extends Controller
         $pages = $chapter->pages->values();
         $page = $pages->firstWhere('page_number', $pageNumber);
         abort_if(!$page, 404);
-        $pageUrl = asset('storage/'.$page->file_path);
+        $pageUrl = URL::temporarySignedRoute('reader.page.image', now()->addHours(2), ['page' => $page->id]);
 
         $numbers = $pages->pluck('page_number')->values()->all();
         $index = array_search($pageNumber, $numbers, true);
@@ -767,6 +768,34 @@ class ChapterController extends Controller
             'itemTitle' => $itemTitle,
             'itemUrl' => $itemUrl,
             'isManwha' => $isManwha,
+        ]);
+    }
+
+    public function readerPageImage(Request $request, ChapterPage $page)
+    {
+        $page->loadMissing('chapter');
+
+        $chapter = $page->chapter;
+        abort_unless($chapter, 404);
+
+        $mediaType = strtolower((string) ($chapter->item_type ?? ''));
+        abort_unless(in_array($mediaType, ['manga', 'manwha', 'doujin'], true), 404);
+
+        $path = ltrim((string) $page->file_path, '/');
+        abort_if($path === '' || str_contains($path, '..'), 404);
+
+        $disk = Storage::disk('public');
+        abort_unless($disk->exists($path), 404);
+
+        $absolutePath = $disk->path($path);
+        $mimeType = File::mimeType($absolutePath) ?: 'application/octet-stream';
+
+        return response()->file($absolutePath, [
+            'Content-Type' => $mimeType,
+            'Cache-Control' => 'private, no-store, no-cache, must-revalidate, max-age=0',
+            'Pragma' => 'no-cache',
+            'Expires' => '0',
+            'X-Robots-Tag' => 'noindex, nofollow, noarchive',
         ]);
     }
 }

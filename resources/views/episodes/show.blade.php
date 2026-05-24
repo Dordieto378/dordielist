@@ -537,6 +537,61 @@
                 const subtitleRenderers = [];
                 const videoWrapper = player.elements.container.querySelector('.plyr__video-wrapper');
                 const subtitleLayer = videoWrapper || player.elements.container;
+                const getRenderedVideoRect = () => {
+                    const layerRect = subtitleLayer.getBoundingClientRect();
+                    const videoRect = video.getBoundingClientRect();
+                    const boxLeft = videoRect.width ? videoRect.left - layerRect.left : 0;
+                    const boxTop = videoRect.height ? videoRect.top - layerRect.top : 0;
+                    const boxWidth = videoRect.width || layerRect.width || subtitleLayer.clientWidth;
+                    const boxHeight = videoRect.height || layerRect.height || subtitleLayer.clientHeight;
+
+                    if (!boxWidth || !boxHeight || !video.videoWidth || !video.videoHeight) {
+                        return { left: boxLeft, top: boxTop, width: boxWidth, height: boxHeight };
+                    }
+
+                    const videoRatio = video.videoWidth / video.videoHeight;
+                    const boxRatio = boxWidth / boxHeight;
+                    let width = boxWidth;
+                    let height = boxHeight;
+                    let left = boxLeft;
+                    let top = boxTop;
+
+                    if (boxRatio > videoRatio) {
+                        height = boxHeight;
+                        width = height * videoRatio;
+                        left = boxLeft + ((boxWidth - width) / 2);
+                    } else if (boxRatio < videoRatio) {
+                        width = boxWidth;
+                        height = width / videoRatio;
+                        top = boxTop + ((boxHeight - height) / 2);
+                    }
+
+                    return { left, top, width, height };
+                };
+
+                const resolveCuePositionValue = (value, axis, rect) => {
+                    const amount = Number.parseFloat(value);
+
+                    if (!Number.isFinite(amount)) {
+                        return axis === 'x' ? rect.left : rect.top;
+                    }
+
+                    if (/px$/i.test(value)) {
+                        return (axis === 'x' ? rect.left : rect.top) + amount;
+                    }
+
+                    return axis === 'x'
+                        ? rect.left + (rect.width * amount / 100)
+                        : rect.top + (rect.height * amount / 100);
+                };
+
+                const applySubtitleFontSize = (overlay) => {
+                    const renderedVideoRect = getRenderedVideoRect();
+                    overlay.style.fontSize = `${Math.min(Math.max(renderedVideoRect.width * 0.03, 30), 72)}px`;
+
+                    return renderedVideoRect;
+                };
+
                 const parseTime = (value) => {
                     const parts = value.trim().split(':');
                     const seconds = parts.pop();
@@ -606,11 +661,15 @@
                         };
                     }
 
+                    const positionedText = value.slice(positionMatch[0].length);
+                    const anchorMatch = positionedText.match(/^\{(left|center|right)\}\s*/i);
+
                     return {
-                        text: formatCueText(value.slice(positionMatch[0].length)),
+                        text: formatCueText(positionedText),
                         position: {
                             x: normalizePositionValue(positionMatch[1]),
                             y: normalizePositionValue(positionMatch[2]),
+                            align: anchorMatch ? anchorMatch[1].toLowerCase() : 'left',
                         },
                     };
                 };
@@ -662,6 +721,7 @@
                         let activeCueIndex = 0;
                         let currentText = '';
                         let currentPosition = '';
+                        let currentCuePosition = null;
 
                         const applyCuePosition = (position) => {
                             if (!position) {
@@ -671,15 +731,33 @@
                                 overlay.style.removeProperty('bottom');
                                 overlay.style.removeProperty('transform');
                                 overlay.style.removeProperty('text-align');
+                                applySubtitleFontSize(overlay);
                                 return;
                             }
 
+                            const renderedVideoRect = applySubtitleFontSize(overlay);
+                            const left = resolveCuePositionValue(position.x, 'x', renderedVideoRect);
+                            const top = resolveCuePositionValue(position.y, 'y', renderedVideoRect);
+                            const align = position.align || 'left';
+
                             overlay.classList.add('is-positioned');
-                            overlay.style.left = position.x;
-                            overlay.style.top = position.y;
+                            overlay.style.left = `${left}px`;
+                            overlay.style.top = `${top}px`;
                             overlay.style.bottom = 'auto';
-                            overlay.style.transform = 'none';
-                            overlay.style.textAlign = 'left';
+                            overlay.style.transform = align === 'right'
+                                ? 'translateX(-100%)'
+                                : (align === 'center' ? 'translateX(-50%)' : 'none');
+                            overlay.style.textAlign = align;
+                        };
+
+                        const scheduleSubtitleReflow = () => {
+                            if (currentText === '') {
+                                return;
+                            }
+
+                            window.requestAnimationFrame(() => applyCuePosition(currentCuePosition));
+                            window.setTimeout(() => applyCuePosition(currentCuePosition), 150);
+                            window.setTimeout(() => applyCuePosition(currentCuePosition), 500);
                         };
 
                         const renderCue = () => {
@@ -698,21 +776,30 @@
                                 ? candidate.text
                                 : '';
                             const nextPosition = nextText && candidate?.position
-                                ? `${candidate.position.x},${candidate.position.y}`
+                                ? `${candidate.position.x},${candidate.position.y},${candidate.position.align || 'left'}`
                                 : '';
 
                             if (nextText !== currentText || nextPosition !== currentPosition) {
                                 currentText = nextText;
                                 currentPosition = nextPosition;
+                                currentCuePosition = nextText ? candidate?.position || null : null;
                                 overlay.innerHTML = currentText;
-                                applyCuePosition(nextText ? candidate?.position : null);
+                                applyCuePosition(currentCuePosition);
                                 overlay.classList.toggle('is-visible', currentText !== '');
+                            } else if (currentText !== '') {
+                                applyCuePosition(currentCuePosition);
                             }
                         };
 
                         video.addEventListener('timeupdate', renderCue);
                         video.addEventListener('seeked', renderCue);
                         video.addEventListener('loadedmetadata', renderCue);
+                        video.addEventListener('resize', scheduleSubtitleReflow);
+                        window.addEventListener('resize', scheduleSubtitleReflow);
+                        document.addEventListener('fullscreenchange', scheduleSubtitleReflow);
+                        document.addEventListener('webkitfullscreenchange', scheduleSubtitleReflow);
+                        player.on('enterfullscreen', scheduleSubtitleReflow);
+                        player.on('exitfullscreen', scheduleSubtitleReflow);
                         subtitleRenderers.push(renderCue);
                         renderSubtitleCue = () => subtitleRenderers.forEach((renderer) => renderer());
                         updateSubtitleButtons();

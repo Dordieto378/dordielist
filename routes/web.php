@@ -81,7 +81,7 @@ Route::prefix('vndb')->middleware('auth')->group(function () {
 Route::get('/category/{category}/{listFilter?}/{mediaStatus?}/{titleOrder?}/{scoreOrder?}/{dateOrder?}',
     [CategoryController::class, 'show'])
     ->middleware('auth')
-    ->where('category', '(?i)(ANIMES|MANGAS|MANWHAS|HENTAIS|DOUJINS|VISUAL-NOVEL)')
+    ->where('category', '(?i)(ANIMES|MANGAS|MANHWAS|HENTAIS|DOUJINS|VISUAL-NOVEL)')
     ->name('category');
 
 // Doujin pages
@@ -181,12 +181,7 @@ Route::middleware('auth')->group(function () {
         ->name('reader.page.image');
     Route::get('/media/{media}/chapters/{chapter}/{page?}', [ChapterController::class, 'readPage'])->name('chapters.page');
 
-    // VN tools + NSFW mark
-    Route::post('/vn/{media}/game/upload/chunk', [VndbController::class, 'uploadGameChunk'])->name('vn.game.upload.chunk');
-    Route::post('/vn/{media}/game/upload/complete', [VndbController::class, 'completeGameUpload'])->name('vn.game.upload.complete');
-    Route::post('/vn/{media}/game/upload', [VndbController::class, 'uploadGame'])->name('vn.game.upload');
-    Route::delete('/vn/{media}/game', [VndbController::class, 'deleteGame'])->name('vn.game.delete');
-    Route::get('/vn/{media}/game/download', [VndbController::class, 'downloadGame'])->name('vn.game.download');
+    // VN tools
     Route::post('/vn/{media}/nsfw',   [VndbController::class,     'markNsfw'])->name('vn.markNsfw');
 
     //sync with API

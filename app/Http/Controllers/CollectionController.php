@@ -51,7 +51,7 @@ class CollectionController extends Controller
 
                 case 'animes':
                 case 'mangas':
-                case 'manwhas':
+                case 'manhwas':
                 case 'hentais':
                     $m = Media::find($id);
                     $favoritesThumbnail = $m
@@ -122,7 +122,7 @@ class CollectionController extends Controller
     {
         $request->validate([
         'name' => 'required|string|max:50|unique:collections,name',
-        'attach_item_type' => 'nullable|in:animes,mangas,manwhas,hentais,doujins,visual-novel',
+        'attach_item_type' => 'nullable|in:animes,mangas,manhwas,hentais,doujins,visual-novel',
         'attach_item_id' => 'nullable',
         ]);
 
@@ -158,7 +158,7 @@ class CollectionController extends Controller
                     'doujins'      => 'Doujin',
                     'animes'       => 'Anime',
                     'mangas'       => 'Manga',
-                    'manwhas'      => 'Manwha',
+                    'manhwas'      => 'Manhwa',
                     'hentais'      => 'Hentai',
                     default        => ucfirst($f->favoritable_type),
                 },
@@ -194,7 +194,7 @@ class CollectionController extends Controller
         $clean = (int) ltrim($raw, 'v');
 
         $data = $request->validate([
-            'item_type'        => 'required|in:animes,mangas,manwhas,hentais,doujins,visual-novel',
+            'item_type'        => 'required|in:animes,mangas,manhwas,hentais,doujins,visual-novel',
             'item_id'          => 'required',
             'add_to_favorites' => 'nullable|in:1',
             'collection_ids'   => 'nullable|array',
@@ -314,7 +314,7 @@ class CollectionController extends Controller
 
     public function fetchMedia(string $type, int $id)
     {
-        if (in_array($type, ['animes','mangas','manwhas','hentais'], true)) {
+        if (in_array($type, ['animes','mangas','manhwas','hentais'], true)) {
             $m = Media::find($id);
             if (! $m) return null;
 

@@ -24,7 +24,7 @@
     $type = strtoupper($item['type'] ?? '');
 
     $isEpisodeBased = in_array($type, ['ANIME', 'HENTAI']);
-    $isChapterBased = in_array($type, ['MANGA', 'MANWHA']);
+    $isChapterBased = in_array($type, ['MANGA', 'MANHWA']);
     $isAniListSource = ($item['source'] ?? null) === 'anilist';
 
     $firstEpisode = null;
@@ -77,7 +77,7 @@
         'ANIME'  => 'animes',
         'HENTAI' => 'hentais',
         'MANGA'  => 'mangas',
-        'MANWHA' => 'manwhas',
+        'MANHWA' => 'manhwas',
         default  => 'animes',
     };
 
@@ -378,7 +378,7 @@
                                 @endforeach
                             @endif
                         </div>
-                    @elseif(strtoupper($item['type'] ?? '') === 'MANWHA')
+                    @elseif(strtoupper($item['type'] ?? '') === 'MANHWA')
                         <div>Author</div>
                         @php
                             $authors = collect($item['authors'] ?? [])->filter()->unique()->values();
@@ -388,7 +388,7 @@
                                 N/A
                             @else
                                 @foreach($authors as $name)
-                                    <a href="{{ category_filter_url('manwhas', 'author', $name) }}"
+                                    <a href="{{ category_filter_url('manhwas', 'author', $name) }}"
                                        class="text-blue-600 hover:underline cursor-pointer">
                                         {{ $name }}
                                     </a>@if(!$loop->last), @endif
@@ -584,7 +584,7 @@
 
                 @foreach($chapters->chunk(4) as $rowIndex => $row)
                     @php
-                        // Manga: reverse each row so it reads R→L; Manwha stays L→R
+                        // Manga: reverse each row so it reads R→L; Manhwa stays L→R
                         $cells  = $isMangaType ? $row->reverse()->values() : $row->values();
                         $count  = $cells->count();
                         $blanks = max(0, 4 - $count);

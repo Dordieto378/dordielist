@@ -22,7 +22,7 @@
                 if (isset($item['countryOfOrigin'])) {
                     $origin = strtoupper($item['countryOfOrigin']);
                     if ($origin === 'KR') {
-                        return 'Manwha';
+                        return 'Manhwa';
                     } elseif ($origin === 'JP') {
                         return 'Manga';
                     }
@@ -96,7 +96,7 @@
                                 @if(
                                     $item['type'] === 'ANIME' ||
                                     $item['type'] === 'MANGA' ||
-                                    $item['type'] === 'MANWHA'||
+                                    $item['type'] === 'MANHWA'||
                                     $item['type'] === 'HENTAI'||
                                     $item['type'] === 'DOUJIN'
                                 )
@@ -172,7 +172,7 @@
                     @if(
                         $item['type'] === 'ANIME' ||
                         $item['type'] === 'MANGA' ||
-                        $item['type'] === 'MANWHA'||
+                        $item['type'] === 'MANHWA'||
                         $item['type'] === 'HENTAI'||
                         $item['type'] === 'DOUJIN'
                     )
@@ -282,7 +282,7 @@
                 @if(
                     $item['type'] === 'ANIME' ||
                     $item['type'] === 'MANGA' ||
-                    $item['type'] === 'MANWHA'||
+                    $item['type'] === 'MANHWA'||
                     $item['type'] === 'HENTAI'||
                     $item['type'] === 'DOUJIN'
                 )
@@ -341,7 +341,7 @@
                     @if(
                         $item['type'] === 'ANIME' ||
                         $item['type'] === 'MANGA' ||
-                        $item['type'] === 'MANWHA'||
+                        $item['type'] === 'MANHWA'||
                         $item['type'] === 'HENTAI'||
                         $item['type'] === 'DOUJIN'
                     )
@@ -394,8 +394,8 @@
                                             <a  href="{{ category_filter_url('hentais', 'genre', $genre) }}" class="text-blue-600 hover:underline cursor-pointer">
                                                 {{ $genre }}
                                             </a>
-                                        @elseif($item['type']  === 'MANWHA')
-                                            <a  href="{{ category_filter_url('manwhas', 'genre', $genre) }}" class="text-blue-600 hover:underline cursor-pointer">
+                                        @elseif($item['type']  === 'MANHWA')
+                                            <a  href="{{ category_filter_url('manhwas', 'genre', $genre) }}" class="text-blue-600 hover:underline cursor-pointer">
                                                 {{ $genre }}
                                             </a>
                                         @elseif($item['type']  === 'MANGA')
@@ -439,8 +439,8 @@
                                         <a href="{{ category_filter_url('mangas', 'tags', $tag) }}">
                                         {{ $tag }}
                                     </a>
-                                    @elseif($item['type']  === 'MANWHA')
-                                        <a href="{{ category_filter_url('manwhas', 'tags', $tag) }}">
+                                    @elseif($item['type']  === 'MANHWA')
+                                        <a href="{{ category_filter_url('manhwas', 'tags', $tag) }}">
                                         {{ $tag }}
                                     </a>
                                     @elseif($item['type']  === 'HENTAI')

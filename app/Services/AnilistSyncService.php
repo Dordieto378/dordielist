@@ -150,7 +150,7 @@ class AnilistSyncService
                 if ($remoteType === 'ANIME') {
                     $localType = in_array('Hentai', $genres, true) ? 'hentai' : 'anime';
                 } else {
-                    $localType = strtoupper((string) $origin) === 'KR' ? 'manwha' : 'manga';
+                    $localType = strtoupper((string) $origin) === 'KR' ? 'manhwa' : 'manga';
                 }
 
                 $base = $titleRo ?: $titleEn ?: ('media-'.$sourceId);
@@ -190,7 +190,7 @@ class AnilistSyncService
                     $genres,
                     $tagRecords,
                     in_array($localType, ['anime', 'hentai'], true) ? $studioRecords : [],
-                    in_array($localType, ['manga', 'manwha'], true) ? $authorRecords : []
+                    in_array($localType, ['manga', 'manhwa'], true) ? $authorRecords : []
                 );
 
                 if ($model->wasRecentlyCreated) {

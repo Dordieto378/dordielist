@@ -487,7 +487,7 @@ class EpisodeController extends Controller
         } elseif ($type === 'ANIME') {
             $category = 'animes';
         } elseif ($type === 'MANGA') {
-            $category = ($origin === 'KR') ? 'manwhas' : 'mangas';
+            $category = ($origin === 'KR') ? 'manhwas' : 'mangas';
         } else {
             $category = 'animes';
         }

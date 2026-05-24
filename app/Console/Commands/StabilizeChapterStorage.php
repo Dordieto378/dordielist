@@ -16,7 +16,7 @@ class StabilizeChapterStorage extends Command
         {--dry-run : Show the folder and database changes without applying them}
         {--force : Overwrite files if a stable target path already exists}';
 
-    protected $description = 'Move manga/manwha chapter files to source-based folders and repair chapter page paths.';
+    protected $description = 'Move manga/manhwa chapter files to source-based folders and repair chapter page paths.';
 
     public function handle(): int
     {
@@ -30,7 +30,7 @@ class StabilizeChapterStorage extends Command
         $conflicts = 0;
 
         Media::query()
-            ->whereIn('type', ['manga', 'manwha'])
+            ->whereIn('type', ['manga', 'manhwa'])
             ->whereNotNull('source_id')
             ->orderBy('id')
             ->chunkById(100, function ($mediaItems) use ($disk, $dryRun, $force, &$movedFiles, &$updatedPages, &$updatedCovers, &$conflicts) {

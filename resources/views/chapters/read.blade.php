@@ -14,13 +14,13 @@
         }
         $allowedExts = ['jpg','jpeg','png','gif','webp'];
 
-        // --- FORCE VIEW FOR MANWHA ---
+        // --- FORCE VIEW FOR MANHWA ---
         $view = request('view', 'one');
-        $isManwha = $isManwha ?? false; // passed from controller
-        if ($isManwha) {
+        $isManhwa = $isManhwa ?? false; // passed from controller
+        if ($isManhwa) {
             $view = 'scroll';
         }
-        $isFixedView = in_array($view, ['one', 'double'], true) && !$isManwha;
+        $isFixedView = in_array($view, ['one', 'double'], true) && !$isManhwa;
 
         // Header link points back to page 1 of the same chapter + current view
         $headerLink = route('chapters.page', [
@@ -573,7 +573,7 @@
                             <path d="M9 21v-6H3" />
                         </svg>
                     </button>
-                    @if(!$isManwha)
+                    @if(!$isManhwa)
                         <a href="{{ route('chapters.page', array_merge($baseParams, ['page' => $pageNumber, 'view' => 'scroll'])) }}"
                            class="control-btn {{ $view === 'scroll' ? 'active' : '' }}"
                            aria-label="Scroll view">
@@ -611,7 +611,7 @@
         data-reader-kind="chapter"
         data-reader-fixed="{{ $isFixedView ? '1' : '0' }}"
         data-reader-view="{{ $view }}"
-        data-reader-is-manwha="{{ $isManwha ? '1' : '0' }}"
+        data-reader-is-manhwa="{{ $isManhwa ? '1' : '0' }}"
         data-reader-next-page="{{ $nextLink ?? '' }}"
         data-reader-prev-page="{{ $prevLink ?? '' }}"
         data-reader-next-pair="{{ $nextPairLink ?? '' }}"
@@ -645,7 +645,7 @@
                 </div>
 
                 {{-- ============== ONE PAGE MODE ============== --}}
-            @elseif($view === 'one' && !$isManwha)
+            @elseif($view === 'one' && !$isManhwa)
                 @php
                     $current   = $chapter->pages->firstWhere('page_number', $pageNumber);
                     $extOne    = strtolower(pathinfo(optional($current)->file_path ?? '', PATHINFO_EXTENSION));
@@ -677,7 +677,7 @@
                 @endif
 
                 {{-- ============== DOUBLE PAGE MODE ============== --}}
-            @elseif($view === 'double' && !$isManwha)
+            @elseif($view === 'double' && !$isManhwa)
                 @php
                     $leftObj   = $leftNum  !== null ? $chapter->pages->firstWhere('page_number', $leftNum)  : null;
                     $rightObj  = $rightNum !== null ? $chapter->pages->firstWhere('page_number', $rightNum) : null;
@@ -768,20 +768,20 @@
         if ($view === 'scroll') {
             $leftBottom  = $nextChapterLink;
             $rightBottom = $prevChapterLink;
-            if ($isManwha) {
+            if ($isManhwa) {
                 $leftBottom  = $prevChapterLink;
                 $rightBottom = $nextChapterLink;
             }
             $bottomLeftLink  = $leftBottom;
             $bottomRightLink = $rightBottom;
-            $bottomLeftAction = $isManwha ? 'prev' : 'next';
-            $bottomRightAction = $isManwha ? 'next' : 'prev';
-        } elseif ($view === 'one' && !$isManwha) {
+            $bottomLeftAction = $isManhwa ? 'prev' : 'next';
+            $bottomRightAction = $isManhwa ? 'next' : 'prev';
+        } elseif ($view === 'one' && !$isManhwa) {
             $bottomLeftLink  = $nextLink;
             $bottomRightLink = $prevLink;
             $bottomLeftAction = 'next';
             $bottomRightAction = 'prev';
-        } elseif ($view === 'double' && !$isManwha) {
+        } elseif ($view === 'double' && !$isManhwa) {
             $doubleNext = $nextPairLink ?? null;
             $doublePrev = $prevPairLink ?? null;
             $bottomLeftLink  = $doubleNext;
@@ -789,15 +789,15 @@
             $bottomLeftAction = 'next';
             $bottomRightAction = 'prev';
         }
-        $nextArrowClass = $isManwha ? 'is-right' : 'is-left';
-        $prevArrowClass = $isManwha ? 'is-left' : 'is-right';
+        $nextArrowClass = $isManhwa ? 'is-right' : 'is-left';
+        $prevArrowClass = $isManhwa ? 'is-left' : 'is-right';
         $bottomInfoLink = route('media.show', ['id' => $chapter->item_id]);
 
-        if ($view === 'one' && !$isManwha) {
+        if ($view === 'one' && !$isManhwa) {
             $bottomMainLabel = 'Page';
             $bottomMainValue = (string)$pageNumber;
             $bottomSub = null;
-        } elseif ($view === 'double' && !$isManwha) {
+        } elseif ($view === 'double' && !$isManhwa) {
             $bottomMainLabel = 'Page';
             $bottomMainValue = $rightNum ? ($leftNum.' | '.$rightNum) : (string)$leftNum;
             $bottomSub = null;
@@ -836,7 +836,7 @@
                 @else
                     <div class="reader-count-square">
                         <span class="reader-count-label">{{ $bottomMainLabel }}</span>
-                        @if($view === 'double' && !$isManwha && $rightNum)
+                        @if($view === 'double' && !$isManhwa && $rightNum)
                             <span class="reader-count-pair">
                                 <span>{{ $leftNum }}</span>
                                 <span class="reader-count-sep">|</span>
@@ -1002,7 +1002,7 @@
                 if (!root || root.dataset.readerKind !== 'chapter') return null;
 
                 const isDouble = root.dataset.readerView === 'double';
-                const isManwha = root.dataset.readerIsManwha === '1';
+                const isManhwa = root.dataset.readerIsManhwa === '1';
                 const nextPage = root.dataset.readerNextPage || '';
                 const prevPage = root.dataset.readerPrevPage || '';
                 const nextPair = root.dataset.readerNextPair || '';
@@ -1011,7 +1011,7 @@
                 let leftTarget = isDouble ? (nextPair || nextPage) : nextPage;
                 let rightTarget = isDouble ? (prevPair || prevPage) : prevPage;
 
-                if (isManwha) {
+                if (isManhwa) {
                     const tmp = leftTarget;
                     leftTarget = rightTarget;
                     rightTarget = tmp;

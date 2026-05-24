@@ -38,7 +38,7 @@ class ChapterController extends Controller
     {
         $mediaType = strtolower((string) $media->type);
 
-        abort_unless(in_array($mediaType, ['manga', 'manwha', 'doujin'], true), 404);
+        abort_unless(in_array($mediaType, ['manga', 'manhwa', 'doujin'], true), 404);
         abort_unless(optional($request->user()?->role)->role === 'Admin', 403);
 
         $uploadId = $this->normalizeUploadId($request->input('upload_id'));
@@ -75,7 +75,7 @@ class ChapterController extends Controller
     {
         $mediaType = strtolower((string) $media->type);
 
-        abort_unless(in_array($mediaType, ['manga', 'manwha', 'doujin'], true), 404);
+        abort_unless(in_array($mediaType, ['manga', 'manhwa', 'doujin'], true), 404);
         abort_unless(optional($request->user()?->role)->role === 'Admin', 403);
 
         $uploadId = $this->normalizeUploadId($request->input('upload_id'));
@@ -146,7 +146,7 @@ class ChapterController extends Controller
     {
         $mediaType = strtolower((string) $media->type);
 
-        abort_unless(in_array($mediaType, ['manga', 'manwha', 'doujin'], true), 404);
+        abort_unless(in_array($mediaType, ['manga', 'manhwa', 'doujin'], true), 404);
         abort_unless(optional($request->user()?->role)->role === 'Admin', 403);
         $replaceExisting = $request->boolean('replace_existing');
 
@@ -419,7 +419,7 @@ class ChapterController extends Controller
     {
         $mediaType = strtolower((string) $media->type);
 
-        abort_unless(in_array($mediaType, ['manga', 'manwha', 'doujin'], true), 404);
+        abort_unless(in_array($mediaType, ['manga', 'manhwa', 'doujin'], true), 404);
         abort_unless(optional($request->user()?->role)->role === 'Admin', 403);
 
         $disk = Storage::disk('public');
@@ -666,7 +666,7 @@ class ChapterController extends Controller
 
         $itemTitle = $mediaRow->title_english ?? $mediaRow->title_romaji ?? $mediaRow->title_native ?? 'Unknown Item';
 
-        $isManwha = strtoupper($mediaRow->type ?? '') === 'MANWHA'
+        $isManhwa = strtoupper($mediaRow->type ?? '') === 'MANHWA'
             || strtoupper($mediaRow->origin ?? '') === 'KR';
 
         if (strtolower($mediaRow->type ?? '') === 'doujin') {
@@ -767,7 +767,7 @@ class ChapterController extends Controller
             'prevPairLink' => null,
             'itemTitle' => $itemTitle,
             'itemUrl' => $itemUrl,
-            'isManwha' => $isManwha,
+            'isManhwa' => $isManhwa,
         ]);
     }
 
@@ -779,7 +779,7 @@ class ChapterController extends Controller
         abort_unless($chapter, 404);
 
         $mediaType = strtolower((string) ($chapter->item_type ?? ''));
-        abort_unless(in_array($mediaType, ['manga', 'manwha', 'doujin'], true), 404);
+        abort_unless(in_array($mediaType, ['manga', 'manhwa', 'doujin'], true), 404);
 
         $path = ltrim((string) $page->file_path, '/');
         abort_if($path === '' || str_contains($path, '..'), 404);

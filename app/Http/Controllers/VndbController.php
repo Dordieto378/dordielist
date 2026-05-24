@@ -7,12 +7,10 @@ use App\Models\CollectionItem;
 use App\Models\Favorite;
 use App\Models\Media;
 use App\Support\MediaMetadataSyncer;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 
@@ -160,22 +158,12 @@ class VndbController extends Controller
             ->pluck('collection_id')
             ->toArray();
 
-        $media = $vn['media'] ?? null;
-        $hasUploadedGame = $media instanceof Media
-            ? Storage::disk('local')->exists($this->vnGameStoragePath($media))
-            : false;
-        $gameDownloadFilename = $media instanceof Media
-            ? $this->vnGameDownloadFilename($media)
-            : null;
-
         return view('media.vndb', [
             'item' => $vn,
             'category' => $category,
             'isFavorited' => $isFavorited,
             'allCollections' => $allCollections,
             'attachedIds' => $attachedIds,
-            'hasUploadedGame' => $hasUploadedGame,
-            'gameDownloadFilename' => $gameDownloadFilename,
         ]);
     }
 
@@ -248,183 +236,6 @@ class VndbController extends Controller
 
         return back();
     }
-
-    public function uploadGame(Request $request, Media $media)
-    {
-        abort_unless($media->type === 'vn', 404);
-        abort_unless(optional($request->user()?->role)->role === 'Admin', 403);
-
-        $archive = $request->file('game_archive');
-        if (!$archive instanceof UploadedFile || !$archive->isValid()) {
-            return $this->vnGameUploadError('Upload a ZIP archive.');
-        }
-
-        if (strtolower((string) $archive->getClientOriginalExtension()) !== 'zip') {
-            return $this->vnGameUploadError('Upload a ZIP archive.');
-        }
-
-        $storedPath = Storage::disk('local')->putFileAs(
-            $this->vnGameStorageDirectory($media),
-            $archive,
-            'game.zip'
-        );
-
-        if (!$storedPath) {
-            return $this->vnGameUploadError('Game upload failed.');
-        }
-
-        return back();
-    }
-
-    public function uploadGameChunk(Request $request, Media $media)
-    {
-        abort_unless($media->type === 'vn', 404);
-        abort_unless(optional($request->user()?->role)->role === 'Admin', 403);
-
-        $uploadId = $this->normalizeGameUploadId($request->input('upload_id'));
-        $chunkIndex = filter_var($request->input('chunk_index'), FILTER_VALIDATE_INT, ['options' => ['min_range' => 0]]);
-        $totalChunks = filter_var($request->input('total_chunks'), FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
-        $chunk = $request->file('game_chunk');
-
-        if (!$uploadId || $chunkIndex === false || $totalChunks === false) {
-            return response()->json(['message' => 'Invalid upload request.'], 422);
-        }
-
-        if (!$chunk instanceof UploadedFile || !$chunk->isValid()) {
-            return response()->json(['message' => 'Upload chunk is missing.'], 422);
-        }
-
-        if ($chunkIndex >= $totalChunks) {
-            return response()->json(['message' => 'Invalid chunk index.'], 422);
-        }
-
-        $storedPath = Storage::disk('local')->putFileAs(
-            $this->vnGameChunkDirectory($media, $uploadId),
-            $chunk,
-            $this->vnGameChunkFilename($chunkIndex)
-        );
-
-        if (!$storedPath) {
-            return response()->json(['message' => 'Chunk upload failed.'], 500);
-        }
-
-        return response()->json([
-            'ok' => true,
-            'chunk_index' => $chunkIndex,
-        ]);
-    }
-
-    public function completeGameUpload(Request $request, Media $media)
-    {
-        abort_unless($media->type === 'vn', 404);
-        abort_unless(optional($request->user()?->role)->role === 'Admin', 403);
-
-        $uploadId = $this->normalizeGameUploadId($request->input('upload_id'));
-        $totalChunks = filter_var($request->input('total_chunks'), FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
-        $originalName = trim((string) $request->input('original_name'));
-
-        if (!$uploadId || $totalChunks === false) {
-            return response()->json(['message' => 'Invalid upload request.'], 422);
-        }
-
-        if (strtolower(pathinfo($originalName, PATHINFO_EXTENSION)) !== 'zip') {
-            return response()->json(['message' => 'Upload a ZIP archive.'], 422);
-        }
-
-        $disk = Storage::disk('local');
-        $chunkDirectory = $this->vnGameChunkDirectory($media, $uploadId);
-        $targetDirectory = $this->vnGameStorageDirectory($media);
-        $temporaryRelativePath = $targetDirectory.'/game.uploading';
-        $finalRelativePath = $this->vnGameStoragePath($media);
-        $temporaryAbsolutePath = $disk->path($temporaryRelativePath);
-        $finalAbsolutePath = $disk->path($finalRelativePath);
-        $finalDirectory = dirname($finalAbsolutePath);
-
-        if (!is_dir($finalDirectory) && !mkdir($finalDirectory, 0775, true) && !is_dir($finalDirectory)) {
-            return response()->json(['message' => 'Game upload failed.'], 500);
-        }
-
-        $output = @fopen($temporaryAbsolutePath, 'wb');
-        if ($output === false) {
-            return response()->json(['message' => 'Game upload failed.'], 500);
-        }
-
-        try {
-            for ($index = 0; $index < $totalChunks; $index++) {
-                $chunkRelativePath = $chunkDirectory.'/'.$this->vnGameChunkFilename($index);
-                if (!$disk->exists($chunkRelativePath)) {
-                    throw new \RuntimeException('Upload is incomplete. Retry the upload.');
-                }
-
-                $input = @fopen($disk->path($chunkRelativePath), 'rb');
-                if ($input === false) {
-                    throw new \RuntimeException('Game upload failed.');
-                }
-
-                stream_copy_to_stream($input, $output);
-                fclose($input);
-            }
-
-            fclose($output);
-
-            if (is_file($finalAbsolutePath)) {
-                @unlink($finalAbsolutePath);
-            }
-
-            if (!@rename($temporaryAbsolutePath, $finalAbsolutePath)) {
-                throw new \RuntimeException('Game upload failed.');
-            }
-
-            $disk->deleteDirectory($chunkDirectory);
-
-            return response()->json(['ok' => true]);
-        } catch (\Throwable $exception) {
-            if (is_resource($output)) {
-                fclose($output);
-            }
-
-            if (is_file($temporaryAbsolutePath)) {
-                @unlink($temporaryAbsolutePath);
-            }
-
-            return response()->json(['message' => $exception->getMessage() ?: 'Game upload failed.'], 500);
-        }
-    }
-
-    public function downloadGame(Media $media)
-    {
-        abort_unless($media->type === 'vn', 404);
-
-        $disk = Storage::disk('local');
-        $path = $this->vnGameStoragePath($media);
-
-        abort_unless($disk->exists($path), 404);
-
-        return response()->download(
-            $disk->path($path),
-            $this->vnGameDownloadFilename($media),
-            [
-                'Content-Type' => 'application/octet-stream',
-                'Content-Transfer-Encoding' => 'binary',
-                'X-Content-Type-Options' => 'nosniff',
-                'Cache-Control' => 'no-store, no-cache, must-revalidate',
-                'Pragma' => 'public',
-            ]
-        );
-    }
-
-    public function deleteGame(Request $request, Media $media)
-    {
-        abort_unless($media->type === 'vn', 404);
-        abort_unless(optional($request->user()?->role)->role === 'Admin', 403);
-
-        $disk = Storage::disk('local');
-        $disk->deleteDirectory($this->vnGameStorageDirectory($media));
-        $disk->deleteDirectory('vn-games/tmp/'.$media->id);
-
-        return back();
-    }
-
     public function fetchVnById(int $id): ?array
     {
         $media = Media::with(['vnTags:id,name', 'vnLanguages:id,name', 'vnDevelopers:id,name'])
@@ -832,56 +643,5 @@ class VndbController extends Controller
         }
 
         return back();
-    }
-
-    private function vnGameUploadError(string $message)
-    {
-        return back()
-            ->withInput()
-            ->with('open_vn_game_upload_modal', true)
-            ->with('vn_game_upload_error', $message);
-    }
-
-    private function vnGameStorageDirectory(Media $media): string
-    {
-        return 'vn-games/'.$media->id;
-    }
-
-    private function vnGameChunkDirectory(Media $media, string $uploadId): string
-    {
-        return 'vn-games/tmp/'.$media->id.'/'.$uploadId;
-    }
-
-    private function vnGameChunkFilename(int $chunkIndex): string
-    {
-        return 'chunk-'.str_pad((string) $chunkIndex, 6, '0', STR_PAD_LEFT).'.part';
-    }
-
-    private function vnGameStoragePath(Media $media): string
-    {
-        return $this->vnGameStorageDirectory($media).'/game.zip';
-    }
-
-    private function normalizeGameUploadId(mixed $uploadId): ?string
-    {
-        $uploadId = trim((string) $uploadId);
-
-        if ($uploadId === '' || !preg_match('/\A[a-zA-Z0-9_-]{1,80}\z/', $uploadId)) {
-            return null;
-        }
-
-        return $uploadId;
-    }
-
-    private function vnGameDownloadFilename(Media $media): string
-    {
-        $title = $media->title_english ?: ($media->title_romaji ?: ($media->title_native ?: 'visual-novel-'.$media->id));
-        $title = trim(preg_replace('/[\\\\\\/:"*?<>|]+/', '', $title) ?? '');
-
-        if ($title === '') {
-            $title = 'visual-novel-'.$media->id;
-        }
-
-        return $title.'.zip';
     }
 }

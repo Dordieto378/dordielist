@@ -40,7 +40,7 @@ class SearchController extends Controller
                 'tags',
                 'Tag',
                 $metadataLimit,
-                ['anime', 'hentai', 'manga', 'manwha']
+                ['anime', 'hentai', 'manga', 'manhwa']
             ))
             ->merge($this->searchMetadata(
                 $q,
@@ -60,7 +60,7 @@ class SearchController extends Controller
                 'genre',
                 'Genre',
                 $metadataLimit,
-                ['anime', 'hentai', 'manga', 'manwha']
+                ['anime', 'hentai', 'manga', 'manhwa']
             ))
             ->merge($this->searchMetadata(
                 $q,
@@ -80,7 +80,7 @@ class SearchController extends Controller
                 'author',
                 'Author',
                 $metadataLimit,
-                ['manga', 'manwha']
+                ['manga', 'manhwa']
             ))
             ->merge($this->searchMetadata(
                 $q,
@@ -233,7 +233,7 @@ class SearchController extends Controller
             'anime' => ['type' => 'anime', 'label' => 'Anime', 'category' => 'animes'],
             'hentai' => ['type' => 'hentai', 'label' => 'Hentai', 'category' => 'hentais'],
             'manga' => ['type' => 'manga', 'label' => 'Manga', 'category' => 'mangas'],
-            'manwha' => ['type' => 'manwha', 'label' => 'Manwha', 'category' => 'manwhas'],
+            'manhwa' => ['type' => 'manhwa', 'label' => 'Manhwa', 'category' => 'manhwas'],
             'vn' => ['type' => 'visual-novel', 'label' => 'Visual Novel', 'category' => 'visual-novel'],
             'doujin' => ['type' => 'doujin', 'label' => 'Doujin', 'category' => 'doujins'],
             default => ['type' => strtolower((string) $type), 'label' => ucfirst((string) $type), 'category' => strtolower((string) $type)],

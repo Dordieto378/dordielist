@@ -373,7 +373,7 @@ if (!function_exists('shortTitle')) {
                             $listCategory = strtoupper((string) ($categorySlug ?? $category ?? ''));
                             $isReadingCategory = in_array($listCategory, [
                                 'MANGA', 'MANGAS',
-                                'MANWHA', 'MANWHAS',
+                                'MANHWA', 'MANHWAS',
                                 'H-MANGA', 'H-MANGAS',
                             ], true);
                         @endphp

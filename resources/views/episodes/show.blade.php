@@ -48,12 +48,13 @@
 
         .streaming-subtitle-overlay {
             -webkit-text-stroke: 1.2px #000;
+            bottom: 5%;
             color: #fff;
             display: none;
             font-family: "Netflix Sans", "Helvetica Neue", Arial, Helvetica, sans-serif;
             font-size: clamp(30px, 3vw, 52px);
             font-weight: 700;
-            left: 0;
+            left: 50%;
             line-height: 1.15;
             max-width: none;
             pointer-events: none;
@@ -65,8 +66,7 @@
                 0 -2px 1px #000,
                 -2px 0 1px #000;
             text-transform: none !important;
-            top: 0;
-            transform: none;
+            transform: translateX(-50%);
             white-space: nowrap;
             z-index: 2;
         }
@@ -76,9 +76,14 @@
         }
 
         .streaming-subtitle-overlay.is-top {
+            bottom: auto;
+            top: 7%;
         }
 
         .streaming-subtitle-overlay.is-center {
+            bottom: auto;
+            top: 50%;
+            transform: translate(-50%, -50%);
         }
 
         .streaming-subtitle-overlay.is-positioned {
@@ -532,90 +537,6 @@
                 const subtitleRenderers = [];
                 const videoWrapper = player.elements.container.querySelector('.plyr__video-wrapper');
                 const subtitleLayer = videoWrapper || player.elements.container;
-                const getRenderedVideoRect = () => {
-                    const layerRect = subtitleLayer.getBoundingClientRect();
-                    const videoElementRect = video.getBoundingClientRect();
-                    const containerLeft = videoElementRect.width ? videoElementRect.left - layerRect.left : 0;
-                    const containerTop = videoElementRect.height ? videoElementRect.top - layerRect.top : 0;
-                    const containerWidth = videoElementRect.width || layerRect.width || subtitleLayer.clientWidth;
-                    const containerHeight = videoElementRect.height || layerRect.height || subtitleLayer.clientHeight;
-
-                    if (!containerWidth || !containerHeight) {
-                        return {
-                            left: containerLeft,
-                            top: containerTop,
-                            width: containerWidth,
-                            height: containerHeight,
-                        };
-                    }
-
-                    const naturalWidth = video.videoWidth || 16;
-                    const naturalHeight = video.videoHeight || 9;
-                    const videoRatio = naturalWidth / naturalHeight;
-                    const containerRatio = containerWidth / containerHeight;
-                    let width = containerWidth;
-                    let height = containerHeight;
-                    let left = containerLeft;
-                    let top = containerTop;
-
-                    if (containerRatio > videoRatio) {
-                        height = containerHeight;
-                        width = height * videoRatio;
-                        left = containerLeft + ((containerWidth - width) / 2);
-                    } else if (containerRatio < videoRatio) {
-                        width = containerWidth;
-                        height = width / videoRatio;
-                        top = containerTop + ((containerHeight - height) / 2);
-                    }
-
-                    return { left, top, width, height };
-                };
-                const getLayerHeight = () => {
-                    const layerRect = subtitleLayer.getBoundingClientRect();
-
-                    return layerRect.height || subtitleLayer.clientHeight || 0;
-                };
-                const resolveCuePositionValue = (value, axis, rect) => {
-                    const amount = Number.parseFloat(value);
-
-                    if (!Number.isFinite(amount)) {
-                        return axis === 'x' ? rect.left : rect.top;
-                    }
-
-                    if (/px$/i.test(value)) {
-                        return (axis === 'x' ? rect.left : rect.top) + amount;
-                    }
-
-                    return axis === 'x'
-                        ? rect.left + (rect.width * amount / 100)
-                        : rect.top + (rect.height * amount / 100);
-                };
-                const applyDefaultCuePosition = (overlay) => {
-                    const renderedVideoRect = getRenderedVideoRect();
-                    const layerHeight = getLayerHeight();
-
-                    overlay.classList.remove('is-positioned');
-                    overlay.style.left = `${renderedVideoRect.left + (renderedVideoRect.width / 2)}px`;
-                    overlay.style.textAlign = 'center';
-
-                    if (overlay.classList.contains('is-top')) {
-                        overlay.style.top = `${renderedVideoRect.top + (renderedVideoRect.height * 0.035)}px`;
-                        overlay.style.bottom = 'auto';
-                        overlay.style.transform = 'translateX(-50%)';
-                        return;
-                    }
-
-                    if (overlay.classList.contains('is-center')) {
-                        overlay.style.top = `${renderedVideoRect.top + (renderedVideoRect.height / 2)}px`;
-                        overlay.style.bottom = 'auto';
-                        overlay.style.transform = 'translate(-50%, -50%)';
-                        return;
-                    }
-
-                    overlay.style.removeProperty('top');
-                    overlay.style.bottom = `${layerHeight - renderedVideoRect.top - renderedVideoRect.height + (renderedVideoRect.height * 0.05)}px`;
-                    overlay.style.transform = 'translateX(-50%)';
-                };
                 const parseTime = (value) => {
                     const parts = value.trim().split(':');
                     const seconds = parts.pop();
@@ -741,38 +662,24 @@
                         let activeCueIndex = 0;
                         let currentText = '';
                         let currentPosition = '';
-                        let currentCuePosition = null;
 
                         const applyCuePosition = (position) => {
                             if (!position) {
-                                applyDefaultCuePosition(overlay);
+                                overlay.classList.remove('is-positioned');
+                                overlay.style.removeProperty('left');
+                                overlay.style.removeProperty('top');
+                                overlay.style.removeProperty('bottom');
+                                overlay.style.removeProperty('transform');
+                                overlay.style.removeProperty('text-align');
                                 return;
                             }
 
-                            const renderedVideoRect = getRenderedVideoRect();
-                            const left = resolveCuePositionValue(position.x, 'x', renderedVideoRect);
-                            const top = resolveCuePositionValue(position.y, 'y', renderedVideoRect);
-
                             overlay.classList.add('is-positioned');
-                            overlay.style.left = `${left}px`;
-                            overlay.style.top = `${top}px`;
+                            overlay.style.left = position.x;
+                            overlay.style.top = position.y;
                             overlay.style.bottom = 'auto';
                             overlay.style.transform = 'none';
                             overlay.style.textAlign = 'left';
-                        };
-
-                        const reflowSubtitlePosition = () => {
-                            if (currentText !== '') {
-                                applyCuePosition(currentCuePosition);
-                            }
-                        };
-
-                        const scheduleSubtitleReflow = () => {
-                            window.requestAnimationFrame(reflowSubtitlePosition);
-                            window.setTimeout(reflowSubtitlePosition, 50);
-                            window.setTimeout(reflowSubtitlePosition, 150);
-                            window.setTimeout(reflowSubtitlePosition, 350);
-                            window.setTimeout(reflowSubtitlePosition, 700);
                         };
 
                         const renderCue = () => {
@@ -797,39 +704,19 @@
                             if (nextText !== currentText || nextPosition !== currentPosition) {
                                 currentText = nextText;
                                 currentPosition = nextPosition;
-                                currentCuePosition = nextText ? candidate?.position || null : null;
                                 overlay.innerHTML = currentText;
-                                applyCuePosition(currentCuePosition);
+                                applyCuePosition(nextText ? candidate?.position : null);
                                 overlay.classList.toggle('is-visible', currentText !== '');
-                            } else if (currentText !== '') {
-                                applyCuePosition(currentCuePosition);
                             }
                         };
 
                         video.addEventListener('timeupdate', renderCue);
                         video.addEventListener('seeked', renderCue);
-                        video.addEventListener('loadedmetadata', () => {
-                            renderCue();
-                            scheduleSubtitleReflow();
-                        });
-                        video.addEventListener('resize', scheduleSubtitleReflow);
-                        window.addEventListener('resize', scheduleSubtitleReflow);
-                        document.addEventListener('fullscreenchange', scheduleSubtitleReflow);
-                        document.addEventListener('webkitfullscreenchange', scheduleSubtitleReflow);
-                        player.on('enterfullscreen', scheduleSubtitleReflow);
-                        player.on('exitfullscreen', scheduleSubtitleReflow);
-
-                        if ('ResizeObserver' in window) {
-                            const subtitleResizeObserver = new ResizeObserver(scheduleSubtitleReflow);
-                            subtitleResizeObserver.observe(subtitleLayer);
-                            subtitleResizeObserver.observe(video);
-                        }
-
+                        video.addEventListener('loadedmetadata', renderCue);
                         subtitleRenderers.push(renderCue);
                         renderSubtitleCue = () => subtitleRenderers.forEach((renderer) => renderer());
                         updateSubtitleButtons();
                         renderCue();
-                        scheduleSubtitleReflow();
                     })
                     .catch(() => {
                         overlay.innerHTML = '';

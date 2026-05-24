@@ -207,7 +207,7 @@
 
             @if($nextEpisode || $previousEpisode)
                 <aside style="width:320px;flex:0 0 320px;">
-                    <div class="space-y-5 pr-1">
+                    <div class="pr-1" style="display:flex;flex-direction:column;gap:2.5rem;">
                         @if($nextEpisode)
                             @php
                                 $nextThumbUrl = !empty($nextEpisode->thumbnail_path)

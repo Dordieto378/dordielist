@@ -4,12 +4,14 @@
 @section('content')
     @php
         use Illuminate\Support\Facades\Storage;
+        use Illuminate\Support\Facades\URL;
 
         $title = $item['title']['english'] ?? $item['title']['romaji'] ?? $item['title']['native'] ?? 'No Title';
         $episodeNumber = $episode->episode_number;
         $mediaUrl = route('media.show', $item['id']);
 
-        $src = asset('storage/'.$episode->file_path);
+        $videoUrlExpiresAt = now()->addHours(6);
+        $src = URL::temporarySignedRoute('episodes.stream', $videoUrlExpiresAt, ['media' => $item['id'], 'episode' => $episode->id]);
         $releaseDate = !empty($item['releaseDate'])
             ? \Carbon\Carbon::parse($item['releaseDate'])->format('M j, Y')
             : (!empty($item['startDate']['year']) ? (string) $item['startDate']['year'] : null);
@@ -214,7 +216,7 @@
                                     ? Storage::url($nextEpisode->thumbnail_path)
                                     : asset('images/no-image.jpg');
                                 $nextPreviewUrl = !empty($nextEpisode->file_path)
-                                    ? asset('storage/'.$nextEpisode->file_path)
+                                    ? URL::temporarySignedRoute('episodes.stream', $videoUrlExpiresAt, ['media' => $item['id'], 'episode' => $nextEpisode->id])
                                     : null;
                             @endphp
                             <div>
@@ -250,7 +252,7 @@
                                     ? Storage::url($previousEpisode->thumbnail_path)
                                     : asset('images/no-image.jpg');
                                 $previousPreviewUrl = !empty($previousEpisode->file_path)
-                                    ? asset('storage/'.$previousEpisode->file_path)
+                                    ? URL::temporarySignedRoute('episodes.stream', $videoUrlExpiresAt, ['media' => $item['id'], 'episode' => $previousEpisode->id])
                                     : null;
                             @endphp
                             <div>

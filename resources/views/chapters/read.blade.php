@@ -124,7 +124,7 @@
 
         $chapterDisplay = rtrim(rtrim((string)$chapter->chapter_number, '0'), '.');
         $readerTitleWithChapter = $itemTitle.' - Chapter '.$chapterDisplay;
-        $readerImageExpiresAt = now()->addHours(2);
+        $readerImageExpiresAt = now()->addHours($view === 'scroll' ? 8 : 2);
     @endphp
 
     <style>
@@ -235,7 +235,8 @@
         }
         .reader-title-chapter {
             font-size: 1rem;
-            font-weight: 700;
+            font-weight: 400;
+            color: rgba(255, 255, 255, 0.68);
             margin-left: 0.6rem;
         }
         .reader-shell {
@@ -264,6 +265,96 @@
             display: flex;
             flex-direction: column;
             gap: 0;
+        }
+        .reader-lazy-page {
+            min-height: min(100vh, 1200px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            background: #f8fafc;
+        }
+        .reader-lazy-page::before {
+            content: "";
+            width: 28px;
+            height: 28px;
+            border: 3px solid #e5e7eb;
+            border-top-color: #ab2328;
+            border-radius: 9999px;
+            animation: reader-lazy-spin 0.9s linear infinite;
+        }
+        .reader-lazy-page.reader-lazy-pending > img {
+            display: none;
+        }
+        .reader-lazy-page.reader-lazy-error::before {
+            content: "";
+            width: 64px;
+            height: 48px;
+            border: 2px solid #94a3b8;
+            border-top-color: #94a3b8;
+            border-radius: 6px;
+            animation: none;
+            background:
+                radial-gradient(circle at 74% 26%, #94a3b8 0 4px, transparent 5px),
+                linear-gradient(135deg, transparent 46%, #94a3b8 47%, #94a3b8 53%, transparent 54%) left 9px bottom 10px / 30px 22px no-repeat,
+                linear-gradient(45deg, transparent 46%, #94a3b8 47%, #94a3b8 53%, transparent 54%) right 10px bottom 10px / 30px 20px no-repeat;
+        }
+        .reader-lazy-page.reader-lazy-error::after {
+            content: "Image could not be loaded";
+            position: absolute;
+            left: 50%;
+            top: calc(50% + 48px);
+            color: #64748b;
+            font-size: 0.95rem;
+            font-weight: 500;
+            transform: translateX(-50%);
+            white-space: nowrap;
+        }
+        .reader-lazy-page:not(.reader-lazy-pending) {
+            min-height: 0;
+            background: transparent;
+        }
+        .reader-lazy-page:not(.reader-lazy-pending)::before {
+            display: none;
+        }
+        .reader-image-error {
+            min-height: min(100vh, 1200px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            background: #f8fafc;
+        }
+        .reader-image-error > img,
+        .reader-image-error .dual-page {
+            display: none;
+        }
+        .reader-image-error::before {
+            content: "";
+            width: 64px;
+            height: 48px;
+            border: 2px solid #94a3b8;
+            border-radius: 6px;
+            background:
+                radial-gradient(circle at 74% 26%, #94a3b8 0 4px, transparent 5px),
+                linear-gradient(135deg, transparent 46%, #94a3b8 47%, #94a3b8 53%, transparent 54%) left 9px bottom 10px / 30px 22px no-repeat,
+                linear-gradient(45deg, transparent 46%, #94a3b8 47%, #94a3b8 53%, transparent 54%) right 10px bottom 10px / 30px 20px no-repeat;
+        }
+        .reader-image-error::after {
+            content: "Image could not be loaded";
+            position: absolute;
+            left: 50%;
+            top: calc(50% + 48px);
+            color: #64748b;
+            font-size: 0.95rem;
+            font-weight: 500;
+            transform: translateX(-50%);
+            white-space: nowrap;
+        }
+        @keyframes reader-lazy-spin {
+            to {
+                transform: rotate(360deg);
+            }
         }
         .reader-controls {
             display: flex;
@@ -550,7 +641,7 @@
                         <a href="{{ $itemUrl }}" class="reader-title" title="{{ $itemTitle }}">
                             {{ shortTitle($itemTitle, 40) }}
                         </a>
-                        <span class="reader-title-chapter text-gray-300">Chapter {{ $chapterDisplay }}</span>
+                        <span class="reader-title-chapter">Chapter {{ $chapterDisplay }}</span>
                     </div>
                 </div>
                 <div class="flex items-center space-x-2 text-white text-sm">
@@ -632,13 +723,24 @@
                         @endphp
 
                         @if($isImage)
-                            <div class="reader-page">
+                            <div class="reader-page reader-lazy-page reader-lazy-pending" data-reader-lazy-frame>
                                 <img
-                                    src="{{ $url }}"
+                                    data-reader-lazy
+                                    data-src="{{ $url }}"
                                     alt="Page {{ $p->page_number }}"
                                     class="zoomable reader-img"
+                                    loading="lazy"
+                                    decoding="async"
                                     draggable="false"
                                 >
+                                <noscript>
+                                    <img
+                                        src="{{ $url }}"
+                                        alt="Page {{ $p->page_number }}"
+                                        class="reader-img"
+                                        draggable="false"
+                                    >
+                                </noscript>
                             </div>
                         @endif
                     @endforeach
@@ -880,6 +982,7 @@
 
             let hoverCount = 0;
             let navigating = false;
+            let lazyReaderObserver = null;
 
             const syncFullscreenButtons = () => {
                 const isFullscreen = Boolean(fullscreenElement());
@@ -950,12 +1053,107 @@
                 }, { capture: true });
             };
 
+            const markLazyImageFinished = (img, failed = false) => {
+                const frame = img.closest('[data-reader-lazy-frame]');
+                if (frame) {
+                    if (failed) {
+                        frame.classList.add('reader-lazy-error', 'reader-image-error');
+                        frame.setAttribute('role', 'img');
+                        frame.setAttribute('aria-label', `${img.alt || 'Reader page'} failed to load`);
+                    } else {
+                        frame.classList.remove('reader-lazy-pending', 'reader-lazy-error', 'reader-image-error');
+                        frame.removeAttribute('role');
+                        frame.removeAttribute('aria-label');
+                    }
+                }
+            };
+
+            const markReaderImageFailed = (img) => {
+                const frame = img.closest('.reader-page') || img.parentElement;
+                if (!frame) return;
+
+                frame.classList.add('reader-image-error');
+                frame.setAttribute('role', 'img');
+                frame.setAttribute('aria-label', `${img.alt || 'Reader page'} failed to load`);
+            };
+
+            const initReaderImageErrors = () => {
+                document.querySelectorAll('img.reader-img:not([data-reader-lazy])').forEach((img) => {
+                    if (img.dataset.readerErrorBound === '1') return;
+
+                    img.dataset.readerErrorBound = '1';
+                    img.addEventListener('error', () => markReaderImageFailed(img), { once: true });
+
+                    if (img.complete && !img.naturalWidth) {
+                        markReaderImageFailed(img);
+                    }
+                });
+            };
+
+            const loadLazyReaderImage = (img) => {
+                if (!img || img.dataset.readerLazyLoaded === '1') return;
+
+                const src = img.dataset.src;
+                if (!src) return;
+
+                img.dataset.readerLazyLoaded = '1';
+                img.src = src;
+                img.removeAttribute('data-src');
+                img.loading = 'eager';
+            };
+
+            const initLazyReaderImages = () => {
+                const lazyImages = Array.from(document.querySelectorAll('img[data-reader-lazy][data-src]'));
+
+                if (lazyReaderObserver) {
+                    lazyReaderObserver.disconnect();
+                    lazyReaderObserver = null;
+                }
+
+                if (!lazyImages.length) return;
+
+                lazyImages.forEach((img) => {
+                    if (img.dataset.readerLazyEventsBound === '1') return;
+
+                    img.dataset.readerLazyEventsBound = '1';
+                    img.addEventListener('load', () => markLazyImageFinished(img), { once: true });
+                    img.addEventListener('error', () => markLazyImageFinished(img, true), { once: true });
+                });
+
+                if (!('IntersectionObserver' in window)) {
+                    lazyImages.forEach(loadLazyReaderImage);
+                    return;
+                }
+
+                lazyReaderObserver = new IntersectionObserver((entries) => {
+                    entries.forEach((entry) => {
+                        if (!entry.isIntersecting) return;
+
+                        const img = entry.target.matches('img')
+                            ? entry.target
+                            : entry.target.querySelector('img[data-reader-lazy][data-src]');
+
+                        loadLazyReaderImage(img);
+                        lazyReaderObserver.unobserve(entry.target);
+                    });
+                }, {
+                    rootMargin: '1200px 0px',
+                    threshold: 0.01,
+                });
+
+                lazyImages.forEach((img) => {
+                    lazyReaderObserver.observe(img.closest('[data-reader-lazy-frame]') || img);
+                });
+            };
+
             const initReaderPage = () => {
                 hoverCount = 0;
                 setReaderMode();
                 bindHoverBars();
                 bindProtectedReader();
                 syncFullscreenButtons();
+                initLazyReaderImages();
+                initReaderImageErrors();
             };
 
             const navigateReader = async (targetUrl) => {

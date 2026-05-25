@@ -170,6 +170,9 @@ Route::middleware('auth')->group(function () {
     Route::post('/media/{media}/episodes/upload/complete', [EpisodeController::class, 'completeUpload'])->name('episodes.upload.complete');
     Route::post('/media/{media}/episodes/upload', [EpisodeController::class, 'storeUploaded'])->name('episodes.upload');
     Route::delete('/media/{media}/episodes/reset', [EpisodeController::class, 'resetUploaded'])->name('episodes.reset');
+    Route::get('/media/{media}/episodes/{episode}/video', [EpisodeController::class, 'stream'])
+        ->middleware('signed')
+        ->name('episodes.stream');
     Route::get('/media/{media}/episodes/{episode}', [EpisodeController::class, 'show'])->name('episodes.show');
 
     Route::post('/media/{media}/chapters/upload/chunk', [ChapterController::class, 'uploadChunk'])->name('chapters.upload.chunk');

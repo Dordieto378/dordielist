@@ -434,6 +434,90 @@ class EpisodeController extends Controller
         return null;
     }
 
+    public function stream(Request $request, Media $media, Episode $episode)
+    {
+        abort_unless((int) $episode->media_fk === (int) $media->id, 404);
+        abort_unless(!empty($episode->file_path), 404);
+
+        $disk = Storage::disk('public');
+        abort_unless($disk->exists($episode->file_path), 404);
+
+        $path = $disk->path($episode->file_path);
+        $size = filesize($path);
+        $mime = File::mimeType($path) ?: 'video/mp4';
+        $start = 0;
+        $end = $size - 1;
+        $status = 200;
+        $headers = [
+            'Accept-Ranges' => 'bytes',
+            'Content-Type' => $mime,
+            'Content-Disposition' => 'inline; filename="'.basename($path).'"',
+            'Cache-Control' => 'private, no-store, no-cache, must-revalidate, max-age=0',
+            'Pragma' => 'no-cache',
+            'Expires' => '0',
+            'X-Content-Type-Options' => 'nosniff',
+        ];
+
+        $range = (string) $request->headers->get('Range', '');
+        if (preg_match('/bytes=(\d*)-(\d*)/', $range, $matches)) {
+            if ($matches[1] !== '') {
+                $start = max(0, (int) $matches[1]);
+            }
+
+            if ($matches[2] !== '') {
+                $end = min($end, (int) $matches[2]);
+            }
+
+            if ($matches[1] === '' && $matches[2] !== '') {
+                $suffixLength = min((int) $matches[2], $size);
+                $start = $size - $suffixLength;
+                $end = $size - 1;
+            }
+
+            if ($start > $end || $start >= $size) {
+                return response('', 416, [
+                    'Content-Range' => 'bytes */'.$size,
+                    'Accept-Ranges' => 'bytes',
+                ]);
+            }
+
+            $status = 206;
+            $headers['Content-Range'] = "bytes {$start}-{$end}/{$size}";
+        }
+
+        $length = $end - $start + 1;
+        $headers['Content-Length'] = (string) $length;
+
+        return response()->stream(function () use ($path, $start, $length) {
+            $handle = fopen($path, 'rb');
+            if ($handle === false) {
+                return;
+            }
+
+            try {
+                fseek($handle, $start);
+                $remaining = $length;
+
+                while ($remaining > 0 && !feof($handle)) {
+                    $chunkSize = min(1024 * 1024, $remaining);
+                    $chunk = fread($handle, $chunkSize);
+
+                    if ($chunk === false || $chunk === '') {
+                        break;
+                    }
+
+                    echo $chunk;
+                    $remaining -= strlen($chunk);
+
+                    if (connection_aborted()) {
+                        break;
+                    }
+                }
+            } finally {
+                fclose($handle);
+            }
+        }, $status, $headers);
+    }
     public function show($mediaId, $episodeNumber)
     {
         $media = Media::with(['anilistGenres:id,name', 'anilistTags:id,name'])->findOrFail($mediaId);
@@ -494,7 +578,7 @@ class EpisodeController extends Controller
 
         $episodes = Episode::where('media_fk', $mediaId)
             ->orderBy('episode_number')
-            ->get(['episode_number', 'thumbnail_path', 'file_path']);
+            ->get(['id', 'episode_number', 'thumbnail_path', 'file_path']);
 
         return view('episodes.show', [
             'item' => $item,

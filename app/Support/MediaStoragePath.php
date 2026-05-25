@@ -8,6 +8,16 @@ class MediaStoragePath
 {
     public static function episodeDirectory(Media $media): string
     {
+        return self::mediaDirectory($media).'/videos';
+    }
+
+    public static function subtitleDirectory(Media $media): string
+    {
+        return self::mediaDirectory($media).'/subtitles';
+    }
+
+    public static function mediaDirectory(Media $media): string
+    {
         return self::mediaTypeDirectory($media).'/'.self::stableMediaKey($media);
     }
 

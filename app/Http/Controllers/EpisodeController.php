@@ -149,23 +149,28 @@ class EpisodeController extends Controller
 
         $disk = Storage::disk('public');
         $targetRelDir = MediaStoragePath::episodeDirectory($media);
+        $targetSubtitleDir = MediaStoragePath::subtitleDirectory($media);
         $createdFiles = [];
         $createdThumbs = [];
+        $createdSubtitles = [];
         $extractRoot = null;
 
         try {
             $extractRoot = $uploadedArchive->extractArchiveToTemporaryRoot($archive, 'episode-upload-');
             $contentRoot = $uploadedArchive->resolveContentRoot($extractRoot);
             $videoFiles = $uploadedArchive->listVideoFiles($contentRoot, true);
+            $subtitleFiles = $uploadedArchive->listSubtitleFiles($contentRoot, true);
+            $subtitleIndex = $this->indexSubtitleFiles($subtitleFiles);
 
             if ($videoFiles === []) {
                 throw new \RuntimeException('ZIP must contain .mp4, .webm, or .mkv files.');
             }
 
             File::ensureDirectoryExists($disk->path($targetRelDir));
+            File::ensureDirectoryExists($disk->path($targetSubtitleDir));
 
             $existingEpisodes = Episode::where('media_fk', $media->id)
-                ->get(['id', 'episode_number', 'file_path', 'thumbnail_path'])
+                ->get(['id', 'episode_number', 'file_path', 'thumbnail_path', 'subtitle_path', 'top_subtitle_path', 'center_subtitle_path'])
                 ->keyBy(fn (Episode $episode) => (int) $episode->episode_number);
 
             $usedNumbers = $existingEpisodes->keys()->map(fn ($number) => (int) $number)->all();
@@ -209,13 +214,14 @@ class EpisodeController extends Controller
 
                 $ext = strtolower(pathinfo($basename, PATHINFO_EXTENSION));
                 $sourceName = pathinfo($basename, PATHINFO_FILENAME);
-                $safeName = $uploadedArchive->sanitizePathSegment($sourceName, 'episode-'.$episodeNumber);
-                $targetFilename = sprintf('episode-%03d-%s.%s', $episodeNumber, $safeName, $ext);
+                $targetFilename = sprintf('eps%d.%s', $episodeNumber, $ext);
                 $targetRelPath = $targetRelDir.'/'.$targetFilename;
+                $targetBaseName = pathinfo($targetFilename, PATHINFO_FILENAME);
 
                 if ($disk->exists($targetRelPath)) {
                     if ($existingEpisode) {
                         $targetRelPath = $this->makeUniqueTargetPath($disk, $targetRelDir, $targetFilename);
+                        $targetBaseName = pathinfo($targetRelPath, PATHINFO_FILENAME);
                     } else {
                         throw new \RuntimeException("File already exists for episode {$episodeNumber}.");
                     }
@@ -232,6 +238,16 @@ class EpisodeController extends Controller
                 }
 
                 $createdFiles[] = $targetRelPath;
+                $subtitlePaths = $this->storeMatchedSubtitles(
+                    $disk,
+                    $subtitleIndex,
+                    $sourceName,
+                    $episodeNumber,
+                    $targetSubtitleDir,
+                    $targetBaseName,
+                    $existingEpisode !== null
+                );
+                $createdSubtitles = array_merge($createdSubtitles, array_filter($subtitlePaths));
 
                 $thumb = EpisodeThumbnailer::generate($media, $episodeNumber, $targetRelPath, $existingEpisode !== null);
                 if ($thumb !== null && $disk->exists($thumb)) {
@@ -244,6 +260,9 @@ class EpisodeController extends Controller
                     'episode_number' => $episodeNumber,
                     'file_path' => $targetRelPath,
                     'thumbnail_path' => $thumb,
+                    'subtitle_path' => $subtitlePaths['default'] ?? null,
+                    'top_subtitle_path' => $subtitlePaths['top'] ?? null,
+                    'center_subtitle_path' => $subtitlePaths['center'] ?? null,
                     'created_at' => now(),
                     'updated_at' => now(),
                 ];
@@ -273,9 +292,16 @@ class EpisodeController extends Controller
 
             $oldThumbsToDelete = [];
             $oldFilesToDelete = [];
+            $oldSubtitlesToDelete = [];
             foreach ($replacedEpisodes as $episodeNumber => $existingEpisode) {
                 if (!empty($existingEpisode->file_path)) {
                     $oldFilesToDelete[] = $existingEpisode->file_path;
+                }
+
+                foreach (['subtitle_path', 'top_subtitle_path', 'center_subtitle_path'] as $subtitleColumn) {
+                    if (!empty($existingEpisode->{$subtitleColumn})) {
+                        $oldSubtitlesToDelete[] = $existingEpisode->{$subtitleColumn};
+                    }
                 }
 
                 $existingThumb = $existingEpisode->thumbnail_path ?? null;
@@ -286,14 +312,17 @@ class EpisodeController extends Controller
             }
 
             $this->cleanupCreatedFiles($disk, $oldThumbsToDelete);
+            $this->cleanupCreatedFiles($disk, $oldSubtitlesToDelete);
             $this->cleanupCreatedFiles($disk, $oldFilesToDelete);
 
             return $this->uploadSuccessResponse($request);
         } catch (Throwable $e) {
             report($e);
             $this->cleanupCreatedFiles($disk, $createdThumbs);
+            $this->cleanupCreatedFiles($disk, $createdSubtitles);
             $this->cleanupCreatedFiles($disk, $createdFiles);
             $this->cleanupEmptyDirectory($disk, $targetRelDir);
+            $this->cleanupEmptyDirectory($disk, $targetSubtitleDir);
 
             $message = trim($e->getMessage()) !== ''
                 ? $e->getMessage()
@@ -334,7 +363,11 @@ class EpisodeController extends Controller
         abort_unless(optional($request->user()?->role)->role === 'Admin', 403);
 
         $disk = Storage::disk('public');
-        $targetRelDir = MediaStoragePath::episodeDirectory($media);
+        $targetRelDirs = [
+            MediaStoragePath::episodeDirectory($media),
+            MediaStoragePath::subtitleDirectory($media),
+            MediaStoragePath::thumbnailDirectory($media),
+        ];
 
         DB::transaction(function () use ($media) {
             Episode::where('media_fk', $media->id)->delete();
@@ -344,8 +377,10 @@ class EpisodeController extends Controller
             $media->save();
         });
 
-        if ($disk->directoryExists($targetRelDir)) {
-            $disk->deleteDirectory($targetRelDir);
+        foreach ($targetRelDirs as $targetRelDir) {
+            if ($disk->directoryExists($targetRelDir)) {
+                $disk->deleteDirectory($targetRelDir);
+            }
         }
 
         return back();
@@ -373,6 +408,87 @@ class EpisodeController extends Controller
         }
 
         return back();
+    }
+
+    private function indexSubtitleFiles(array $subtitleFiles): array
+    {
+        $index = [
+            'by_name' => [],
+            'by_episode' => [],
+        ];
+
+        foreach ($subtitleFiles as $path) {
+            $filename = pathinfo($path, PATHINFO_FILENAME);
+            $type = 'default';
+            $base = $filename;
+
+            if (preg_match('/(?:[.\-_\s]+top)\z/i', $base)) {
+                $type = 'top';
+                $base = preg_replace('/(?:[.\-_\s]+top)\z/i', '', $base) ?: $base;
+            } elseif (preg_match('/(?:[.\-_\s]+center)\z/i', $base)) {
+                $type = 'center';
+                $base = preg_replace('/(?:[.\-_\s]+center)\z/i', '', $base) ?: $base;
+            }
+
+            $entry = ['path' => $path, 'type' => $type, 'base' => $base];
+            $nameKey = $this->normalizeSubtitleMatchKey($base);
+            if ($nameKey !== '') {
+                $index['by_name'][$nameKey][$type] = $entry;
+            }
+
+            $episodeNumber = $this->parseEpisodeNumber($base);
+            if ($episodeNumber !== null && !isset($index['by_episode'][$episodeNumber][$type])) {
+                $index['by_episode'][$episodeNumber][$type] = $entry;
+            }
+        }
+
+        return $index;
+    }
+
+    private function storeMatchedSubtitles($disk, array $subtitleIndex, string $sourceName, int $episodeNumber, string $targetDir, string $targetBaseName, bool $replaceExisting): array
+    {
+        $matches = $subtitleIndex['by_name'][$this->normalizeSubtitleMatchKey($sourceName)]
+            ?? $subtitleIndex['by_episode'][$episodeNumber]
+            ?? [];
+
+        $stored = [
+            'default' => null,
+            'top' => null,
+            'center' => null,
+        ];
+
+        foreach ([
+            'default' => '.vtt',
+            'top' => '.top.vtt',
+            'center' => '.center.vtt',
+        ] as $type => $suffix) {
+            if (empty($matches[$type]['path'])) {
+                continue;
+            }
+
+            $targetPath = $targetDir.'/'.$targetBaseName.$suffix;
+            if ($disk->exists($targetPath)) {
+                if (!$replaceExisting) {
+                    throw new \RuntimeException("Subtitle already exists for episode {$episodeNumber}.");
+                }
+
+                $disk->delete($targetPath);
+            }
+
+            File::ensureDirectoryExists(dirname($disk->path($targetPath)));
+            if (!@copy($matches[$type]['path'], $disk->path($targetPath))) {
+                throw new \RuntimeException("Could not store subtitle for episode {$episodeNumber}.");
+            }
+
+            $stored[$type] = $targetPath;
+        }
+
+        return $stored;
+    }
+
+    private function normalizeSubtitleMatchKey(string $value): string
+    {
+        return strtolower((string) preg_replace('/[^a-z0-9]+/i', '', $value));
     }
 
     private function cleanupCreatedFiles($disk, array $paths): void

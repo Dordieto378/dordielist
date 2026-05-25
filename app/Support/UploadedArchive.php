@@ -79,6 +79,11 @@ class UploadedArchive
         return $this->listFilesByExtension($path, ['mp4', 'webm', 'mkv'], $recursive);
     }
 
+    public function listSubtitleFiles(string $path, bool $recursive = false): array
+    {
+        return $this->listFilesByExtension($path, ['vtt'], $recursive);
+    }
+
     public function sanitizePathSegment(string $value, string $fallback): string
     {
         $segment = Str::slug($value);

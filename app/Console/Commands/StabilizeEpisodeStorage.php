@@ -19,6 +19,7 @@ class StabilizeEpisodeStorage extends Command
     protected $description = 'Move anime/hentai episode files to source-based folders and repair episode database paths.';
 
     private const VIDEO_EXTENSIONS = ['mp4', 'webm', 'mkv', 'avi', 'mov', 'm4v'];
+    private const SUBTITLE_EXTENSIONS = ['vtt'];
 
     public function handle(): int
     {
@@ -39,12 +40,35 @@ class StabilizeEpisodeStorage extends Command
             ->chunkById(100, function ($mediaItems) use ($disk, $dryRun, $force, &$movedFiles, &$updatedRows, &$createdRows, &$conflicts) {
                 foreach ($mediaItems as $media) {
                     $episodeDirs = $this->episodeCandidateDirs($media);
+                    $subtitleDirs = $this->subtitleCandidateDirs($media);
                     $thumbDirs = $this->thumbnailCandidateDirs($media);
 
                     try {
                         foreach ($episodeDirs as $dir) {
                             if ($dir !== MediaStoragePath::episodeDirectory($media)) {
-                                $movedFiles += $this->moveDirectoryContents($disk, $dir, MediaStoragePath::episodeDirectory($media), $dryRun, $force);
+                                $movedFiles += $this->moveDirectoryContents(
+                                    $disk,
+                                    $dir,
+                                    MediaStoragePath::episodeDirectory($media),
+                                    $dryRun,
+                                    $force,
+                                    self::VIDEO_EXTENSIONS,
+                                    $dir !== MediaStoragePath::mediaDirectory($media)
+                                );
+                            }
+                        }
+
+                        foreach ($subtitleDirs as $dir) {
+                            if ($dir !== MediaStoragePath::subtitleDirectory($media)) {
+                                $movedFiles += $this->moveDirectoryContents(
+                                    $disk,
+                                    $dir,
+                                    MediaStoragePath::subtitleDirectory($media),
+                                    $dryRun,
+                                    $force,
+                                    self::SUBTITLE_EXTENSIONS,
+                                    $dir !== MediaStoragePath::mediaDirectory($media)
+                                );
                             }
                         }
 
@@ -59,7 +83,7 @@ class StabilizeEpisodeStorage extends Command
                         continue;
                     }
 
-                    $updatedRows += $this->rewriteEpisodeRows($media, $episodeDirs, $thumbDirs, $dryRun);
+                    $updatedRows += $this->rewriteEpisodeRows($media, $episodeDirs, $thumbDirs, $dryRun, $force);
                     $createdRows += $this->attachMissingEpisodes($media, $dryRun);
                 }
             });
@@ -84,7 +108,18 @@ class StabilizeEpisodeStorage extends Command
         return array_values(array_unique(array_filter([
             MediaStoragePath::legacyEpisodeDirectory($media),
             MediaStoragePath::mediaTypeDirectory($media).'/'.$media->source_id,
+            MediaStoragePath::mediaDirectory($media),
             MediaStoragePath::episodeDirectory($media),
+        ])));
+    }
+
+    private function subtitleCandidateDirs(Media $media): array
+    {
+        return array_values(array_unique(array_filter([
+            MediaStoragePath::legacyEpisodeDirectory($media),
+            MediaStoragePath::mediaTypeDirectory($media).'/'.$media->source_id,
+            MediaStoragePath::mediaDirectory($media),
+            MediaStoragePath::subtitleDirectory($media),
         ])));
     }
 
@@ -143,7 +178,8 @@ class StabilizeEpisodeStorage extends Command
             $this->line("sequence map {$legacyDir} -> {$targetDir} ({$media->title_romaji})");
 
             try {
-                $movedFiles += $this->moveDirectoryContents($disk, $legacyDir, $targetDir, $dryRun, $force);
+                $movedFiles += $this->moveDirectoryContents($disk, $legacyDir, $targetDir, $dryRun, $force, self::VIDEO_EXTENSIONS);
+                $movedFiles += $this->moveDirectoryContents($disk, $legacyDir, MediaStoragePath::subtitleDirectory($media), $dryRun, $force, self::SUBTITLE_EXTENSIONS);
                 $movedFiles += $this->moveDirectoryContents($disk, $legacyThumbDir, $targetThumbDir, $dryRun, $force);
             } catch (\RuntimeException $e) {
                 $conflicts++;
@@ -157,13 +193,20 @@ class StabilizeEpisodeStorage extends Command
         return [$movedFiles, $createdRows, $conflicts];
     }
 
-    private function moveDirectoryContents($disk, string $from, string $to, bool $dryRun, bool $force): int
+    private function moveDirectoryContents($disk, string $from, string $to, bool $dryRun, bool $force, ?array $extensions = null, bool $recursive = true): int
     {
         if (!$disk->directoryExists($from)) {
             return 0;
         }
 
-        $files = $disk->allFiles($from);
+        $files = $recursive ? $disk->allFiles($from) : $disk->files($from);
+        if ($extensions !== null) {
+            $extensionMap = array_fill_keys(array_map('strtolower', $extensions), true);
+            $files = array_values(array_filter($files, function (string $file) use ($extensionMap) {
+                return isset($extensionMap[strtolower(pathinfo($file, PATHINFO_EXTENSION))]);
+            }));
+        }
+
         if ($files === []) {
             return 0;
         }
@@ -190,27 +233,42 @@ class StabilizeEpisodeStorage extends Command
             $disk->move($file, $target);
         }
 
-        if (!$dryRun) {
+        if (!$dryRun && ($extensions === null || $disk->allFiles($from) === [])) {
             $disk->deleteDirectory($from);
         }
 
         return count($files);
     }
 
-    private function rewriteEpisodeRows(Media $media, array $episodeDirs, array $thumbDirs, bool $dryRun): int
+    private function rewriteEpisodeRows(Media $media, array $episodeDirs, array $thumbDirs, bool $dryRun, bool $force): int
     {
+        $disk = Storage::disk('public');
         $updated = 0;
         $targetEpisodeDir = MediaStoragePath::episodeDirectory($media);
         $targetThumbDir = MediaStoragePath::thumbnailDirectory($media);
+        $targetSubtitleDir = MediaStoragePath::subtitleDirectory($media);
 
         Episode::where('media_fk', $media->id)
             ->orderBy('id')
-            ->chunkById(100, function ($episodes) use ($episodeDirs, $thumbDirs, $targetEpisodeDir, $targetThumbDir, $dryRun, &$updated) {
+            ->chunkById(100, function ($episodes) use ($disk, $episodeDirs, $thumbDirs, $targetEpisodeDir, $targetThumbDir, $targetSubtitleDir, $dryRun, $force, &$updated) {
                 foreach ($episodes as $episode) {
                     $filePath = $this->rewriteByPrefixes((string) $episode->file_path, $episodeDirs, $targetEpisodeDir);
                     $thumbPath = $this->rewriteByPrefixes((string) ($episode->thumbnail_path ?? ''), $thumbDirs, $targetThumbDir);
+                    $filePath = $this->normalizeEpisodeVideoName($disk, $filePath, (int) $episode->episode_number, $targetEpisodeDir, $dryRun, $force);
+                    $subtitlePaths = $this->subtitlePathsForVideo($disk, $filePath, $targetSubtitleDir, [
+                        'default' => $episode->subtitle_path ?? null,
+                        'top' => $episode->top_subtitle_path ?? null,
+                        'center' => $episode->center_subtitle_path ?? null,
+                    ]);
+                    $subtitlePaths = $this->normalizeEpisodeSubtitleNames($disk, $subtitlePaths, (int) $episode->episode_number, $targetSubtitleDir, $dryRun, $force);
 
-                    if ($filePath === $episode->file_path && $thumbPath === (string) ($episode->thumbnail_path ?? '')) {
+                    if (
+                        $filePath === $episode->file_path
+                        && $thumbPath === (string) ($episode->thumbnail_path ?? '')
+                        && $subtitlePaths['default'] === ($episode->subtitle_path ?? null)
+                        && $subtitlePaths['top'] === ($episode->top_subtitle_path ?? null)
+                        && $subtitlePaths['center'] === ($episode->center_subtitle_path ?? null)
+                    ) {
                         continue;
                     }
 
@@ -222,11 +280,97 @@ class StabilizeEpisodeStorage extends Command
 
                     $episode->file_path = $filePath;
                     $episode->thumbnail_path = $thumbPath !== '' ? $thumbPath : null;
+                    $episode->subtitle_path = $subtitlePaths['default'];
+                    $episode->top_subtitle_path = $subtitlePaths['top'];
+                    $episode->center_subtitle_path = $subtitlePaths['center'];
                     $episode->save();
                 }
             });
 
         return $updated;
+    }
+
+    private function subtitlePathsForVideo($disk, string $videoPath, string $targetSubtitleDir, array $storedPaths = []): array
+    {
+        $videoPath = ltrim(str_replace('\\', '/', $videoPath), '/');
+        $videoBase = preg_replace('/\.[^.\/\\\\]+\z/', '', $videoPath);
+        $targetBase = trim($targetSubtitleDir, '/').'/'.pathinfo($videoPath, PATHINFO_FILENAME);
+        $episodeBase = trim($targetSubtitleDir, '/').'/'.preg_replace('/\.[^.\/\\\\]+\z/', '', basename($videoPath));
+
+        return [
+            'default' => $this->firstExistingPath($disk, [$storedPaths['default'] ?? null, $targetBase.'.vtt', $episodeBase.'.vtt', $videoBase.'.vtt']),
+            'top' => $this->firstExistingPath($disk, [$storedPaths['top'] ?? null, $targetBase.'.top.vtt', $episodeBase.'.top.vtt', $videoBase.'.top.vtt']),
+            'center' => $this->firstExistingPath($disk, [$storedPaths['center'] ?? null, $targetBase.'.center.vtt', $episodeBase.'.center.vtt', $videoBase.'.center.vtt']),
+        ];
+    }
+
+    private function normalizeEpisodeVideoName($disk, string $path, int $episodeNumber, string $targetDir, bool $dryRun, bool $force): string
+    {
+        $path = ltrim(str_replace('\\', '/', $path), '/');
+        $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+        if ($extension === '') {
+            return $path;
+        }
+
+        $target = trim($targetDir, '/')."/eps{$episodeNumber}.{$extension}";
+
+        return $this->movePathIfNeeded($disk, $path, $target, $dryRun, $force);
+    }
+
+    private function normalizeEpisodeSubtitleNames($disk, array $paths, int $episodeNumber, string $targetDir, bool $dryRun, bool $force): array
+    {
+        $targetBase = trim($targetDir, '/')."/eps{$episodeNumber}";
+
+        return [
+            'default' => $paths['default']
+                ? $this->movePathIfNeeded($disk, $paths['default'], $targetBase.'.vtt', $dryRun, $force)
+                : null,
+            'top' => $paths['top']
+                ? $this->movePathIfNeeded($disk, $paths['top'], $targetBase.'.top.vtt', $dryRun, $force)
+                : null,
+            'center' => $paths['center']
+                ? $this->movePathIfNeeded($disk, $paths['center'], $targetBase.'.center.vtt', $dryRun, $force)
+                : null,
+        ];
+    }
+
+    private function movePathIfNeeded($disk, string $from, string $to, bool $dryRun, bool $force): string
+    {
+        $from = ltrim(str_replace('\\', '/', $from), '/');
+        $to = ltrim(str_replace('\\', '/', $to), '/');
+
+        if ($from === $to) {
+            return $to;
+        }
+
+        if ($disk->exists($to) && !$force) {
+            throw new \RuntimeException("Target already exists: {$to}. Re-run with --force to overwrite.");
+        }
+
+        if ($dryRun) {
+            $this->line("rename {$from} -> {$to}");
+
+            return $to;
+        }
+
+        $disk->makeDirectory(dirname($to));
+        if ($disk->exists($to)) {
+            $disk->delete($to);
+        }
+        $disk->move($from, $to);
+
+        return $to;
+    }
+
+    private function firstExistingPath($disk, array $paths): ?string
+    {
+        foreach (array_unique(array_filter($paths)) as $path) {
+            if ($disk->exists($path)) {
+                return $path;
+            }
+        }
+
+        return null;
     }
 
     private function attachMissingEpisodes(Media $media, bool $dryRun, ?string $sourceDir = null): int
@@ -295,6 +439,12 @@ class StabilizeEpisodeStorage extends Command
 
     private function rewriteByPrefixes(string $path, array $fromPrefixes, string $toPrefix): string
     {
+        $normalizedPath = ltrim(str_replace('\\', '/', $path), '/');
+        $normalizedTarget = trim(str_replace('\\', '/', $toPrefix), '/');
+        if ($normalizedPath === $normalizedTarget || Str::startsWith($normalizedPath, $normalizedTarget.'/')) {
+            return $path;
+        }
+
         foreach ($fromPrefixes as $fromPrefix) {
             $rewritten = $this->replacePathPrefix($path, $fromPrefix, $toPrefix);
             if ($rewritten !== $path) {
@@ -337,7 +487,7 @@ class StabilizeEpisodeStorage extends Command
     {
         $name = pathinfo($filename, PATHINFO_FILENAME);
 
-        if (preg_match('/(?:episode|ep|e)[\s\-_]*([0-9]{1,3})/i', $name, $matches)) {
+        if (preg_match('/(?:episode|eps|ep|e)[\s\-_]*([0-9]{1,3})/i', $name, $matches)) {
             return (int) $matches[1];
         }
 

@@ -26,12 +26,42 @@
         $previousEpisode = $currentEpisodeIndex !== false && $currentEpisodeIndex > 0
             ? $visibleEpisodes->get($currentEpisodeIndex - 1)
             : null;
-        $subtitlePath = preg_replace('/\.[^.\/\\\\]+\z/', '.vtt', (string) $episode->file_path);
-        $subtitleExists = $subtitlePath && file_exists(public_path('storage/'.$subtitlePath));
-        $topSubtitlePath = preg_replace('/\.[^.\/\\\\]+\z/', '.top.vtt', (string) $episode->file_path);
-        $topSubtitleExists = $topSubtitlePath && file_exists(public_path('storage/'.$topSubtitlePath));
-        $centerSubtitlePath = preg_replace('/\.[^.\/\\\\]+\z/', '.center.vtt', (string) $episode->file_path);
-        $centerSubtitleExists = $centerSubtitlePath && file_exists(public_path('storage/'.$centerSubtitlePath));
+        $resolveSubtitlePath = function (string $column, string $suffix) use ($episode): ?string {
+            $videoPath = ltrim((string) $episode->file_path, '/');
+            $videoBase = preg_replace('/\.[^.\/\\\\]+\z/', '', $videoPath);
+            $candidates = [];
+
+            $storedPath = ltrim((string) ($episode->{$column} ?? ''), '/');
+            if ($storedPath !== '') {
+                $candidates[] = $storedPath;
+            }
+
+            if (str_contains($videoPath, '/videos/')) {
+                $subtitleDir = preg_replace('#/videos/[^/]+\z#', '/subtitles', $videoPath);
+                if ($subtitleDir) {
+                    $candidates[] = $subtitleDir.'/'.pathinfo($videoPath, PATHINFO_FILENAME).$suffix.'.vtt';
+                }
+            }
+
+            if ($videoBase) {
+                $candidates[] = $videoBase.$suffix.'.vtt';
+            }
+
+            foreach (array_unique(array_filter($candidates)) as $candidate) {
+                if (Storage::disk('public')->exists($candidate)) {
+                    return $candidate;
+                }
+            }
+
+            return null;
+        };
+
+        $subtitlePath = $resolveSubtitlePath('subtitle_path', '');
+        $subtitleExists = $subtitlePath !== null;
+        $topSubtitlePath = $resolveSubtitlePath('top_subtitle_path', '.top');
+        $topSubtitleExists = $topSubtitlePath !== null;
+        $centerSubtitlePath = $resolveSubtitlePath('center_subtitle_path', '.center');
+        $centerSubtitleExists = $centerSubtitlePath !== null;
     @endphp
 
     <style>

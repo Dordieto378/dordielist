@@ -21,7 +21,7 @@ return new class extends Migration
 
             $table->foreign('media_id')->references('id')->on('media')->cascadeOnDelete();
             $table->foreign('tag_id')->references('id')->on('doujin_tags')->cascadeOnDelete();
-            $table->unique(['media_id', 'tag_id']);
+            $table->primary(['media_id', 'tag_id']);
         });
     }
 

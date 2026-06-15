@@ -22,7 +22,7 @@ return new class extends Migration
 
             $table->foreign('media_id')->references('id')->on('media')->cascadeOnDelete();
             $table->foreign('tag_id')->references('id')->on('anilist_tags')->cascadeOnDelete();
-            $table->unique(['media_id', 'tag_id']);
+            $table->primary(['media_id', 'tag_id']);
         });
 
         $this->createIfMissing('anilist_genres', function (Blueprint $table) {
@@ -38,7 +38,7 @@ return new class extends Migration
 
             $table->foreign('media_id')->references('id')->on('media')->cascadeOnDelete();
             $table->foreign('genre_id')->references('id')->on('anilist_genres')->cascadeOnDelete();
-            $table->unique(['media_id', 'genre_id']);
+            $table->primary(['media_id', 'genre_id']);
         });
 
         $this->createIfMissing('anilist_studios', function (Blueprint $table) {
@@ -55,7 +55,7 @@ return new class extends Migration
 
             $table->foreign('media_id')->references('id')->on('media')->cascadeOnDelete();
             $table->foreign('studio_id')->references('id')->on('anilist_studios')->cascadeOnDelete();
-            $table->unique(['media_id', 'studio_id']);
+            $table->primary(['media_id', 'studio_id']);
         });
 
         $this->createIfMissing('anilist_authors', function (Blueprint $table) {
@@ -72,7 +72,7 @@ return new class extends Migration
 
             $table->foreign('media_id')->references('id')->on('media')->cascadeOnDelete();
             $table->foreign('author_id')->references('id')->on('anilist_authors')->cascadeOnDelete();
-            $table->unique(['media_id', 'author_id']);
+            $table->primary(['media_id', 'author_id']);
         });
 
         $this->createIfMissing('doujin_authors', function (Blueprint $table) {
@@ -88,7 +88,7 @@ return new class extends Migration
 
             $table->foreign('media_id')->references('id')->on('media')->cascadeOnDelete();
             $table->foreign('author_id')->references('id')->on('doujin_authors')->cascadeOnDelete();
-            $table->unique(['media_id', 'author_id']);
+            $table->primary(['media_id', 'author_id']);
         });
 
         $this->createIfMissing('vn_tags', function (Blueprint $table) {
@@ -104,7 +104,7 @@ return new class extends Migration
 
             $table->foreign('media_id')->references('id')->on('media')->cascadeOnDelete();
             $table->foreign('tag_id')->references('id')->on('vn_tags')->cascadeOnDelete();
-            $table->unique(['media_id', 'tag_id']);
+            $table->primary(['media_id', 'tag_id']);
         });
 
         $this->createIfMissing('vn_languages', function (Blueprint $table) {
@@ -119,7 +119,7 @@ return new class extends Migration
 
             $table->foreign('media_id')->references('id')->on('media')->cascadeOnDelete();
             $table->foreign('language_id')->references('id')->on('vn_languages')->cascadeOnDelete();
-            $table->unique(['media_id', 'language_id']);
+            $table->primary(['media_id', 'language_id']);
         });
 
         $this->createIfMissing('vn_developers', function (Blueprint $table) {
@@ -135,7 +135,7 @@ return new class extends Migration
 
             $table->foreign('media_id')->references('id')->on('media')->cascadeOnDelete();
             $table->foreign('developer_id')->references('id')->on('vn_developers')->cascadeOnDelete();
-            $table->unique(['media_id', 'developer_id']);
+            $table->primary(['media_id', 'developer_id']);
         });
     }
 

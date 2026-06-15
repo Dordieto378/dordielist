@@ -8,7 +8,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('anilist_tags', function (Blueprint $table) {
+        $this->createIfMissing('anilist_tags', function (Blueprint $table) {
             $table->id();
             $table->string('name')->unique();
             $table->string('slug')->nullable()->index();
@@ -16,7 +16,7 @@ return new class extends Migration
             $table->timestamps();
         });
 
-        Schema::create('anilist_item_tag', function (Blueprint $table) {
+        $this->createIfMissing('anilist_item_tag', function (Blueprint $table) {
             $table->unsignedBigInteger('media_id');
             $table->unsignedBigInteger('tag_id');
 
@@ -25,14 +25,14 @@ return new class extends Migration
             $table->unique(['media_id', 'tag_id']);
         });
 
-        Schema::create('anilist_genres', function (Blueprint $table) {
+        $this->createIfMissing('anilist_genres', function (Blueprint $table) {
             $table->id();
             $table->string('name')->unique();
             $table->string('slug')->nullable()->index();
             $table->timestamps();
         });
 
-        Schema::create('anilist_item_genre', function (Blueprint $table) {
+        $this->createIfMissing('anilist_item_genre', function (Blueprint $table) {
             $table->unsignedBigInteger('media_id');
             $table->unsignedBigInteger('genre_id');
 
@@ -41,7 +41,7 @@ return new class extends Migration
             $table->unique(['media_id', 'genre_id']);
         });
 
-        Schema::create('anilist_studios', function (Blueprint $table) {
+        $this->createIfMissing('anilist_studios', function (Blueprint $table) {
             $table->id();
             $table->string('name')->unique();
             $table->string('slug')->nullable()->index();
@@ -49,7 +49,7 @@ return new class extends Migration
             $table->timestamps();
         });
 
-        Schema::create('anilist_item_studio', function (Blueprint $table) {
+        $this->createIfMissing('anilist_item_studio', function (Blueprint $table) {
             $table->unsignedBigInteger('media_id');
             $table->unsignedBigInteger('studio_id');
 
@@ -58,7 +58,7 @@ return new class extends Migration
             $table->unique(['media_id', 'studio_id']);
         });
 
-        Schema::create('anilist_authors', function (Blueprint $table) {
+        $this->createIfMissing('anilist_authors', function (Blueprint $table) {
             $table->id();
             $table->string('name')->unique();
             $table->string('slug')->nullable()->index();
@@ -66,7 +66,7 @@ return new class extends Migration
             $table->timestamps();
         });
 
-        Schema::create('anilist_item_author', function (Blueprint $table) {
+        $this->createIfMissing('anilist_item_author', function (Blueprint $table) {
             $table->unsignedBigInteger('media_id');
             $table->unsignedBigInteger('author_id');
 
@@ -75,14 +75,14 @@ return new class extends Migration
             $table->unique(['media_id', 'author_id']);
         });
 
-        Schema::create('doujin_authors', function (Blueprint $table) {
+        $this->createIfMissing('doujin_authors', function (Blueprint $table) {
             $table->id();
             $table->string('name')->unique();
             $table->string('slug')->nullable()->index();
             $table->timestamps();
         });
 
-        Schema::create('doujin_item_author', function (Blueprint $table) {
+        $this->createIfMissing('doujin_item_author', function (Blueprint $table) {
             $table->unsignedBigInteger('media_id');
             $table->unsignedBigInteger('author_id');
 
@@ -91,14 +91,14 @@ return new class extends Migration
             $table->unique(['media_id', 'author_id']);
         });
 
-        Schema::create('vn_tags', function (Blueprint $table) {
+        $this->createIfMissing('vn_tags', function (Blueprint $table) {
             $table->id();
             $table->string('name')->unique();
             $table->string('slug')->nullable()->index();
             $table->timestamps();
         });
 
-        Schema::create('vn_item_tag', function (Blueprint $table) {
+        $this->createIfMissing('vn_item_tag', function (Blueprint $table) {
             $table->unsignedBigInteger('media_id');
             $table->unsignedBigInteger('tag_id');
 
@@ -107,13 +107,13 @@ return new class extends Migration
             $table->unique(['media_id', 'tag_id']);
         });
 
-        Schema::create('vn_languages', function (Blueprint $table) {
+        $this->createIfMissing('vn_languages', function (Blueprint $table) {
             $table->id();
             $table->string('name')->unique();
             $table->timestamps();
         });
 
-        Schema::create('vn_item_language', function (Blueprint $table) {
+        $this->createIfMissing('vn_item_language', function (Blueprint $table) {
             $table->unsignedBigInteger('media_id');
             $table->unsignedBigInteger('language_id');
 
@@ -122,14 +122,14 @@ return new class extends Migration
             $table->unique(['media_id', 'language_id']);
         });
 
-        Schema::create('vn_developers', function (Blueprint $table) {
+        $this->createIfMissing('vn_developers', function (Blueprint $table) {
             $table->id();
             $table->string('name')->unique();
             $table->string('slug')->nullable()->index();
             $table->timestamps();
         });
 
-        Schema::create('vn_item_developer', function (Blueprint $table) {
+        $this->createIfMissing('vn_item_developer', function (Blueprint $table) {
             $table->unsignedBigInteger('media_id');
             $table->unsignedBigInteger('developer_id');
 
@@ -157,5 +157,12 @@ return new class extends Migration
         Schema::dropIfExists('anilist_genres');
         Schema::dropIfExists('anilist_item_tag');
         Schema::dropIfExists('anilist_tags');
+    }
+
+    private function createIfMissing(string $table, Closure $callback): void
+    {
+        if (! Schema::hasTable($table)) {
+            Schema::create($table, $callback);
+        }
     }
 };

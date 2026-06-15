@@ -63,6 +63,7 @@
 
     <div id="preContent" class="py-[4.5rem] {{ !$isOnFirstPage ? 'hidden' : '' }}">
         <!-- Scrollable Section -->
+        @if(!empty($dropped))
         <section class="bg-black text-white py-6">
             <div class="container mx-auto px-6">
                 <div class="flex justify-between items-center">
@@ -146,6 +147,7 @@
                 </div>
             </div>
         </section>
+        @endif
 
         <section class="mt-5 ml-4 flex flex-col items-center">
             <!-- Title aligned to the left -->

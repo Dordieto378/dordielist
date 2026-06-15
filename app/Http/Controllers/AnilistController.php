@@ -38,9 +38,16 @@ class AnilistController extends Controller
             (sprintf('%04d%02d%02d', $a['startDate']['year'] ?? 0, $a['startDate']['month'] ?? 0, $a['startDate']['day'] ?? 0))
         );
 
-        $dropped = array_values(array_filter($all, fn ($media) => ($media['listStatus'] ?? '') === 'DROPPED'));
+        $droppedTypes = ['ANIME', 'MANGA', 'MANHWA', 'HENTAI', 'DOUJIN', 'VN'];
+        $dropped = array_values(array_filter($all, fn ($media) =>
+            ($media['listStatus'] ?? '') === 'DROPPED'
+            && in_array($media['type'] ?? null, $droppedTypes, true)
+        ));
         usort($dropped, fn ($a, $b) => ($b['averageScore'] ?? 0) <=> ($a['averageScore'] ?? 0));
         $dropped = array_slice($dropped, 0, 12);
+        if (count($dropped) < 5) {
+            $dropped = [];
+        }
 
         $scored = array_values(array_filter($all, fn ($media) => ($media['userScore'] ?? 0) > 0));
         usort($scored, fn ($a, $b) => ($b['userScore'] ?? 0) <=> ($a['userScore'] ?? 0));

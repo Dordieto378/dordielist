@@ -28,6 +28,8 @@ use App\Http\Controllers\ConfirmTwoFactorAuthenticationController;
 // Public
 // -----------------------------
 
+Route::get('/healthz', fn () => response('ok', 200));
+
 Route::get('/', [AnilistController::class, 'home'])->middleware('auth')->name('home');
 
 Route::get('/home-paginated', [AnilistController::class, 'paginatedMedia'])

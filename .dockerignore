@@ -1,0 +1,17 @@
+.env
+.env.*
+.git
+.idea
+.vscode
+node_modules
+vendor
+storage/app/private/*
+storage/app/public/*
+storage/app/tmp/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+storage/logs/*
+npm-debug.log
+yarn-error.log
+Dockerfile

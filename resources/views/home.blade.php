@@ -453,10 +453,6 @@
                                         <a href="{{ category_filter_url('visual-novel', 'tags', $tag) }}">
                                         {{ $tag }}
                                     </a>
-                                    @elseif($item['type']  === 'DOUJIN')
-                                        <a href="{{ category_filter_url('doujins', 'tags', $tag) }}">
-                                        {{ $tag }}
-                                    </a>
                                     @endif
                             </span>
                             @endforeach

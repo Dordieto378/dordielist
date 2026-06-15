@@ -126,46 +126,6 @@ if (!function_exists('shortTitle')) {
                             </ul>
                             </div>
                         </div>
-                    <div class="relative mb-4">
-                        <label class="block text-sm font-medium text-gray-900 mb-2">TAGS</label>
-                        <button id="dropdownButtonTags" type="button"
-                                class="w-full min-h-[2.5rem] px-3 py-2 border rounded-sm bg-white text-left flex flex-wrap items-center gap-2">
-                            <div id="selectedTags" class="flex flex-wrap gap-2 flex-1">
-                                @if(empty($selectedTags))
-                                    <span class="text-gray-900 font-medium text-sm">Select Tags</span>
-                                @else
-                                    @foreach($selectedTags as $tag)
-                                        <span class="px-3 py-2 rounded-[0.2rem] bg-gray-200 text-gray-900 text-sm flex items-center transition-all duration-200 ease-in-out">
-                                            {{ $tag }}
-                                            <span role="button" tabindex="0"
-                                                data-remove-dropdown-name="{{ $tag }}"
-                                                data-remove-dropdown-type="Tags"
-                                                class="ml-2 cursor-pointer text-gray-500 hover:text-gray-800 select-none">
-                                                &times;
-                                            </span>
-                                        </span>
-                                    @endforeach
-                                @endif
-                            </div>
-                            <svg class="pointer-events-none h-3 w-3 text-gray-400" xmlns="http://www.w3.org/2000/svg"
-                                fill="none" viewBox="0 0 24 24" stroke-width="4" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                            </svg>
-                        </button>
-                        <div id="dropdownMenuTags"
-                            class="absolute left-0 w-full bg-white border rounded-sm shadow-lg hidden z-10 max-h-[400px] overflow-y-auto">
-                            <ul>
-                                @foreach($allTags as $tagName)
-                                    <li class="px-1.5 py-[1px] cursor-pointer text-gray-900 font-medium text-sm transition-all duration-200 ease-in-out bg-white"
-                                        data-dropdown-name="{{ $tagName }}" data-dropdown-type="Tags">
-                                        <span class="block w-full h-full px-3 py-2 rounded-[0.2rem] transition-all duration-200 ease-in-out hover:bg-red-600 hover:text-white hover:font-semibold">
-                                            {{ $tagName }}
-                                        </span>
-                                    </li>
-                                @endforeach
-                            </ul>
-                        </div>
-                    </div>
                 </form>
 
                 <div class="mt-6">
@@ -637,11 +597,6 @@ if (!function_exists('shortTitle')) {
                     </div>
 
                     @php
-                        $addDoujinSelectedTags = collect(explode(',', (string) old('tags', '')))
-                            ->map(fn ($tag) => trim($tag))
-                            ->filter()
-                            ->unique(fn ($tag) => mb_strtolower($tag))
-                            ->values();
                         $addDoujinSource = old('doujin_source', '');
                         $addDoujinLanguage = old('doujin_language', '');
                     @endphp
@@ -703,70 +658,6 @@ if (!function_exists('shortTitle')) {
                                   class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
                                 />
                             </label>
-
-                            <label class="block">
-                                <span class="block mb-2 text-red-600 font-medium">New Tags</span>
-                                <input
-                                  type="text"
-                                  name="new_tags"
-                                  value="{{ old('new_tags') }}"
-                                  class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
-                                />
-                            </label>
-
-                            <div class="block relative">
-                                <span class="block mb-2 text-red-600 font-medium">Tags</span>
-                                <input
-                                  type="hidden"
-                                  name="tags"
-                                  id="addDoujinTagsInput"
-                                  value="{{ $addDoujinSelectedTags->implode(',') }}"
-                                />
-                                <button id="addDoujinTagDropdownButton" type="button"
-                                        class="w-full min-h-[2.5rem] px-3 py-2 border rounded-sm bg-white text-left flex flex-wrap items-center gap-2">
-                                    <div id="addDoujinSelectedTags" class="flex flex-wrap gap-2 flex-1">
-                                        @if($addDoujinSelectedTags->isEmpty())
-                                            <span class="text-gray-900 font-medium text-sm">Select Tags</span>
-                                        @else
-                                            @foreach($addDoujinSelectedTags as $tag)
-                                                <span class="px-3 py-2 rounded-[0.2rem] bg-gray-200 text-gray-900 text-sm flex items-center transition-all duration-200 ease-in-out">
-                                                    {{ $tag }}
-                                                    <span role="button" tabindex="0"
-                                                          data-remove-add-doujin-tag="{{ $tag }}"
-                                                          class="ml-2 cursor-pointer text-gray-500 hover:text-gray-800 select-none">
-                                                        &times;
-                                                    </span>
-                                                </span>
-                                            @endforeach
-                                        @endif
-                                    </div>
-                                    <svg class="pointer-events-none h-3 w-3 text-gray-400" xmlns="http://www.w3.org/2000/svg"
-                                         fill="none" viewBox="0 0 24 24" stroke-width="4" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                                    </svg>
-                                </button>
-                                <div id="addDoujinTagDropdownMenu"
-                                     class="absolute left-0 w-full bg-white border rounded-sm shadow-lg hidden z-50 max-h-[400px] overflow-y-auto">
-                                    <div class="p-2 sticky top-0 z-10 bg-white border-b border-gray-100">
-                                        <input
-                                          id="addDoujinTagSearch"
-                                          type="search"
-                                          placeholder="Search tags"
-                                          class="w-full rounded-sm border border-gray-200 px-3 py-2 text-sm bg-gray-100 focus:outline-none focus:ring-2 focus:ring-red-600 text-gray-800 font-medium"
-                                        />
-                                    </div>
-                                    <ul id="addDoujinTagOptions">
-                                        @foreach($allTags as $tagName)
-                                            <li class="px-1.5 py-[1px] cursor-pointer text-gray-900 font-medium text-sm transition-all duration-200 ease-in-out bg-white"
-                                                data-add-doujin-tag-name="{{ $tagName }}">
-                                                <span class="block w-full h-full px-3 py-2 rounded-[0.2rem] transition-all duration-200 ease-in-out hover:bg-red-600 hover:text-white hover:font-semibold">
-                                                    {{ $tagName }}
-                                                </span>
-                                            </li>
-                                        @endforeach
-                                    </ul>
-                                </div>
-                            </div>
 
                             <div class="block">
                                 <span class="block mb-2 text-red-600 font-medium">ZIP File</span>
@@ -855,16 +746,6 @@ if (!function_exists('shortTitle')) {
                                 </select>
                             </label>
                         </div>
-
-                        <template id="addDoujinTagChipTemplate">
-                            <span class="px-3 py-2 rounded-[0.2rem] bg-gray-200 text-gray-900 text-sm flex items-center transition-all duration-200 ease-in-out">
-                                <span data-add-doujin-tag-label></span>
-                                <span role="button" tabindex="0"
-                                      class="ml-2 cursor-pointer text-gray-500 hover:text-gray-800 select-none">
-                                    &times;
-                                </span>
-                            </span>
-                        </template>
 
                     </div>
                 </form>
@@ -1216,14 +1097,6 @@ const doujinUploadCompleteRoute = @json(route('doujin.upload.complete'));
 const doujinUploadChunkSizeBytes = 8 * 1024 * 1024;
 let currentDoujinUploadSession = null;
 let isUploadingDoujin = false;
-const addDoujinTagDropdownButton = document.getElementById('addDoujinTagDropdownButton');
-const addDoujinTagDropdownMenu = document.getElementById('addDoujinTagDropdownMenu');
-const addDoujinSelectedTags = document.getElementById('addDoujinSelectedTags');
-const addDoujinTagsInput = document.getElementById('addDoujinTagsInput');
-const addDoujinTagSearch = document.getElementById('addDoujinTagSearch');
-const addDoujinTagOptions = document.getElementById('addDoujinTagOptions');
-const addDoujinTagChipTemplate = document.getElementById('addDoujinTagChipTemplate');
-let selectedAddDoujinTags = @json(isset($addDoujinSelectedTags) ? $addDoujinSelectedTags->values()->all() : []);
 const addDoujinAuthorLinks = @json($allAuthorLinks ?? []);
 const addDoujinExistingAuthor = document.getElementById('addDoujinExistingAuthor');
 const addDoujinAuthorLinkGroups = document.querySelectorAll('#addDoujinForm [data-author-link-group]');
@@ -1301,73 +1174,6 @@ function fillAddDoujinAuthorLinkFields(authorName) {
 
     addDoujinAuthorLinkGroups.forEach((group) => {
         setAuthorLinkGroupValues(group, links[keyByField[group.dataset.fieldName]] || []);
-    });
-}
-
-function syncAddDoujinTagInput() {
-    if (addDoujinTagsInput) {
-        addDoujinTagsInput.value = selectedAddDoujinTags.join(',');
-    }
-}
-
-function renderAddDoujinTags() {
-    if (!addDoujinSelectedTags) return;
-    addDoujinSelectedTags.innerHTML = '';
-
-    if (!selectedAddDoujinTags.length) {
-        const placeholder = document.createElement('span');
-        placeholder.className = 'text-gray-900 font-medium text-sm';
-        placeholder.textContent = 'Select Tags';
-        addDoujinSelectedTags.appendChild(placeholder);
-        syncAddDoujinTagInput();
-        updateAddDoujinTagOptionStyles();
-        return;
-    }
-
-    selectedAddDoujinTags.forEach((tag) => {
-        let tagElement;
-
-        if (addDoujinTagChipTemplate?.content?.firstElementChild) {
-            tagElement = addDoujinTagChipTemplate.content.firstElementChild.cloneNode(true);
-            const label = tagElement.querySelector('[data-add-doujin-tag-label]');
-            if (label) label.textContent = tag;
-        } else {
-            tagElement = document.createElement('span');
-            tagElement.className = 'px-3 py-2 rounded-[0.2rem] bg-gray-200 text-gray-900 text-sm flex items-center transition-all duration-200 ease-in-out';
-            tagElement.textContent = tag;
-        }
-
-        const removeButton = tagElement.querySelector('[role="button"]');
-        if (removeButton) {
-            removeButton.dataset.removeAddDoujinTag = tag;
-        }
-
-        addDoujinSelectedTags.appendChild(tagElement);
-    });
-
-    syncAddDoujinTagInput();
-    updateAddDoujinTagOptionStyles();
-}
-
-function updateAddDoujinTagOptionStyles() {
-    if (!addDoujinTagOptions) return;
-
-    addDoujinTagOptions.querySelectorAll('[data-add-doujin-tag-name]').forEach((item) => {
-        const span = item.querySelector('span');
-        if (!span) return;
-
-        const isSelected = selectedAddDoujinTags.includes(item.dataset.addDoujinTagName || '');
-        span.classList.toggle('bg-gray-300', isSelected);
-        span.classList.toggle('text-gray-700', isSelected);
-    });
-}
-
-function filterAddDoujinTags() {
-    if (!addDoujinTagOptions || !addDoujinTagSearch) return;
-    const query = addDoujinTagSearch.value.trim().toLowerCase();
-    addDoujinTagOptions.querySelectorAll('[data-add-doujin-tag-name]').forEach((item) => {
-        const name = (item.dataset.addDoujinTagName || '').toLowerCase();
-        item.classList.toggle('hidden', query !== '' && !name.includes(query));
     });
 }
 
@@ -1522,46 +1328,6 @@ addDoujinForm?.addEventListener('click', (event) => {
 addDoujinExistingAuthor?.addEventListener('change', () => {
     fillAddDoujinAuthorLinkFields(addDoujinExistingAuthor.value);
 });
-if (addDoujinTagDropdownButton && addDoujinTagDropdownMenu) {
-    renderAddDoujinTags();
-
-    addDoujinTagDropdownButton.addEventListener('click', (event) => {
-        event.stopPropagation();
-        addDoujinTagDropdownMenu.classList.toggle('hidden');
-        if (!addDoujinTagDropdownMenu.classList.contains('hidden')) {
-            addDoujinTagSearch?.focus();
-        }
-    });
-
-    addDoujinTagDropdownMenu.querySelectorAll('[data-add-doujin-tag-name]').forEach((item) => {
-        item.addEventListener('click', () => {
-            const name = item.dataset.addDoujinTagName || '';
-            if (!name) return;
-
-            selectedAddDoujinTags = selectedAddDoujinTags.includes(name)
-                ? selectedAddDoujinTags.filter((tag) => tag !== name)
-                : [...selectedAddDoujinTags, name];
-            renderAddDoujinTags();
-        });
-    });
-
-    addDoujinSelectedTags?.addEventListener('click', (event) => {
-        const removeButton = event.target.closest('[data-remove-add-doujin-tag]');
-        if (!removeButton) return;
-
-        event.stopPropagation();
-        const name = removeButton.dataset.removeAddDoujinTag || '';
-        selectedAddDoujinTags = selectedAddDoujinTags.filter((tag) => tag !== name);
-        renderAddDoujinTags();
-    });
-
-    addDoujinTagSearch?.addEventListener('input', filterAddDoujinTags);
-    document.addEventListener('click', (event) => {
-        if (!addDoujinTagDropdownButton.contains(event.target) && !addDoujinTagDropdownMenu.contains(event.target)) {
-            addDoujinTagDropdownMenu.classList.add('hidden');
-        }
-    });
-}
 doujinArchiveInput?.addEventListener('change', () => {
     updateDoujinArchiveName();
     currentDoujinUploadSession = null;

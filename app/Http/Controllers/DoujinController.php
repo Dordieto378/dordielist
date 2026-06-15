@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\Chapter;
 use App\Models\ChapterPage;
 use App\Models\DoujinAuthor;
-use App\Models\DoujinTag;
 use App\Models\Media;
 use App\Support\DoujinFolderIndex;
 use App\Support\DoujinAuthorLinks;
@@ -31,7 +30,7 @@ class DoujinController extends Controller
 
     public function show(int $mediaId)
     {
-        $media = Media::with(['doujinAuthors', 'doujinTags:id,name'])
+        $media = Media::with(['doujinAuthors'])
             ->where('type', 'doujin')
             ->findOrFail($mediaId);
 
@@ -76,10 +75,6 @@ class DoujinController extends Controller
             ->mapWithKeys(fn (DoujinAuthor $author) => [
                 $author->name => DoujinAuthorLinks::payload($author),
             ]);
-        $allTags = DoujinTag::query()
-            ->orderBy('name')
-            ->pluck('name');
-
         $attachedIds = \App\Models\CollectionItem::where('item_type', 'doujins')
             ->where('item_id', $media->id)
             ->pluck('collection_id')
@@ -93,7 +88,6 @@ class DoujinController extends Controller
             'allCollections' => $allCollections,
             'allAuthors' => $allAuthors,
             'allAuthorLinks' => $allAuthorLinks,
-            'allTags' => $allTags,
             'attachedIds' => $attachedIds,
         ]);
     }
@@ -107,8 +101,6 @@ class DoujinController extends Controller
             'title_romaji' => ['nullable', 'string', 'max:255'],
             'title_native' => ['nullable', 'string', 'max:255'],
             'author' => ['nullable', 'string', 'max:255'],
-            'tags' => ['nullable', 'string'],
-            'new_tags' => ['nullable', 'string'],
             'author_twitter_url' => ['nullable', 'array'],
             'author_twitter_url.*' => ['nullable', 'string', 'max:2048'],
             'author_patreon_url' => ['nullable', 'array'],
@@ -133,10 +125,6 @@ class DoujinController extends Controller
         $titleRomaji = $this->trimToNull($data['title_romaji'] ?? null);
         $titleNative = $this->trimToNull($data['title_native'] ?? null);
         $authors = $this->parseAuthorNames($data['author'] ?? null);
-        $tags = array_merge(
-            $this->parseNames($data['tags'] ?? null),
-            $this->parseNames($data['new_tags'] ?? null)
-        );
 
         if (!$titleEnglish && !$titleRomaji && !$titleNative) {
             return back()
@@ -156,7 +144,7 @@ class DoujinController extends Controller
         );
         $media->save();
 
-        $this->metadataSyncer->syncDoujin($media, $authors, $tags);
+        $this->metadataSyncer->syncDoujin($media, $authors);
         $this->syncDoujinAuthorLinks($authors, $data);
 
         return back();
@@ -336,8 +324,6 @@ class DoujinController extends Controller
             'title_native' => ['nullable', 'string', 'max:255'],
             'existing_author' => ['nullable', 'string', 'max:255'],
             'new_author' => ['nullable', 'string', 'max:255'],
-            'tags' => ['nullable', 'string'],
-            'new_tags' => ['nullable', 'string'],
             'author_twitter_url' => ['nullable', 'array'],
             'author_twitter_url.*' => ['nullable', 'string', 'max:2048'],
             'author_patreon_url' => ['nullable', 'array'],
@@ -360,10 +346,6 @@ class DoujinController extends Controller
         $titleNative = $this->trimToNull($data['title_native'] ?? null);
         $author = $this->trimToNull($data['new_author'] ?? null)
             ?: $this->trimToNull($data['existing_author'] ?? null);
-        $tags = array_merge(
-            $this->parseNames($data['tags'] ?? null),
-            $this->parseNames($data['new_tags'] ?? null)
-        );
 
         if (!$titleEnglish && !$titleRomaji && !$titleNative) {
             return $this->redirectUploadFailure('Add at least one title.', $request);
@@ -404,7 +386,7 @@ class DoujinController extends Controller
             $media->chapters_cnt = 0;
             $media->save();
 
-            $this->metadataSyncer->syncDoujin($media, [$author], $tags);
+            $this->metadataSyncer->syncDoujin($media, [$author]);
             $this->syncDoujinAuthorLinks([$author], $data, false);
 
             $disk = Storage::disk('public');

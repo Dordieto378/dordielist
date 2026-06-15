@@ -7,7 +7,6 @@ use App\Models\AnilistGenre;
 use App\Models\AnilistStudio;
 use App\Models\AnilistTag;
 use App\Models\DoujinAuthor;
-use App\Models\DoujinTag;
 use App\Models\Media;
 use App\Models\VnDeveloper;
 use App\Models\VnLanguage;
@@ -31,10 +30,9 @@ class MediaMetadataSyncer
         $this->syncRelation($media, 'anilistAuthors', AnilistAuthor::class, $authors);
     }
 
-    public function syncDoujin(Media $media, ?array $authors = null, ?array $tags = null): void
+    public function syncDoujin(Media $media, ?array $authors = null): void
     {
         $this->syncRelation($media, 'doujinAuthors', DoujinAuthor::class, $authors);
-        $this->syncRelation($media, 'doujinTags', DoujinTag::class, $tags);
     }
 
     public function syncVn(

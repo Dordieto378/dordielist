@@ -7,7 +7,6 @@ use App\Models\AnilistGenre;
 use App\Models\AnilistStudio;
 use App\Models\AnilistTag;
 use App\Models\DoujinAuthor;
-use App\Models\DoujinTag;
 use App\Models\Media;
 use App\Support\DoujinAuthorLinks;
 use App\Models\VnDeveloper;
@@ -95,7 +94,7 @@ class CategoryController extends Controller
         if ($normalized === 'DOUJINS') {
             $q = Media::query()
                 ->where('type', 'doujin')
-                ->with(['doujinAuthors:id,name', 'doujinTags:id,name']);
+                ->with(['doujinAuthors:id,name']);
 
             $nameOrder = $request->query('name_order', 'none');
             $selectedSource = strtolower((string) $request->query('source', ''));
@@ -124,11 +123,6 @@ class CategoryController extends Controller
                 $q->where('doujin_language', $selectedLanguage);
             }
 
-            $selectedTags = array_values(array_filter(array_map('trim', explode(',', (string) $request->query('tags', '')))));
-            foreach ($selectedTags as $tag) {
-                $q->whereHas('doujinTags', fn ($query) => $query->where('name', $tag));
-            }
-
             $titleExpr = 'COALESCE(NULLIF(title_romaji,""), NULLIF(title_english,""), NULLIF(title_native,""), slug)';
             if ($nameOrder === 'az') {
                 $q->orderByRaw("$titleExpr ASC")
@@ -152,12 +146,6 @@ class CategoryController extends Controller
                 ->mapWithKeys(fn (DoujinAuthor $author) => [
                     $author->name => DoujinAuthorLinks::payload($author),
                 ]);
-            $allTags = DoujinTag::query()
-                ->whereHas('media', fn ($query) => $query->where('type', 'doujin'))
-                ->orderBy('name')
-                ->pluck('name')
-                ->all();
-
             $cards = $p->getCollection()
                 ->map(fn ($row) => $this->toCard($row))
                 ->values();
@@ -174,8 +162,6 @@ class CategoryController extends Controller
                 'selectedAuthors' => $selectedAuthors,
                 'selectedSource' => $selectedSource,
                 'selectedLanguage' => $selectedLanguage,
-                'allTags' => $allTags,
-                'selectedTags' => $selectedTags,
             ]);
         }
 

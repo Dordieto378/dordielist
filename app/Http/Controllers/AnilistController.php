@@ -358,7 +358,6 @@ GQL;
             : [];
         $tags = match (true) {
             $canonicalType === 'vn' => $media->metadataNamesFrom('vnTags'),
-            $canonicalType === 'doujin' => $media->metadataNamesFrom('doujinTags'),
             in_array($canonicalType, ['anime', 'hentai', 'manga', 'manhwa'], true) => $media->metadataNamesFrom('anilistTags'),
             default => [],
         };

@@ -8,6 +8,12 @@ return new class extends Migration
 {
     public function up(): void
     {
+        Schema::dropIfExists('doujin_item_tag');
+        Schema::dropIfExists('doujin_tags');
+    }
+
+    public function down(): void
+    {
         Schema::create('doujin_tags', function (Blueprint $table) {
             $table->id();
             $table->string('name')->unique();
@@ -23,11 +29,5 @@ return new class extends Migration
             $table->foreign('tag_id')->references('id')->on('doujin_tags')->cascadeOnDelete();
             $table->primary(['media_id', 'tag_id']);
         });
-    }
-
-    public function down(): void
-    {
-        Schema::dropIfExists('doujin_item_tag');
-        Schema::dropIfExists('doujin_tags');
     }
 };

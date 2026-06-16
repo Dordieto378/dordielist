@@ -165,7 +165,10 @@
                         </li>
                         @php
                         // Grab the system “Favorites” collection
-                        $favorites = \App\Models\Collection::where('is_system', true)->first();
+                        $favorites = \App\Models\Collection::firstOrCreate(
+                            ['name' => 'Favorites'],
+                            ['is_system' => true]
+                        );
                         @endphp
 
                         <li>

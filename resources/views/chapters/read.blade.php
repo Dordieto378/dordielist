@@ -770,14 +770,22 @@
 
                         {{-- Half-screen click zones: LEFT = NEXT, RIGHT = PREVIOUS --}}
                         @if($nextLink)
-                            <a href="{{ $nextLink }}">
-                                <div class="absolute inset-y-0 left-0 w-1/2 z-20" style="cursor:pointer;"></div>
-                            </a>
+                            <button
+                                type="button"
+                                class="absolute inset-y-0 left-0 w-1/2 z-20 border-0 bg-transparent p-0"
+                                style="cursor:pointer;"
+                                data-reader-target="{{ $nextLink }}"
+                                aria-label="Next page"
+                            ></button>
                         @endif
                         @if($prevLink)
-                            <a href="{{ $prevLink }}">
-                                <div class="absolute inset-y-0 right-0 w-1/2 z-20" style="cursor:pointer;"></div>
-                            </a>
+                            <button
+                                type="button"
+                                class="absolute inset-y-0 right-0 w-1/2 z-20 border-0 bg-transparent p-0"
+                                style="cursor:pointer;"
+                                data-reader-target="{{ $prevLink }}"
+                                aria-label="Previous page"
+                            ></button>
                         @endif
                     </div>
                 @endif
@@ -849,14 +857,22 @@
 
                     {{-- LEFT = NEXT (pair), RIGHT = PREVIOUS (pair) --}}
                     @if($doubleNext)
-                        <a href="{{ $doubleNext }}">
-                            <div class="absolute inset-y-0 left-0 w-1/2 z-20" style="cursor:pointer;"></div>
-                        </a>
+                        <button
+                            type="button"
+                            class="absolute inset-y-0 left-0 w-1/2 z-20 border-0 bg-transparent p-0"
+                            style="cursor:pointer;"
+                            data-reader-target="{{ $doubleNext }}"
+                            aria-label="Next pages"
+                        ></button>
                     @endif
                     @if($doublePrev)
-                        <a href="{{ $doublePrev }}">
-                            <div class="absolute inset-y-0 right-0 w-1/2 z-20" style="cursor:pointer;"></div>
-                        </a>
+                        <button
+                            type="button"
+                            class="absolute inset-y-0 right-0 w-1/2 z-20 border-0 bg-transparent p-0"
+                            style="cursor:pointer;"
+                            data-reader-target="{{ $doublePrev }}"
+                            aria-label="Previous pages"
+                        ></button>
                     @endif
                 </div>
 
@@ -1350,6 +1366,16 @@
                     if (fullscreenButton) {
                         e.preventDefault();
                         toggleFullscreen();
+                        return;
+                    }
+
+                    const readerTarget = e.target.closest('[data-reader-target]');
+                    if (readerTarget) {
+                        const targetUrl = readerTarget.dataset.readerTarget;
+                        if (!targetUrl) return;
+
+                        e.preventDefault();
+                        navigateReader(targetUrl);
                         return;
                     }
 

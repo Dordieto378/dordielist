@@ -561,16 +561,22 @@
                 >
 
                 @if($next)
-                <a href="{{ route('media.doujin.page', ['doujin' => $doujin->id, 'page' => $next, 'view' => 'one']) }}">
-                    <div class="absolute inset-y-0 left-0 w-1/2 z-20" style="cursor:pointer;"></div>
-                </a>
+                <button
+                    type="button"
+                    class="absolute inset-y-0 left-0 w-1/2 z-20 border-0 bg-transparent p-0"
+                    style="cursor:pointer;"
+                    data-reader-target="{{ route('media.doujin.page', ['doujin' => $doujin->id, 'page' => $next, 'view' => 'one']) }}"
+                    aria-label="Next page"
+                ></button>
                 @endif
                 @if($prev)
-                <a
-                    href="{{ route('media.doujin.page', ['doujin' => $doujin->id, 'page' => $prev, 'view' => 'one']) }}"
-                >
-                    <div class="absolute inset-y-0 right-0 w-1/2 z-20" style="cursor:pointer;"></div>
-                </a>
+                <button
+                    type="button"
+                    class="absolute inset-y-0 right-0 w-1/2 z-20 border-0 bg-transparent p-0"
+                    style="cursor:pointer;"
+                    data-reader-target="{{ route('media.doujin.page', ['doujin' => $doujin->id, 'page' => $prev, 'view' => 'one']) }}"
+                    aria-label="Previous page"
+                ></button>
                 @endif
         
             </div>
@@ -637,18 +643,22 @@
           </div>
         @endif
         @if($nextPairPage)
-        <a
-            href="{{ route('media.doujin.page', ['doujin' => $doujin->id, 'page' => $nextPairPage, 'view' => 'double']) }}"
-        >
-            <div class="absolute inset-y-0 left-0 w-1/2 z-20" style="cursor:pointer;"></div>
-        </a>
+        <button
+            type="button"
+            class="absolute inset-y-0 left-0 w-1/2 z-20 border-0 bg-transparent p-0"
+            style="cursor:pointer;"
+            data-reader-target="{{ route('media.doujin.page', ['doujin' => $doujin->id, 'page' => $nextPairPage, 'view' => 'double']) }}"
+            aria-label="Next pages"
+        ></button>
         @endif
         @if($prevPairPage)
-        <a
-            href="{{ route('media.doujin.page', ['doujin' => $doujin->id, 'page' => $prevPairPage, 'view' => 'double']) }}"
-        >
-            <div class="absolute inset-y-0 right-0 w-1/2 z-20" style="cursor:pointer;"></div>
-        </a>
+        <button
+            type="button"
+            class="absolute inset-y-0 right-0 w-1/2 z-20 border-0 bg-transparent p-0"
+            style="cursor:pointer;"
+            data-reader-target="{{ route('media.doujin.page', ['doujin' => $doujin->id, 'page' => $prevPairPage, 'view' => 'double']) }}"
+            aria-label="Previous pages"
+        ></button>
         @endif
     </div>
     @endif
@@ -1159,6 +1169,16 @@
         if (fullscreenButton) {
           e.preventDefault();
           toggleFullscreen();
+          return;
+        }
+
+        const readerTarget = e.target.closest('[data-reader-target]');
+        if (readerTarget) {
+          const targetUrl = readerTarget.dataset.readerTarget;
+          if (!targetUrl) return;
+
+          e.preventDefault();
+          navigateReader(targetUrl);
           return;
         }
 

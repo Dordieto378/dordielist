@@ -989,6 +989,7 @@
             let lazyReaderObserver = null;
             let cursorIdleTimer = null;
             const cursorIdleDelay = 1400;
+            const cursorHiddenStorageKey = 'readerCursorHidden';
 
             const syncFullscreenButtons = () => {
                 const isFullscreen = Boolean(fullscreenElement());
@@ -1028,29 +1029,67 @@
                 ? window.matchMedia('(hover: hover) and (pointer: fine)').matches
                 : true;
 
-            const clearReaderCursorIdle = () => {
+            const stopReaderCursorIdleTimer = () => {
                 if (cursorIdleTimer) {
                     clearTimeout(cursorIdleTimer);
                     cursorIdleTimer = null;
                 }
+            };
+
+            const setStoredReaderCursorHidden = (isHidden) => {
+                try {
+                    if (isHidden) {
+                        sessionStorage.setItem(cursorHiddenStorageKey, '1');
+                    } else {
+                        sessionStorage.removeItem(cursorHiddenStorageKey);
+                    }
+                } catch (error) {
+                    // Ignore storage failures; cursor behavior still works for the current page.
+                }
+            };
+
+            const wasReaderCursorHidden = () => {
+                try {
+                    return sessionStorage.getItem(cursorHiddenStorageKey) === '1';
+                } catch (error) {
+                    return false;
+                }
+            };
+
+            const hideReaderCursor = () => {
+                if (!readerRoot() || !supportsPointerCursor()) return;
+
+                document.body.classList.add('reader-cursor-hidden');
+                setStoredReaderCursorHidden(true);
+            };
+
+            const showReaderCursor = () => {
+                stopReaderCursorIdleTimer();
                 document.body.classList.remove('reader-cursor-hidden');
+                setStoredReaderCursorHidden(false);
             };
 
             const scheduleReaderCursorIdle = () => {
-                clearReaderCursorIdle();
+                stopReaderCursorIdleTimer();
 
                 if (!readerRoot() || !supportsPointerCursor()) return;
 
                 cursorIdleTimer = setTimeout(() => {
-                    if (readerRoot()) {
-                        document.body.classList.add('reader-cursor-hidden');
-                    }
+                    hideReaderCursor();
                 }, cursorIdleDelay);
             };
 
             const bindReaderCursorIdle = () => {
+                if (wasReaderCursorHidden() && supportsPointerCursor()) {
+                    document.body.classList.add('reader-cursor-hidden');
+                } else {
+                    document.body.classList.remove('reader-cursor-hidden');
+                }
+
                 if (window.__readerCursorIdleBound) {
-                    scheduleReaderCursorIdle();
+                    if (!document.body.classList.contains('reader-cursor-hidden')) {
+                        scheduleReaderCursorIdle();
+                    }
                     return;
                 }
 
@@ -1058,23 +1097,26 @@
 
                 document.addEventListener('mousemove', () => {
                     if (!readerRoot()) {
-                        clearReaderCursorIdle();
+                        showReaderCursor();
                         return;
                     }
 
+                    showReaderCursor();
                     scheduleReaderCursorIdle();
                 }, { passive: true });
 
-                document.addEventListener('mouseleave', clearReaderCursorIdle);
+                document.addEventListener('mouseleave', stopReaderCursorIdleTimer);
                 document.addEventListener('visibilitychange', () => {
                     if (document.hidden) {
-                        clearReaderCursorIdle();
-                    } else if (readerRoot()) {
+                        stopReaderCursorIdleTimer();
+                    } else if (readerRoot() && !document.body.classList.contains('reader-cursor-hidden')) {
                         scheduleReaderCursorIdle();
                     }
                 });
 
-                scheduleReaderCursorIdle();
+                if (!document.body.classList.contains('reader-cursor-hidden')) {
+                    scheduleReaderCursorIdle();
+                }
             };
 
             const bindHoverBars = () => {

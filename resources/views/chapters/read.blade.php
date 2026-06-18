@@ -153,6 +153,10 @@
             -webkit-user-drag: none;
             user-drag: none;
         }
+        body.reader-mode.reader-cursor-hidden,
+        body.reader-mode.reader-cursor-hidden * {
+            cursor: none !important;
+        }
         .reader-hover-zone {
             position: fixed;
             inset: 0 0 auto 0;
@@ -983,6 +987,8 @@
             let hoverCount = 0;
             let navigating = false;
             let lazyReaderObserver = null;
+            let cursorIdleTimer = null;
+            const cursorIdleDelay = 1400;
 
             const syncFullscreenButtons = () => {
                 const isFullscreen = Boolean(fullscreenElement());
@@ -1016,6 +1022,59 @@
                 const root = readerRoot();
                 document.body.classList.add('reader-mode');
                 document.body.classList.toggle('reader-fixed', root && root.dataset.readerFixed === '1');
+            };
+
+            const supportsPointerCursor = () => window.matchMedia
+                ? window.matchMedia('(hover: hover) and (pointer: fine)').matches
+                : true;
+
+            const clearReaderCursorIdle = () => {
+                if (cursorIdleTimer) {
+                    clearTimeout(cursorIdleTimer);
+                    cursorIdleTimer = null;
+                }
+                document.body.classList.remove('reader-cursor-hidden');
+            };
+
+            const scheduleReaderCursorIdle = () => {
+                clearReaderCursorIdle();
+
+                if (!readerRoot() || !supportsPointerCursor()) return;
+
+                cursorIdleTimer = setTimeout(() => {
+                    if (readerRoot()) {
+                        document.body.classList.add('reader-cursor-hidden');
+                    }
+                }, cursorIdleDelay);
+            };
+
+            const bindReaderCursorIdle = () => {
+                if (window.__readerCursorIdleBound) {
+                    scheduleReaderCursorIdle();
+                    return;
+                }
+
+                window.__readerCursorIdleBound = true;
+
+                document.addEventListener('mousemove', () => {
+                    if (!readerRoot()) {
+                        clearReaderCursorIdle();
+                        return;
+                    }
+
+                    scheduleReaderCursorIdle();
+                }, { passive: true });
+
+                document.addEventListener('mouseleave', clearReaderCursorIdle);
+                document.addEventListener('visibilitychange', () => {
+                    if (document.hidden) {
+                        clearReaderCursorIdle();
+                    } else if (readerRoot()) {
+                        scheduleReaderCursorIdle();
+                    }
+                });
+
+                scheduleReaderCursorIdle();
             };
 
             const bindHoverBars = () => {
@@ -1150,6 +1209,7 @@
                 hoverCount = 0;
                 setReaderMode();
                 bindHoverBars();
+                bindReaderCursorIdle();
                 bindProtectedReader();
                 syncFullscreenButtons();
                 initLazyReaderImages();

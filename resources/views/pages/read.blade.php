@@ -91,6 +91,10 @@
     -webkit-user-drag: none;
     user-drag: none;
   }
+  body.reader-mode.reader-cursor-hidden,
+  body.reader-mode.reader-cursor-hidden * {
+    cursor: none !important;
+  }
   body.reader-mode.reader-fixed {
     overflow: hidden;
   }
@@ -791,6 +795,8 @@
     let zoomLevel = parseFloat(localStorage.getItem('doujinZoom')) || 1.0;
     let navigating = false;
     let lazyReaderObserver = null;
+    let cursorIdleTimer = null;
+    const cursorIdleDelay = 1400;
 
     function updateZoom() {
       if (!zoomEnabled()) return;
@@ -953,6 +959,59 @@
       document.body.classList.toggle('reader-fixed', root && root.dataset.readerFixed === '1');
     };
 
+    const supportsPointerCursor = () => window.matchMedia
+      ? window.matchMedia('(hover: hover) and (pointer: fine)').matches
+      : true;
+
+    const clearReaderCursorIdle = () => {
+      if (cursorIdleTimer) {
+        clearTimeout(cursorIdleTimer);
+        cursorIdleTimer = null;
+      }
+      document.body.classList.remove('reader-cursor-hidden');
+    };
+
+    const scheduleReaderCursorIdle = () => {
+      clearReaderCursorIdle();
+
+      if (!readerRoot() || !supportsPointerCursor()) return;
+
+      cursorIdleTimer = setTimeout(() => {
+        if (readerRoot()) {
+          document.body.classList.add('reader-cursor-hidden');
+        }
+      }, cursorIdleDelay);
+    };
+
+    const bindReaderCursorIdle = () => {
+      if (window.__readerCursorIdleBound) {
+        scheduleReaderCursorIdle();
+        return;
+      }
+
+      window.__readerCursorIdleBound = true;
+
+      document.addEventListener('mousemove', () => {
+        if (!readerRoot()) {
+          clearReaderCursorIdle();
+          return;
+        }
+
+        scheduleReaderCursorIdle();
+      }, { passive: true });
+
+      document.addEventListener('mouseleave', clearReaderCursorIdle);
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+          clearReaderCursorIdle();
+        } else if (readerRoot()) {
+          scheduleReaderCursorIdle();
+        }
+      });
+
+      scheduleReaderCursorIdle();
+    };
+
     const bindProtectedReader = () => {
       const protectedReader = document.querySelector('[data-reader-protected]');
       if (!protectedReader || protectedReader.dataset.readerProtectedBound === '1') return;
@@ -983,6 +1042,7 @@
 
     const initReaderPage = () => {
       setReaderMode();
+      bindReaderCursorIdle();
       bindProtectedReader();
       syncFullscreenButtons();
       initLazyReaderImages();

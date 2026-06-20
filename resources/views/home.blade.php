@@ -113,7 +113,7 @@
                                         </a>
 
                                         <p class="mt-2 ml-2 text-left">
-                                            <a href="{{ $href }}" class="hover:underline">
+                                            <a href="{{ $href }}">
                                                 {{ shortTitle($fullTitle, 30) }}
                                             </a>
                                         </p>
@@ -131,7 +131,7 @@
                                         </a>
 
                                         <p class="mt-2 ml-2 text-left">
-                                            <a href="{{ $href }}" class="hover:underline">
+                                            <a href="{{ $href }}">
                                                 {{ shortTitle($fullTitle, 30) }}
                                             </a>
                                         </p>
@@ -190,7 +190,7 @@
                             </a>
 
                             <div class="py-3 mr-10">
-                                <a href="{{ $href }}" class="text-red-600 hover:underline">
+                                <a href="{{ $href }}" class="text-red-600">
                                     {{ shortTitle($fullTitle, 30) }}
                                 </a>
                             </div>
@@ -208,7 +208,7 @@
                             </a>
 
                             <div class="py-3 mr-10">
-                                <a href="{{ $href }}" class="text-red-600 hover:underline">
+                                <a href="{{ $href }}" class="text-red-600">
                                     {{ shortTitle($fullTitle, 30) }}
                                 </a>
                             </div>
@@ -302,7 +302,7 @@
                             </div>
                         </a>
                         <div class="py-3">
-                            <a href="{{ $href }}" class="text-red-600 font-bold hover:underline">
+                            <a href="{{ $href }}" class="text-red-600 font-bold">
                                 {{ shortTitle($fullTitle, 30) }}
                             </a>
                             <p class="text-gray-600 font-medium">
@@ -325,7 +325,7 @@
                             </div>
                         </a>
                         <div class="py-3">
-                            <a href="{{ $href }}" class="text-red-600 font-bold hover:underline">
+                            <a href="{{ $href }}" class="text-red-600 font-bold">
                                 {{ shortTitle($fullTitle, 30) }}
                             </a>
                             <p class="text-gray-600 font-medium">
@@ -378,7 +378,7 @@
                                           ? substr($fullTitle, 0, 87).'...'
                                           : $fullTitle;
                             @endphp
-                            <a href="{{ $href }}" class="text-red-600 font-bold text-2xl hover:underline">
+                            <a href="{{ $href }}" class="text-red-600 font-bold text-2xl">
                                 {{ $shortT }}
                             </a>
 
@@ -389,23 +389,23 @@
                                     Genre:
                                     @foreach($item['genres'] ?? [] as $genre)
                                         @if($item['type']  === 'ANIME')
-                                            <a  href="{{ category_filter_url('animes', 'genre', $genre) }}" class="text-blue-600 hover:underline cursor-pointer">
+                                            <a  href="{{ category_filter_url('animes', 'genre', $genre) }}" class="text-blue-600 cursor-pointer">
                                                 {{ $genre }}
                                             </a>
                                         @elseif($item['type']  === 'HENTAI')
-                                            <a  href="{{ category_filter_url('hentais', 'genre', $genre) }}" class="text-blue-600 hover:underline cursor-pointer">
+                                            <a  href="{{ category_filter_url('hentais', 'genre', $genre) }}" class="text-blue-600 cursor-pointer">
                                                 {{ $genre }}
                                             </a>
                                         @elseif($item['type']  === 'MANHWA')
-                                            <a  href="{{ category_filter_url('manhwas', 'genre', $genre) }}" class="text-blue-600 hover:underline cursor-pointer">
+                                            <a  href="{{ category_filter_url('manhwas', 'genre', $genre) }}" class="text-blue-600 cursor-pointer">
                                                 {{ $genre }}
                                             </a>
                                         @elseif($item['type']  === 'MANGA')
-                                            <a  href="{{ category_filter_url('mangas', 'genre', $genre) }}" class="text-blue-600 hover:underline cursor-pointer">
+                                            <a  href="{{ category_filter_url('mangas', 'genre', $genre) }}" class="text-blue-600 cursor-pointer">
                                                 {{ $genre }}
                                             </a>
                                         @elseif($item['type']  === 'DOUJIN')
-                                            <a  href="{{ category_filter_url('doujins', 'genre', $genre) }}" class="text-blue-600 hover:underline cursor-pointer">
+                                            <a  href="{{ category_filter_url('doujins', 'genre', $genre) }}" class="text-blue-600 cursor-pointer">
                                                 {{ $genre }}
                                             </a>
                                         @endif

@@ -150,6 +150,87 @@ class DoujinController extends Controller
         return back();
     }
 
+    public function download(Media $media)
+    {
+        abort_unless($media->type === 'doujin', 404);
+
+        $chapters = Chapter::with(['pages' => fn ($query) => $query->orderBy('page_number')])
+            ->where('item_type', 'doujin')
+            ->where('media_fk', $media->id)
+            ->orderBy('chapter_number')
+            ->get();
+
+        if ($chapters->isEmpty()) {
+            return back()->with('status', 'No chapters are available to download.');
+        }
+
+        $token = (string) Str::uuid();
+        $stageRoot = storage_path('app/tmp/doujin-download-'.$token);
+        $zipPath = storage_path('app/tmp/doujin-download-'.$token.'.zip');
+        $downloadName = $this->doujinDownloadFilename($media);
+        $disk = Storage::disk('public');
+        $copied = 0;
+
+        try {
+            File::ensureDirectoryExists($stageRoot);
+
+            foreach ($chapters as $chapterIndex => $chapter) {
+                if ($chapter->pages->isEmpty()) {
+                    continue;
+                }
+
+                $chapterFolder = sprintf(
+                    '%03d-%s',
+                    $chapterIndex + 1,
+                    $this->zipSafeSegment((string) ($chapter->chapter_title ?: 'chapter-'.$chapter->chapter_number), 'chapter')
+                );
+                $chapterPath = $stageRoot.DIRECTORY_SEPARATOR.$chapterFolder;
+                File::ensureDirectoryExists($chapterPath);
+
+                foreach ($chapter->pages as $pageIndex => $page) {
+                    if (!$disk->exists($page->file_path)) {
+                        continue;
+                    }
+
+                    $sourcePath = $disk->path($page->file_path);
+                    $extension = strtolower(pathinfo($sourcePath, PATHINFO_EXTENSION)) ?: 'jpg';
+                    $targetPath = $chapterPath.DIRECTORY_SEPARATOR.sprintf('%03d.%s', $pageIndex + 1, $extension);
+
+                    if (!@copy($sourcePath, $targetPath)) {
+                        throw new \RuntimeException('Could not prepare the doujin download.');
+                    }
+
+                    $copied++;
+                }
+            }
+
+            if ($copied === 0) {
+                File::deleteDirectory($stageRoot);
+
+                return back()->with('status', 'No chapter files are available to download.');
+            }
+
+            $this->createZipFromDirectory($stageRoot, $zipPath);
+            File::deleteDirectory($stageRoot);
+
+            return response()
+                ->download($zipPath, $downloadName)
+                ->deleteFileAfterSend(true);
+        } catch (Throwable $e) {
+            report($e);
+
+            if (File::isDirectory($stageRoot)) {
+                File::deleteDirectory($stageRoot);
+            }
+
+            if (is_file($zipPath)) {
+                @unlink($zipPath);
+            }
+
+            return back()->with('status', 'Could not prepare the doujin download.');
+        }
+    }
+
     public function destroy(Media $media)
     {
         abort_unless($media->type === 'doujin', 404);
@@ -913,6 +994,109 @@ class DoujinController extends Controller
         natcasesort($images);
 
         return array_values($images);
+    }
+
+    private function createZipFromDirectory(string $sourceDirectory, string $zipPath): void
+    {
+        File::ensureDirectoryExists(dirname($zipPath));
+
+        if (class_exists(\ZipArchive::class)) {
+            $zip = new \ZipArchive();
+            $opened = $zip->open($zipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE);
+
+            if ($opened !== true) {
+                throw new \RuntimeException('Could not create the ZIP archive.');
+            }
+
+            $this->addDirectoryToZip($zip, $sourceDirectory, $sourceDirectory);
+            $zip->close();
+
+            if (!is_file($zipPath) || filesize($zipPath) === 0) {
+                throw new \RuntimeException('Could not create the ZIP archive.');
+            }
+
+            return;
+        }
+
+        $command = sprintf(
+            "Compress-Archive -Path '%s\\*' -DestinationPath '%s' -Force",
+            str_replace("'", "''", $sourceDirectory),
+            str_replace("'", "''", $zipPath)
+        );
+
+        $process = new Process([
+            'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe',
+            '-NoProfile',
+            '-NonInteractive',
+            '-ExecutionPolicy',
+            'Bypass',
+            '-Command',
+            $command,
+        ]);
+        $process->setTimeout(600);
+        $process->run();
+
+        if ($process->isSuccessful() && is_file($zipPath) && filesize($zipPath) > 0) {
+            return;
+        }
+
+        $tarPath = 'C:\Windows\System32\tar.exe';
+        if (is_file($tarPath)) {
+            $process = new Process([
+                $tarPath,
+                '-a',
+                '-cf',
+                $zipPath,
+                '-C',
+                $sourceDirectory,
+                '*',
+            ]);
+            $process->setTimeout(600);
+            $process->run();
+
+            if ($process->isSuccessful() && is_file($zipPath) && filesize($zipPath) > 0) {
+                return;
+            }
+        }
+
+        $errorOutput = trim($process->getErrorOutput().' '.$process->getOutput());
+        throw new \RuntimeException($errorOutput !== '' ? $errorOutput : 'Could not create the ZIP archive.');
+    }
+
+    private function addDirectoryToZip(\ZipArchive $zip, string $rootDirectory, string $directory): void
+    {
+        $files = glob($directory.DIRECTORY_SEPARATOR.'*') ?: [];
+
+        foreach ($files as $file) {
+            $relativePath = ltrim(substr($file, strlen($rootDirectory)), DIRECTORY_SEPARATOR);
+            $relativePath = str_replace(DIRECTORY_SEPARATOR, '/', $relativePath);
+
+            if (is_dir($file)) {
+                $zip->addEmptyDir($relativePath);
+                $this->addDirectoryToZip($zip, $rootDirectory, $file);
+                continue;
+            }
+
+            if (is_file($file)) {
+                $zip->addFile($file, $relativePath);
+            }
+        }
+    }
+
+    private function doujinDownloadFilename(Media $media): string
+    {
+        $title = $media->title_english
+            ?: ($media->title_romaji ?: ($media->title_native ?: ($media->slug ?: 'doujin-'.$media->id)));
+        $base = Str::slug($title);
+
+        return ($base !== '' ? $base : 'doujin-'.$media->id).'.zip';
+    }
+
+    private function zipSafeSegment(string $value, string $fallback): string
+    {
+        $segment = Str::slug($value);
+
+        return $segment !== '' ? $segment : $fallback;
     }
 
     private function trimToNull(?string $value): ?string

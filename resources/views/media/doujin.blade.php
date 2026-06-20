@@ -116,6 +116,19 @@
                                 </a>
                             @endif
 
+                            @if($firstChapter)
+                                <a href="{{ route('doujin.download', ['media' => $media->id]) }}"
+                                   class="flex items-center justify-start w-full text-blue-950 py-2 rounded-sm hover:text-[#08875b]">
+                                    <svg xmlns="http://www.w3.org/2000/svg"
+                                         class="ml-[1.4rem] h-[1.1rem] w-[1.1rem] mr-[0.5rem] mb-[0.1rem]"
+                                         fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                              d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V4"/>
+                                    </svg>
+                                    <span class="ml-1">Download</span>
+                                </a>
+                            @endif
+
                             {{-- Favorites toggle --}}
                             <form action="{{ route('favorites.toggle') }}" method="POST" class="mt-2 w-full">
                                 @csrf

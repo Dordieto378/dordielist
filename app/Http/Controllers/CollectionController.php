@@ -350,8 +350,8 @@ class CollectionController extends Controller
                 'coverImage' => ['extraLarge' => $cover],
                 'title'      => [
                     'english' => $doujin->title_english,
-                    'romaji'  => $doujin->title_romaji,
-                    'native'  => $doujin->title_native,
+                    'romaji'  => null,
+                    'native'  => null,
                 ],
             ];
         }

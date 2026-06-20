@@ -10,16 +10,8 @@
         use Illuminate\Support\Facades\Storage;
 
         $title = $media->title_english
-              ?? $media->title_romaji
-              ?? $media->title_native
               ?? $media->slug
               ?? 'No Title';
-        $romajiTitle = $media->title_romaji;
-        $englishTitle = $media->title_english;
-        $nativeTitle = $media->title_native;
-        $showRomajiTitle = filled($romajiTitle);
-        $showNativeTitle = filled($nativeTitle) && $nativeTitle !== $title;
-
         $type = 'DOUJIN';
 
         $firstChapter = Chapter::where('item_type', 'doujin')
@@ -54,8 +46,6 @@
             ->unique()
             ->values();
         $currentTitleEnglish = old('title_english', $media->title_english);
-        $currentTitleRomaji = old('title_romaji', $media->title_romaji);
-        $currentTitleNative = old('title_native', $media->title_native);
         $currentAuthor = old('author', $authors->first());
         $currentAuthorRecord = $media->doujinAuthors->firstWhere('name', $currentAuthor)
             ?: $media->doujinAuthors->first();
@@ -64,8 +54,6 @@
         $currentPatreonUrls = $doujinAuthorLinkValues('author_patreon_url', $currentAuthorRecord?->patreon_url);
         $currentFanboxUrls = $doujinAuthorLinkValues('author_fanbox_url', $currentAuthorRecord?->fanbox_url);
         $currentPixivUrls = $doujinAuthorLinkValues('author_pixiv_url', $currentAuthorRecord?->pixiv_url);
-        $currentDoujinSource = old('doujin_source', $media->doujin_source);
-        $currentDoujinLanguage = old('doujin_language', $media->doujin_language);
         $doujinLinks = collect(DoujinAuthorLinks::displayRows($currentAuthorRecord));
         $isAdmin = optional(auth()->user()?->role)->role === 'Admin';
         $contentUploadRoute = route('chapters.upload', ['media' => $media->id]);
@@ -224,16 +212,6 @@
                 <div class="flex flex-col justify-start ml-8 mt-4 md:mt-2 text-gray-900 font-medium">
                     <h1 class="text-2xl font-bold text-red-600 mb-2">{{ $title }}</h1>
                     <div class="grid grid-cols-[7rem,1fr] gap-x-3 gap-y-4 text-sm mt-2 mb-2">
-                        @if($showRomajiTitle)
-                            <div>Romaji</div>
-                            <div>{{ mb_strtoupper((string) $romajiTitle, 'UTF-8') }}</div>
-                        @endif
-
-                        @if($showNativeTitle)
-                            <div>Native</div>
-                            <div>{{ $nativeTitle }}</div>
-                        @endif
-
                         <div>Author</div>
                         <div>
                             @if($authors->isEmpty())
@@ -248,7 +226,7 @@
                             @endif
                         </div>
 
-                        <div>Links</div>
+                        <div>Socials</div>
                         <div>
                             @if($doujinLinks->isEmpty())
                                 N/A
@@ -314,9 +292,12 @@
                                     $ext       = strtolower(pathinfo($firstPage->file_path ?? '', PATHINFO_EXTENSION));
                                     $isImage   = $firstPage && in_array($ext, $allowedExts, true);
                                     $thumb     = $isImage ? Storage::url($firstPage->file_path) : asset('images/no-thumb.jpg');
-                                    $chapterBadge = ($chapter->chapter_number !== null && $chapter->chapter_number !== '')
-                                        ? rtrim(rtrim((string) $chapter->chapter_number, '0'), '.')
-                                        : ((preg_match('/\d+(?:\.\d+)?/', (string) $chapter->chapter_title, $m) === 1) ? $m[0] : '?');
+                                    $chapterTitleText = trim((string) $chapter->chapter_title);
+                                    $chapterBadge = preg_match('/^\d+(?:\.\d+)?\s*&\s*\d+(?:\.\d+)?$/', $chapterTitleText) === 1
+                                        ? $chapterTitleText
+                                        : (($chapter->chapter_number !== null && $chapter->chapter_number !== '')
+                                            ? rtrim(rtrim((string) $chapter->chapter_number, '0'), '.')
+                                            : ((preg_match('/\d+(?:\.\d+)?/', $chapterTitleText, $m) === 1) ? $m[0] : '?'));
 
                                     // Prefer numeric chapter param; fall back to title if needed
                                     $chapterParam = $chapter->chapter_number !== null && $chapter->chapter_number !== ''
@@ -416,32 +397,12 @@
                         @endif
 
                         <div class="grid grid-cols-2 gap-4">
-                            <label class="block">
-                                <span class="block mb-2 text-red-600 font-medium">English Title</span>
+                            <label class="block col-span-2">
+                                <span class="block mb-2 text-red-600 font-medium">Title</span>
                                 <input
                                   type="text"
                                   name="title_english"
                                   value="{{ $currentTitleEnglish ?? '' }}"
-                                  class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
-                                />
-                            </label>
-
-                            <label class="block">
-                                <span class="block mb-2 text-red-600 font-medium">Romaji Title</span>
-                                <input
-                                  type="text"
-                                  name="title_romaji"
-                                  value="{{ $currentTitleRomaji ?? '' }}"
-                                  class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
-                                />
-                            </label>
-
-                            <label class="block">
-                                <span class="block mb-2 text-red-600 font-medium">Native Title</span>
-                                <input
-                                  type="text"
-                                  name="title_native"
-                                  value="{{ $currentTitleNative ?? '' }}"
                                   class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
                                 />
                             </label>
@@ -498,29 +459,6 @@
                                     </div>
                                 @endforeach
 
-                                <label class="block">
-                                    <span class="block mb-2 text-red-600 font-medium">Source</span>
-                                    <select
-                                      name="doujin_source"
-                                      class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
-                                    >
-                                        <option value="" {{ empty($currentDoujinSource) ? 'selected' : '' }}>None</option>
-                                        <option value="official" {{ $currentDoujinSource === 'official' ? 'selected' : '' }}>Official</option>
-                                        <option value="unofficial" {{ $currentDoujinSource === 'unofficial' ? 'selected' : '' }}>Unofficial</option>
-                                    </select>
-                                </label>
-
-                                <label class="block">
-                                    <span class="block mb-2 text-red-600 font-medium">Language</span>
-                                    <select
-                                      name="doujin_language"
-                                      class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
-                                    >
-                                        <option value="" {{ empty($currentDoujinLanguage) ? 'selected' : '' }}>None</option>
-                                        <option value="japanese" {{ $currentDoujinLanguage === 'japanese' ? 'selected' : '' }}>Japanese</option>
-                                        <option value="english" {{ $currentDoujinLanguage === 'english' ? 'selected' : '' }}>English</option>
-                                    </select>
-                                </label>
                             </div>
                         </div>
                     </form>

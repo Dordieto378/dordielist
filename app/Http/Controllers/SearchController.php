@@ -139,6 +139,7 @@ class SearchController extends Controller
     private function mapMediaResult(Media $media): array
     {
         $typeConfig = $this->typeConfig($media->type);
+        $isDoujin = $media->type === 'doujin';
         $cover = $media->cover_url;
         if ($cover) {
             if (!preg_match('#^https?://#i', $cover) && !str_starts_with($cover, '/')) {
@@ -155,10 +156,12 @@ class SearchController extends Controller
             'type' => $typeConfig['type'],
             'title' => [
                 'english' => $media->title_english ?: null,
-                'romaji' => $media->title_romaji ?: null,
-                'native' => $media->title_native ?: null,
+                'romaji' => $isDoujin ? null : ($media->title_romaji ?: null),
+                'native' => $isDoujin ? null : ($media->title_native ?: null),
             ],
-            'label' => $media->title_english ?: ($media->title_romaji ?: ($media->title_native ?: 'No Title')),
+            'label' => $isDoujin
+                ? ($media->title_english ?: ($media->slug ?: 'No Title'))
+                : ($media->title_english ?: ($media->title_romaji ?: ($media->title_native ?: 'No Title'))),
             'subtitle' => $typeConfig['label'],
             'url' => $this->mediaUrl($media, $typeConfig['type']),
             'result_kind' => 'media',

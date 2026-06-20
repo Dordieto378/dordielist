@@ -36,7 +36,7 @@ class DoujinFolderIndex
 
         Media::with('doujinAuthors:id,name')
             ->where('type', 'doujin')
-            ->get(['id', 'title_romaji', 'title_english', 'title_native', 'slug', 'cover_url', 'chapters_cnt'])
+            ->get(['id', 'title_english', 'slug', 'cover_url', 'chapters_cnt'])
             ->each(function (Media $media) use (&$byId, &$byAuthorAndTitle, &$byTitle) {
                 $byId[$media->id] = $media;
 
@@ -130,9 +130,7 @@ class DoujinFolderIndex
     public function displayTitle(Media $media): string
     {
         return $media->title_english
-            ?: ($media->title_romaji
-                ?: ($media->title_native
-                    ?: ($media->slug ?: 'Untitled')));
+            ?: ($media->slug ?: 'Untitled');
     }
 
     public function deduplicateEntries(array $entries, array $lookup): array
@@ -158,8 +156,6 @@ class DoujinFolderIndex
     {
         return collect([
             $media->title_english,
-            $media->title_romaji,
-            $media->title_native,
             $media->slug,
         ])
             ->flatMap(fn ($value) => $this->titleKeysForValue((string) $value))

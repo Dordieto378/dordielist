@@ -67,9 +67,9 @@ class ImportDoujin extends Command
 
                 $m = new Media();
                 $m->type          = 'doujin';
-                $m->title_romaji  = $folderTitle;
-                $m->title_english = null;
-                $m->title_native  = $this->containsNonLatin($folderTitle) ? $folderTitle : null;
+                $m->title_english = $folderTitle;
+                $m->title_romaji  = null;
+                $m->title_native  = null;
                 $m->slug          = Str::slug($folderTitle);
                 $m->cover_url     = null;
                 $m->chapters_cnt  = 0;
@@ -94,12 +94,6 @@ class ImportDoujin extends Command
                 $media = $lookup['by_id'][$mediaId] ?? Media::find($mediaId);
                 try {
                     if ($media) {
-                        $folderTitle = $entry['legacy_title'] ?? null;
-                        if ($folderTitle && !$media->title_native && $this->containsNonLatin($folderTitle)) {
-                            $media->title_native = $folderTitle;
-                            $media->save();
-                        }
-
                         $this->metadataSyncer->syncDoujin($media, $this->authorsForEntry($entry));
                     }
                     $count = $this->importOne($disk, $entry['path'], $mediaId, $force, $media);
@@ -140,11 +134,6 @@ class ImportDoujin extends Command
         }
 
         try {
-            $folderTitle = $entry['legacy_title'] ?? null;
-            if ($folderTitle && !$media->title_native && $this->containsNonLatin($folderTitle)) {
-                $media->title_native = $folderTitle;
-                $media->save();
-            }
             $count = $this->importOne($disk, $entry['path'], $media->id, $force, $media);
             $this->info("Imported {$count} chapter(s) for id {$mediaId}");
             return self::SUCCESS;
@@ -218,11 +207,12 @@ class ImportDoujin extends Command
             usort($images, 'strnatcasecmp');
 
             $chapterNum = $this->parseChapterNumber($folderName) ?? (float)($idx + 1);
-            $chapterNumber = $this->ensureUniqueChapterNumber($mediaId, $chapterNum, $folderName);
+            $chapterTitle = $this->displayChapterTitle($folderName);
+            $chapterNumber = $this->ensureUniqueChapterNumber($mediaId, $chapterNum, $chapterTitle);
 
             $chapter = Chapter::updateOrCreate(
                 ['media_fk' => $mediaId, 'chapter_number' => $chapterNumber],
-                ['item_type' => 'doujin', 'item_id' => $mediaId, 'chapter_title' => $folderName]
+                ['item_type' => 'doujin', 'item_id' => $mediaId, 'chapter_title' => $chapterTitle]
             );
             $seenChapterIds[] = $chapter->id;
 
@@ -276,6 +266,22 @@ class ImportDoujin extends Command
             return (float)$n;
         }
         return null;
+    }
+
+    private function displayChapterTitle(string $name): string
+    {
+        if (preg_match('/\b(?:chapter|ch|c)?[\s\-_]*([0-9]+(?:[\._][0-9]+)?)\s*&\s*([0-9]+(?:[\._][0-9]+)?)\b/i', $name, $matches)) {
+            return $this->displayChapterNumber((float) strtr($matches[1], ['_' => '.', ',' => '.']))
+                .' & '
+                .$this->displayChapterNumber((float) strtr($matches[2], ['_' => '.', ',' => '.']));
+        }
+
+        return $name;
+    }
+
+    private function displayChapterNumber(float $number): string
+    {
+        return rtrim(rtrim(number_format($number, 2, '.', ''), '0'), '.');
     }
 
     private function ensureUniqueChapterNumber(int $mediaId, float $base, string $title): float

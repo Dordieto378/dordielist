@@ -52,37 +52,6 @@ if (!function_exists('shortTitle')) {
                     </div>
 
                     <div class="relative mb-4">
-                        <label class="block text-sm font-medium text-gray-900 mb-2">SOURCE</label>
-                        <select name="doujin_source" onchange="redirectWithFilters()"
-                                class="appearance-none w-full px-3 py-2 border rounded-sm focus:border-red-600
-                                    focus:outline-none focus:ring-2 focus:ring-red-600 h-[2.5rem] text-gray-900 font-medium">
-                            <option value="" {{ empty($selectedSource ?? '') ? 'selected' : '' }}>All</option>
-                            <option value="official" {{ ($selectedSource ?? '') === 'official' ? 'selected' : '' }}>Official</option>
-                            <option value="unofficial" {{ ($selectedSource ?? '') === 'unofficial' ? 'selected' : '' }}>Unofficial</option>
-                        </select>
-                        <svg class="pointer-events-none absolute right-3 top-1/2 transform -translate-y-1/2 h-3 w-3 text-gray-400 mt-3.5"
-                            xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="4" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-                        </svg>
-                    </div>
-
-                    {{-- *** NEW *** Author drop-down – identical markup used elsewhere --}}
-                    <div class="relative mb-4">
-                        <label class="block text-sm font-medium text-gray-900 mb-2">LANGUAGE</label>
-                        <select name="doujin_language" onchange="redirectWithFilters()"
-                                class="appearance-none w-full px-3 py-2 border rounded-sm focus:border-red-600
-                                    focus:outline-none focus:ring-2 focus:ring-red-600 h-[2.5rem] text-gray-900 font-medium">
-                            <option value="" {{ empty($selectedLanguage ?? '') ? 'selected' : '' }}>All</option>
-                            <option value="japanese" {{ ($selectedLanguage ?? '') === 'japanese' ? 'selected' : '' }}>Japanese</option>
-                            <option value="english" {{ ($selectedLanguage ?? '') === 'english' ? 'selected' : '' }}>English</option>
-                        </select>
-                        <svg class="pointer-events-none absolute right-3 top-1/2 transform -translate-y-1/2 h-3 w-3 text-gray-400 mt-3.5"
-                            xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="4" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-                        </svg>
-                    </div>
-
-                    <div class="relative mb-4">
                         <label class="block text-sm font-medium text-gray-900 mb-2">AUTHOR</label>
 
                         <!-- Button -->
@@ -596,38 +565,13 @@ if (!function_exists('shortTitle')) {
                         {{ session('doujin_upload_error') }}
                     </div>
 
-                    @php
-                        $addDoujinSource = old('doujin_source', '');
-                        $addDoujinLanguage = old('doujin_language', '');
-                    @endphp
-
                     <div class="grid grid-cols-2 gap-4">
-                        <label class="block">
-                            <span class="block mb-2 text-red-600 font-medium">English Title</span>
+                        <label class="block col-span-2">
+                            <span class="block mb-2 text-red-600 font-medium">Title</span>
                             <input
                               type="text"
                               name="title_english"
                               value="{{ old('title_english') }}"
-                              class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
-                            />
-                        </label>
-
-                        <label class="block">
-                            <span class="block mb-2 text-red-600 font-medium">Romaji Title</span>
-                            <input
-                              type="text"
-                              name="title_romaji"
-                              value="{{ old('title_romaji') }}"
-                              class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
-                            />
-                        </label>
-
-                        <label class="block">
-                            <span class="block mb-2 text-red-600 font-medium">Native Title</span>
-                            <input
-                              type="text"
-                              name="title_native"
-                              value="{{ old('title_native') }}"
                               class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
                             />
                         </label>
@@ -722,29 +666,6 @@ if (!function_exists('shortTitle')) {
                                 </div>
                             @endforeach
 
-                            <label class="block">
-                                <span class="block mb-2 text-red-600 font-medium">Source</span>
-                                <select
-                                  name="doujin_source"
-                                  class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
-                                >
-                                    <option value="" {{ empty($addDoujinSource) ? 'selected' : '' }}>None</option>
-                                    <option value="official" {{ $addDoujinSource === 'official' ? 'selected' : '' }}>Official</option>
-                                    <option value="unofficial" {{ $addDoujinSource === 'unofficial' ? 'selected' : '' }}>Unofficial</option>
-                                </select>
-                            </label>
-
-                            <label class="block">
-                                <span class="block mb-2 text-red-600 font-medium">Language</span>
-                                <select
-                                  name="doujin_language"
-                                  class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
-                                >
-                                    <option value="" {{ empty($addDoujinLanguage) ? 'selected' : '' }}>None</option>
-                                    <option value="japanese" {{ $addDoujinLanguage === 'japanese' ? 'selected' : '' }}>Japanese</option>
-                                    <option value="english" {{ $addDoujinLanguage === 'english' ? 'selected' : '' }}>English</option>
-                                </select>
-                            </label>
                         </div>
 
                     </div>
@@ -977,9 +898,6 @@ function redirectWithFilters () {
 
     const year       = document.querySelector('select[name="year"]')?.value ?? '';
     const era        = document.querySelector('select[name="era"]')?.value ?? '';
-    const doujinSource = document.querySelector('select[name="doujin_source"]')?.value ?? '';
-    const doujinLanguage = document.querySelector('select[name="doujin_language"]')?.value ?? '';
-
     const qp = new URLSearchParams();
     if (tags)        qp.append('tags',        tags);
     if (languages)   qp.append('language',    languages);
@@ -989,9 +907,6 @@ function redirectWithFilters () {
     if (developers)  qp.append('developers',  developers);
     if (year)        qp.append('year',        year);
     if (era)         qp.append('era',         era);
-    if (doujinSource) qp.append('source',     doujinSource);
-    if (doujinLanguage) qp.append('language', doujinLanguage);
-
     if (yearOrder  !== 'none') qp.append('year_order',  yearOrder);
     if (titleOrder !== 'none') qp.append('title_order', titleOrder);
     if (scoreOrder !== 'none') qp.append('score_order', scoreOrder);

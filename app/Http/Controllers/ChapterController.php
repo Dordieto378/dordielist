@@ -498,7 +498,7 @@ class ChapterController extends Controller
 
                 $title = basename($chapterDir);
                 $imports[] = [
-                    'title' => $title,
+                    'title' => $this->displayChapterTitle($title),
                     'number' => $this->parseChapterNumber($title),
                     'images' => $images,
                 ];
@@ -511,7 +511,7 @@ class ChapterController extends Controller
             $title = trim((string) pathinfo($archive->getClientOriginalName(), PATHINFO_FILENAME));
 
             return [[
-                'title' => $title,
+                'title' => $this->displayChapterTitle($title),
                 'number' => $this->parseChapterNumber($title),
                 'images' => $rootImages,
             ]];
@@ -621,6 +621,17 @@ class ChapterController extends Controller
         return null;
     }
 
+    private function displayChapterTitle(string $name): string
+    {
+        if (preg_match('/\b(?:chapter|ch|c)?[\s\-_]*([0-9]+(?:[\._][0-9]+)?)\s*&\s*([0-9]+(?:[\._][0-9]+)?)\b/i', $name, $matches)) {
+            return $this->displayChapterNumber((float) strtr($matches[1], ['_' => '.', ',' => '.']))
+                .' & '
+                .$this->displayChapterNumber((float) strtr($matches[2], ['_' => '.', ',' => '.']));
+        }
+
+        return $name;
+    }
+
     private function normalizeChapterNumber(float $number): string
     {
         return number_format($number, 2, '.', '');
@@ -664,7 +675,9 @@ class ChapterController extends Controller
             ->select('id', 'title_english', 'title_romaji', 'title_native', 'slug', 'type', 'origin')
             ->first();
 
-        $itemTitle = $mediaRow->title_english ?? $mediaRow->title_romaji ?? $mediaRow->title_native ?? 'Unknown Item';
+        $itemTitle = ($mediaRow->type ?? null) === 'doujin'
+            ? ($mediaRow->title_english ?? $mediaRow->slug ?? 'Unknown Item')
+            : ($mediaRow->title_english ?? $mediaRow->title_romaji ?? $mediaRow->title_native ?? 'Unknown Item');
 
         $isManhwa = strtoupper($mediaRow->type ?? '') === 'MANHWA'
             || strtoupper($mediaRow->origin ?? '') === 'KR';

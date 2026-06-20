@@ -122,7 +122,10 @@
             ? route('chapters.page', ['media' => $chapter->item_id, 'chapter' => $chapter->chapter_number, 'page' => $nextPairPage, 'view' => 'double'])
             : ($nextChapterLink ?? null);
 
-        $chapterDisplay = rtrim(rtrim((string)$chapter->chapter_number, '0'), '.');
+        $chapterTitleText = trim((string) ($chapter->chapter_title ?? ''));
+        $chapterDisplay = preg_match('/^\d+(?:\.\d+)?\s*&\s*\d+(?:\.\d+)?$/', $chapterTitleText) === 1
+            ? $chapterTitleText
+            : rtrim(rtrim((string)$chapter->chapter_number, '0'), '.');
         $readerTitleWithChapter = $itemTitle.' - Chapter '.$chapterDisplay;
         $readerImageExpiresAt = now()->addHours($view === 'scroll' ? 8 : 2);
     @endphp

@@ -36,7 +36,7 @@ class CategoryController extends Controller
         }
 
         if ($row->type === 'doujin') {
-            $title = $row->title_english ?: ($row->title_romaji ?: ($row->title_native ?: 'No Title'));
+            $title = $row->title_english ?: ($row->slug ?: 'No Title');
 
             $cover = $row->cover_url ?: null;
             if ($cover && !preg_match('#^https?://#i', $cover)) {
@@ -97,14 +97,6 @@ class CategoryController extends Controller
                 ->with(['doujinAuthors:id,name']);
 
             $nameOrder = $request->query('name_order', 'none');
-            $selectedSource = strtolower((string) $request->query('source', ''));
-            if (!in_array($selectedSource, ['official', 'unofficial'], true)) {
-                $selectedSource = '';
-            }
-            $selectedLanguage = strtolower((string) $request->query('language', ''));
-            if (!in_array($selectedLanguage, ['japanese', 'english'], true)) {
-                $selectedLanguage = '';
-            }
             $selectedAuthors = $request->query('author', []);
             if (!is_array($selectedAuthors)) {
                 $selectedAuthors = array_filter(array_map('trim', explode(',', (string) $selectedAuthors)));
@@ -115,15 +107,7 @@ class CategoryController extends Controller
                 $q->whereHas('doujinAuthors', fn ($query) => $query->where('name', $author));
             }
 
-            if ($selectedSource !== '') {
-                $q->where('doujin_source', $selectedSource);
-            }
-
-            if ($selectedLanguage !== '') {
-                $q->where('doujin_language', $selectedLanguage);
-            }
-
-            $titleExpr = 'COALESCE(NULLIF(title_romaji,""), NULLIF(title_english,""), NULLIF(title_native,""), slug)';
+            $titleExpr = 'COALESCE(NULLIF(title_english,""), slug)';
             if ($nameOrder === 'az') {
                 $q->orderByRaw("$titleExpr ASC")
                     ->orderBy('id', 'asc');
@@ -160,8 +144,6 @@ class CategoryController extends Controller
                 'allAuthors' => $allAuthors,
                 'allAuthorLinks' => $allAuthorLinks,
                 'selectedAuthors' => $selectedAuthors,
-                'selectedSource' => $selectedSource,
-                'selectedLanguage' => $selectedLanguage,
             ]);
         }
 

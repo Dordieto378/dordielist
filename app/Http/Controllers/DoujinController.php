@@ -98,8 +98,6 @@ class DoujinController extends Controller
 
         $validator = Validator::make($request->all(), [
             'title_english' => ['nullable', 'string', 'max:255'],
-            'title_romaji' => ['nullable', 'string', 'max:255'],
-            'title_native' => ['nullable', 'string', 'max:255'],
             'author' => ['nullable', 'string', 'max:255'],
             'author_twitter_url' => ['nullable', 'array'],
             'author_twitter_url.*' => ['nullable', 'string', 'max:2048'],
@@ -109,8 +107,6 @@ class DoujinController extends Controller
             'author_fanbox_url.*' => ['nullable', 'string', 'max:2048'],
             'author_pixiv_url' => ['nullable', 'array'],
             'author_pixiv_url.*' => ['nullable', 'string', 'max:2048'],
-            'doujin_source' => ['nullable', 'in:official,unofficial'],
-            'doujin_language' => ['nullable', 'in:japanese,english'],
         ]);
 
         if ($validator->fails()) {
@@ -122,25 +118,21 @@ class DoujinController extends Controller
 
         $data = $validator->validated();
         $titleEnglish = $this->trimToNull($data['title_english'] ?? null);
-        $titleRomaji = $this->trimToNull($data['title_romaji'] ?? null);
-        $titleNative = $this->trimToNull($data['title_native'] ?? null);
         $authors = $this->parseAuthorNames($data['author'] ?? null);
 
-        if (!$titleEnglish && !$titleRomaji && !$titleNative) {
+        if (!$titleEnglish) {
             return back()
                 ->withInput()
                 ->with('open_edit_doujin_modal', true)
-                ->with('doujin_update_error', 'Add at least one title.');
+                ->with('doujin_update_error', 'Add a title.');
         }
 
         $media->title_english = $titleEnglish;
-        $media->title_romaji = $titleRomaji;
-        $media->title_native = $titleNative;
-        $media->doujin_source = $this->trimToNull($data['doujin_source'] ?? null);
-        $media->doujin_language = $this->trimToNull($data['doujin_language'] ?? null);
+        $media->title_romaji = null;
+        $media->title_native = null;
         $media->slug = $this->makeUniqueMediaSlug(
             $media,
-            $titleRomaji ?: ($titleEnglish ?: ($titleNative ?: ($media->slug ?: 'doujin-'.$media->id)))
+            $titleEnglish ?: ($media->slug ?: 'doujin-'.$media->id)
         );
         $media->save();
 
@@ -276,8 +268,6 @@ class DoujinController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'title_english' => ['nullable', 'string', 'max:255'],
-            'title_romaji' => ['nullable', 'string', 'max:255'],
-            'title_native' => ['nullable', 'string', 'max:255'],
             'existing_author' => ['nullable', 'string', 'max:255'],
             'new_author' => ['nullable', 'string', 'max:255'],
             'archive' => ['required', 'file', 'max:1048576'],
@@ -401,8 +391,6 @@ class DoujinController extends Controller
 
         $validator = Validator::make($request->all(), [
             'title_english' => ['nullable', 'string', 'max:255'],
-            'title_romaji' => ['nullable', 'string', 'max:255'],
-            'title_native' => ['nullable', 'string', 'max:255'],
             'existing_author' => ['nullable', 'string', 'max:255'],
             'new_author' => ['nullable', 'string', 'max:255'],
             'author_twitter_url' => ['nullable', 'array'],
@@ -413,8 +401,6 @@ class DoujinController extends Controller
             'author_fanbox_url.*' => ['nullable', 'string', 'max:2048'],
             'author_pixiv_url' => ['nullable', 'array'],
             'author_pixiv_url.*' => ['nullable', 'string', 'max:2048'],
-            'doujin_source' => ['nullable', 'in:official,unofficial'],
-            'doujin_language' => ['nullable', 'in:japanese,english'],
         ]);
 
         if ($validator->fails()) {
@@ -423,13 +409,11 @@ class DoujinController extends Controller
 
         $data = $validator->validated();
         $titleEnglish = $this->trimToNull($data['title_english'] ?? null);
-        $titleRomaji = $this->trimToNull($data['title_romaji'] ?? null);
-        $titleNative = $this->trimToNull($data['title_native'] ?? null);
         $author = $this->trimToNull($data['new_author'] ?? null)
             ?: $this->trimToNull($data['existing_author'] ?? null);
 
-        if (!$titleEnglish && !$titleRomaji && !$titleNative) {
-            return $this->redirectUploadFailure('Add at least one title.', $request);
+        if (!$titleEnglish) {
+            return $this->redirectUploadFailure('Add a title.', $request);
         }
 
         if (!$author) {
@@ -455,13 +439,11 @@ class DoujinController extends Controller
             $media = new Media();
             $media->type = 'doujin';
             $media->title_english = $titleEnglish;
-            $media->title_romaji = $titleRomaji;
-            $media->title_native = $titleNative;
-            $media->doujin_source = $this->trimToNull($data['doujin_source'] ?? null);
-            $media->doujin_language = $this->trimToNull($data['doujin_language'] ?? null);
+            $media->title_romaji = null;
+            $media->title_native = null;
             $media->slug = $this->makeUniqueMediaSlug(
                 $media,
-                $titleRomaji ?: ($titleEnglish ?: ($titleNative ?: 'doujin'))
+                $titleEnglish ?: 'doujin'
             );
             $media->cover_url = null;
             $media->chapters_cnt = 0;
@@ -544,8 +526,9 @@ class DoujinController extends Controller
                 try {
                     $media = new Media();
                     $media->type = 'doujin';
-                    $media->title_romaji = $folderTitle;
-                    $media->title_native = $this->containsNonLatin($folderTitle) ? $folderTitle : null;
+                    $media->title_english = $this->asciiFallbackTitle($folderTitle);
+                    $media->title_romaji = null;
+                    $media->title_native = null;
                     $media->slug = Str::slug($folderTitle);
                     $media->cover_url = null;
                     $media->chapters_cnt = 0;
@@ -571,11 +554,6 @@ class DoujinController extends Controller
                     $media = Media::findOrFail($mediaId);
                     $folderTitle = $entry['legacy_title'] ?? null;
 
-                    if ($folderTitle && !$media->title_native && $this->containsNonLatin($folderTitle)) {
-                        $media->title_native = $folderTitle;
-                        $media->save();
-                    }
-
                     $this->metadataSyncer->syncDoujin($media, $this->authorsForEntry($entry));
                     $this->mirrorDoujin($disk, $entry['path'], $mediaId);
                 });
@@ -599,8 +577,9 @@ class DoujinController extends Controller
 
         $desired = [];
         foreach ($chapterDirs as $idx => $chapterPath) {
-            $title = basename($chapterPath);
-            $number = $this->parseChapterNumber($title) ?? (float) ($idx + 1);
+            $folderTitle = basename($chapterPath);
+            $title = $this->displayChapterTitle($folderTitle);
+            $number = $this->parseChapterNumber($folderTitle) ?? (float) ($idx + 1);
             $numberKey = $this->normNum($number);
 
             $files = $disk->files($chapterPath);
@@ -775,6 +754,22 @@ class DoujinController extends Controller
         }
 
         return null;
+    }
+
+    private function displayChapterTitle(string $name): string
+    {
+        if (preg_match('/\b(?:chapter|ch|c)?[\s\-_]*([0-9]+(?:[\._][0-9]+)?)\s*&\s*([0-9]+(?:[\._][0-9]+)?)\b/i', $name, $matches)) {
+            return $this->formatChapterDisplayNumber($matches[1]).' & '.$this->formatChapterDisplayNumber($matches[2]);
+        }
+
+        return $name;
+    }
+
+    private function formatChapterDisplayNumber(string $number): string
+    {
+        $value = (float) strtr($number, ['_' => '.', ',' => '.']);
+
+        return rtrim(rtrim(number_format($value, 2, '.', ''), '0'), '.');
     }
 
     private function normNum(float $number): string
@@ -1086,7 +1081,7 @@ class DoujinController extends Controller
     private function doujinDownloadFilename(Media $media): string
     {
         $title = $media->title_english
-            ?: ($media->title_romaji ?: ($media->title_native ?: ($media->slug ?: 'doujin-'.$media->id)));
+            ?: ($media->slug ?: 'doujin-'.$media->id);
         $base = Str::slug($title);
 
         return ($base !== '' ? $base : 'doujin-'.$media->id).'.zip';

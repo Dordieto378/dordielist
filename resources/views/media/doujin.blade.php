@@ -17,11 +17,7 @@
         $romajiTitle = $media->title_romaji;
         $englishTitle = $media->title_english;
         $nativeTitle = $media->title_native;
-        $showRomajiTitle = filled($romajiTitle) && (
-            blank($englishTitle)
-                ? $romajiTitle !== $title
-                : $romajiTitle !== $englishTitle
-        );
+        $showRomajiTitle = filled($romajiTitle);
         $showNativeTitle = filled($nativeTitle) && $nativeTitle !== $title;
 
         $type = 'DOUJIN';
@@ -230,7 +226,7 @@
                     <div class="grid grid-cols-[7rem,1fr] gap-x-3 gap-y-4 text-sm mt-2 mb-2">
                         @if($showRomajiTitle)
                             <div>Romaji</div>
-                            <div>{{ $romajiTitle }}</div>
+                            <div>{{ mb_strtoupper((string) $romajiTitle, 'UTF-8') }}</div>
                         @endif
 
                         @if($showNativeTitle)

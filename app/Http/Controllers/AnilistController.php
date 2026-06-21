@@ -7,7 +7,9 @@ use App\Models\CollectionItem;
 use App\Models\Chapter;
 use App\Models\ChapterPage;
 use App\Models\Favorite;
+use App\Models\DoujinAuthor;
 use App\Models\Media;
+use App\Support\DoujinAuthorLinks;
 use App\Support\MediaMetadataSyncer;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -186,6 +188,47 @@ class AnilistController extends Controller
         ]);
     }
 
+    public function metadata(Request $request, string $category, string $filter)
+    {
+        $name = trim((string) $request->query('name', ''));
+        abort_if($name === '', 404);
+
+        $config = $this->metadataListingConfig(strtolower($category), strtolower($filter));
+        abort_unless($config, 404);
+
+        $selectedView = $request->input('view') === 'list' ? 'list' : 'grid';
+
+        $paginator = Media::query()
+            ->with(Media::METADATA_RELATIONS)
+            ->where('type', $config['type'])
+            ->whereHas($config['relation'], fn ($query) => $query->where('name', $name))
+            ->orderByDesc('start_date')
+            ->orderByDesc('year')
+            ->orderByDesc('id')
+            ->paginate(24)
+            ->appends($request->query());
+
+        $paginator->setCollection(
+            $paginator->getCollection()
+                ->map(fn (Media $media) => $this->mapMediaRow($media))
+                ->values()
+        );
+
+        $socialRows = [];
+        if ($config['relation'] === 'doujinAuthors') {
+            $author = DoujinAuthor::where('name', $name)->first();
+            $socialRows = DoujinAuthorLinks::displayRows($author);
+        }
+
+        return view('metadata.show', [
+            'heading' => $name,
+            'kindLabel' => $config['label'],
+            'paginatedMedia' => $paginator,
+            'selectedView' => $selectedView,
+            'socialRows' => $socialRows,
+        ]);
+    }
+
     public function updateEntry(Request $request, Media $media)
     {
         abort_unless(in_array($media->type, ['anime', 'hentai', 'manga', 'manhwa'], true), 404);
@@ -356,6 +399,43 @@ GQL;
             'manhwa' => 'manhwas',
             default => 'animes',
         };
+    }
+
+    private function metadataListingConfig(string $category, string $filter): ?array
+    {
+        if ($filter === 'studio' && in_array($category, ['animes', 'hentais'], true)) {
+            return [
+                'type' => $category === 'hentais' ? 'hentai' : 'anime',
+                'relation' => 'anilistStudios',
+                'label' => 'Studio',
+            ];
+        }
+
+        if ($filter === 'author' && in_array($category, ['mangas', 'manhwas'], true)) {
+            return [
+                'type' => $category === 'manhwas' ? 'manhwa' : 'manga',
+                'relation' => 'anilistAuthors',
+                'label' => 'Author',
+            ];
+        }
+
+        if ($filter === 'author' && $category === 'doujins') {
+            return [
+                'type' => 'doujin',
+                'relation' => 'doujinAuthors',
+                'label' => 'Author',
+            ];
+        }
+
+        if (in_array($filter, ['developers', 'developer'], true) && $category === 'visual-novel') {
+            return [
+                'type' => 'vn',
+                'relation' => 'vnDevelopers',
+                'label' => 'Developer',
+            ];
+        }
+
+        return null;
     }
 
     private function mapMediaRow(Media $media): array

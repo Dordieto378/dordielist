@@ -40,6 +40,10 @@ Route::get('/search', [SearchController::class, 'index'])
     ->middleware('auth')
     ->name('search.index');
 
+Route::get('/metadata/{category}/{filter}', [AnilistController::class, 'metadata'])
+    ->middleware('auth')
+    ->name('metadata.show');
+
 Route::get('/notifications', [NotificationController::class, 'index'])
     ->middleware('auth')
     ->name('notifications.index');

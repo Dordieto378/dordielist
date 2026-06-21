@@ -54,7 +54,6 @@
         $currentPatreonUrls = $doujinAuthorLinkValues('author_patreon_url', $currentAuthorRecord?->patreon_url);
         $currentFanboxUrls = $doujinAuthorLinkValues('author_fanbox_url', $currentAuthorRecord?->fanbox_url);
         $currentPixivUrls = $doujinAuthorLinkValues('author_pixiv_url', $currentAuthorRecord?->pixiv_url);
-        $doujinLinks = collect(DoujinAuthorLinks::displayRows($currentAuthorRecord));
         $isAdmin = optional(auth()->user()?->role)->role === 'Admin';
         $contentUploadRoute = route('chapters.upload', ['media' => $media->id]);
         $contentUploadChunkRoute = route('chapters.upload.chunk', ['media' => $media->id]);
@@ -221,22 +220,6 @@
                                     <a href="{{ category_filter_url('doujins', 'author', $name) }}"
                                        class="text-blue-600 hover:underline cursor-pointer">
                                         {{ $name }}
-                                    </a>@if(!$loop->last), @endif
-                                @endforeach
-                            @endif
-                        </div>
-
-                        <div>Socials</div>
-                        <div>
-                            @if($doujinLinks->isEmpty())
-                                N/A
-                            @else
-                                @foreach($doujinLinks as $link)
-                                    <a href="{{ $link['url'] }}"
-                                       target="_blank"
-                                       rel="noopener noreferrer"
-                                       class="text-blue-600 hover:underline cursor-pointer">
-                                        {{ $link['label'] }}
                                     </a>@if(!$loop->last), @endif
                                 @endforeach
                             @endif

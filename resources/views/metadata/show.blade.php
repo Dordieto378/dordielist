@@ -6,41 +6,6 @@
             ? (string) $title
             : substr((string) $title, 0, $maxLen - 1).'...';
 
-        $displayMediaType = function (array $item): string {
-            $type = strtoupper((string) ($item['type'] ?? ''));
-            $genres = array_map('strtolower', $item['genres'] ?? []);
-
-            if ($type === 'ANIME') {
-                return in_array('hentai', $genres, true) ? 'Hentai' : 'Anime';
-            }
-
-            if ($type === 'MANGA') {
-                if (in_array('hentai', $genres, true)) {
-                    return 'H-manga';
-                }
-
-                return strtoupper((string) ($item['countryOfOrigin'] ?? '')) === 'KR' ? 'Manhwa' : 'Manga';
-            }
-
-            if ($type === 'MANHWA') {
-                return 'Manhwa';
-            }
-
-            if ($type === 'HENTAI') {
-                return 'Hentai';
-            }
-
-            if ($type === 'DOUJIN') {
-                return 'Doujin';
-            }
-
-            if ($type === 'VN') {
-                return 'Visual Novel';
-            }
-
-            return ucfirst(strtolower($type));
-        };
-
         $isGrid = ($selectedView === 'grid');
         $isList = ($selectedView === 'list');
         $currentPage = $paginatedMedia->currentPage();
@@ -130,9 +95,6 @@
                         <a href="{{ $href }}" class="text-red-600 font-bold">
                             {{ $shortTitle($fullTitle, 30) }}
                         </a>
-                        <p class="text-gray-600 font-medium">
-                            {{ $displayMediaType($item) }}
-                        </p>
                     </div>
                 </div>
 

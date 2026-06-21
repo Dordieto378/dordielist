@@ -293,7 +293,9 @@
                                     $isImage   = $firstPage && in_array($ext, $allowedExts, true);
                                     $thumb     = $isImage ? Storage::url($firstPage->file_path) : asset('images/no-thumb.jpg');
                                     $chapterTitleText = trim((string) $chapter->chapter_title);
-                                    $chapterBadge = preg_match('/^\d+(?:\.\d+)?\s*&\s*\d+(?:\.\d+)?$/', $chapterTitleText) === 1
+                                    $usesTitleBadge = preg_match('/^\d+(?:\.\d+)?\s*&\s*\d+(?:\.\d+)?$/', $chapterTitleText) === 1
+                                        || strcasecmp($chapterTitleText, 'Extra Chapter') === 0;
+                                    $chapterBadge = $usesTitleBadge
                                         ? $chapterTitleText
                                         : (($chapter->chapter_number !== null && $chapter->chapter_number !== '')
                                             ? rtrim(rtrim((string) $chapter->chapter_number, '0'), '.')

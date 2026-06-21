@@ -623,6 +623,10 @@ class ChapterController extends Controller
 
     private function displayChapterTitle(string $name): string
     {
+        if (preg_match('/\b(?:extra|bonus|special)(?:\s+chapter)?\b/i', $name)) {
+            return 'Extra Chapter';
+        }
+
         if (preg_match('/\b(?:chapter|ch|c)?[\s\-_]*([0-9]+(?:[\._][0-9]+)?)\s*&\s*([0-9]+(?:[\._][0-9]+)?)\b/i', $name, $matches)) {
             return $this->displayChapterNumber((float) strtr($matches[1], ['_' => '.', ',' => '.']))
                 .' & '

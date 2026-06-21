@@ -352,8 +352,10 @@
                                  alt="Cover Image"
                                  class="w-[256px] h-[360px] object-cover">
                             <img
-                                src="{{ $item['bannerImage'] ?? asset('images/no-image.jpg') }}"
-                                alt="Banner Image"
+                                src="{{ $item['type'] === 'DOUJIN'
+                                    ? ($item['listPreviewImage'] ?? asset('images/no-image.jpg'))
+                                    : ($item['bannerImage'] ?? asset('images/no-image.jpg')) }}"
+                                alt="{{ $item['type'] === 'DOUJIN' ? 'Preview Page' : 'Banner Image' }}"
                                 class="w-[256px] h-[360px] object-cover"
                             >
                         </a>
@@ -382,31 +384,28 @@
                                 {{ $shortT }}
                             </a>
 
-                            @if (!$item['genres'])
-
-                            @else
+                            @php
+                                $metaItems = $item['type'] === 'DOUJIN'
+                                    ? array_values(array_filter($item['authors'] ?? []))
+                                    : array_values(array_filter($item['genres'] ?? []));
+                                $metaLabel = $item['type'] === 'DOUJIN' ? 'Author' : 'Genre';
+                                $metaFilter = $item['type'] === 'DOUJIN' ? 'author' : 'genre';
+                                $metaCategory = match ($item['type']) {
+                                    'ANIME' => 'animes',
+                                    'HENTAI' => 'hentais',
+                                    'MANHWA' => 'manhwas',
+                                    'MANGA' => 'mangas',
+                                    'DOUJIN' => 'doujins',
+                                    default => null,
+                                };
+                            @endphp
+                            @if ($metaItems)
                                 <p class="text-gray-900 font-medium text-sm mt-[0.8rem]">
-                                    Genre:
-                                    @foreach($item['genres'] ?? [] as $genre)
-                                        @if($item['type']  === 'ANIME')
-                                            <a  href="{{ category_filter_url('animes', 'genre', $genre) }}" class="text-blue-600 cursor-pointer">
-                                                {{ $genre }}
-                                            </a>
-                                        @elseif($item['type']  === 'HENTAI')
-                                            <a  href="{{ category_filter_url('hentais', 'genre', $genre) }}" class="text-blue-600 cursor-pointer">
-                                                {{ $genre }}
-                                            </a>
-                                        @elseif($item['type']  === 'MANHWA')
-                                            <a  href="{{ category_filter_url('manhwas', 'genre', $genre) }}" class="text-blue-600 cursor-pointer">
-                                                {{ $genre }}
-                                            </a>
-                                        @elseif($item['type']  === 'MANGA')
-                                            <a  href="{{ category_filter_url('mangas', 'genre', $genre) }}" class="text-blue-600 cursor-pointer">
-                                                {{ $genre }}
-                                            </a>
-                                        @elseif($item['type']  === 'DOUJIN')
-                                            <a  href="{{ category_filter_url('doujins', 'genre', $genre) }}" class="text-blue-600 cursor-pointer">
-                                                {{ $genre }}
+                                    {{ $metaLabel }}:
+                                    @foreach($metaItems as $metaItem)
+                                        @if($metaCategory)
+                                            <a href="{{ category_filter_url($metaCategory, $metaFilter, $metaItem) }}" class="text-blue-600 cursor-pointer">
+                                                {{ $metaItem }}
                                             </a>
                                         @endif
                                         @if(!$loop->last), @endif

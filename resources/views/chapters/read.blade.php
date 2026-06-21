@@ -123,7 +123,9 @@
             : ($nextChapterLink ?? null);
 
         $chapterTitleText = trim((string) ($chapter->chapter_title ?? ''));
-        $chapterDisplay = preg_match('/^\d+(?:\.\d+)?\s*&\s*\d+(?:\.\d+)?$/', $chapterTitleText) === 1
+        $usesTitleChapterDisplay = preg_match('/^\d+(?:\.\d+)?\s*&\s*\d+(?:\.\d+)?$/', $chapterTitleText) === 1
+            || strcasecmp($chapterTitleText, 'Extra Chapter') === 0;
+        $chapterDisplay = $usesTitleChapterDisplay
             ? $chapterTitleText
             : rtrim(rtrim((string)$chapter->chapter_number, '0'), '.');
         $readerTitleWithChapter = $itemTitle.' - Chapter '.$chapterDisplay;

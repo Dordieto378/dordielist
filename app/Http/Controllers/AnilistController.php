@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Collection;
 use App\Models\CollectionItem;
+use App\Models\Chapter;
+use App\Models\ChapterPage;
 use App\Models\Favorite;
 use App\Models\Media;
 use App\Support\MediaMetadataSyncer;
@@ -114,11 +116,16 @@ class AnilistController extends Controller
             ->map(function (Media $media) {
                 $canonicalType = strtolower($this->canonicalType($media));
 
+                $doujinListPreviewImage = $canonicalType === 'doujin'
+                    ? $this->doujinListPreviewImage($media)
+                    : null;
+
                 return [
                     'id' => $media->id,
                     'type' => strtoupper($media->type),
                     'title' => ['english' => $media->title_english, 'romaji' => $media->title_romaji, 'native' => $media->title_native],
                     'coverImage' => ['extraLarge' => $this->externalOrStorage($media->cover_url, $canonicalType === 'doujin')],
+                    'listPreviewImage' => $doujinListPreviewImage,
                     'genres' => in_array($canonicalType, ['anime', 'hentai', 'manga', 'manhwa'], true)
                         ? $media->metadataNamesFrom('anilistGenres')
                         : [],
@@ -126,9 +133,11 @@ class AnilistController extends Controller
                     'studios' => in_array($canonicalType, ['anime', 'hentai'], true)
                         ? $media->metadataNamesFrom('anilistStudios')
                         : [],
-                    'authors' => in_array($canonicalType, ['manga', 'manhwa'], true)
-                        ? $media->metadataNamesFrom('anilistAuthors')
-                        : [],
+                    'authors' => match ($canonicalType) {
+                        'manga', 'manhwa' => $media->metadataNamesFrom('anilistAuthors'),
+                        'doujin' => $media->metadataNamesFrom('doujinAuthors'),
+                        default => [],
+                    },
                 ];
             })
             ->values()
@@ -402,6 +411,9 @@ GQL;
                 'extraLarge' => $this->externalOrStorage($media->cover_url, $canonicalType === 'doujin'),
             ],
             'bannerImage' => $media->banner_url,
+            'listPreviewImage' => $canonicalType === 'doujin'
+                ? $this->doujinListPreviewImage($media)
+                : null,
             'description' => $desc,
             'genres' => $genres,
             'tags' => $tags,
@@ -444,6 +456,37 @@ GQL;
         return $storagePath
             ? Storage::url(ltrim($path, '/'))
             : asset($path);
+    }
+
+    private function doujinListPreviewImage(Media $media): ?string
+    {
+        $firstChapter = Chapter::where('item_type', 'doujin')
+            ->where('media_fk', $media->id)
+            ->orderBy('chapter_number')
+            ->first(['id']);
+
+        if (!$firstChapter) {
+            return null;
+        }
+
+        $pageCount = ChapterPage::where('chapter_id', $firstChapter->id)->count();
+        if ($pageCount < 1) {
+            return null;
+        }
+
+        $startPage = max(1, (int) floor($pageCount * 0.4));
+        $endPage = min($pageCount, (int) ceil($pageCount * 0.6));
+
+        $page = ChapterPage::where('chapter_id', $firstChapter->id)
+            ->whereBetween('page_number', [$startPage, $endPage])
+            ->inRandomOrder()
+            ->first(['file_path']);
+
+        if (!$page || !$page->file_path) {
+            return null;
+        }
+
+        return Storage::url(ltrim((string) $page->file_path, '/'));
     }
 
     public function syncFromAnilist(Request $request)

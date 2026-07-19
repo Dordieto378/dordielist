@@ -6,12 +6,16 @@ use App\Models\AnilistAuthor;
 use App\Models\AnilistGenre;
 use App\Models\AnilistStudio;
 use App\Models\AnilistTag;
+use App\Models\Collection;
+use App\Models\CollectionItem;
 use App\Models\DoujinAuthor;
+use App\Models\Favorite;
 use App\Models\Media;
 use App\Support\DoujinAuthorLinks;
 use App\Models\VnDeveloper;
 use App\Models\VnLanguage;
 use App\Models\VnTag;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 
 class CategoryController extends Controller
@@ -87,6 +91,70 @@ class CategoryController extends Controller
         return $decade.'s';
     }
 
+    private function collectionFilterData(Request $request, string $itemType, string $mediaType): array
+    {
+        $mediaIds = Media::query()
+            ->select('id')
+            ->where('type', $mediaType);
+
+        $options = collect();
+
+        $hasFavorites = Favorite::query()
+            ->where('favoritable_type', $itemType)
+            ->whereIn('favoritable_id', clone $mediaIds)
+            ->exists();
+
+        if ($hasFavorites) {
+            $options->push([
+                'value' => 'favorites',
+                'label' => 'Favorites',
+            ]);
+        }
+
+        $collections = Collection::query()
+            ->where('is_system', false)
+            ->whereHas('items', fn (Builder $query) => $query
+                ->where('item_type', $itemType)
+                ->whereIn('item_id', clone $mediaIds))
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        foreach ($collections as $collection) {
+            $options->push([
+                'value' => (string) $collection->id,
+                'label' => $collection->name,
+            ]);
+        }
+
+        $selected = (string) $request->query('collection', '');
+        if (! $options->contains(fn (array $option) => $option['value'] === $selected)) {
+            $selected = '';
+        }
+
+        return [
+            'collectionOptions' => $options->all(),
+            'selectedCollection' => $selected,
+        ];
+    }
+
+    private function applyCollectionFilter(Builder $query, string $selected, string $itemType): void
+    {
+        if ($selected === 'favorites') {
+            $query->whereIn('id', Favorite::query()
+                ->select('favoritable_id')
+                ->where('favoritable_type', $itemType));
+
+            return;
+        }
+
+        if ($selected !== '') {
+            $query->whereIn('id', CollectionItem::query()
+                ->select('item_id')
+                ->where('item_type', $itemType)
+                ->where('collection_id', (int) $selected));
+        }
+    }
+
     public function show(Request $request, $category, $listFilter = 'all', $mediaStatus = 'all', $titleOrder = 'none', $scoreOrder = 'none', $dateOrder = 'none')
     {
         $normalized = strtoupper($category);
@@ -95,6 +163,9 @@ class CategoryController extends Controller
             $q = Media::query()
                 ->where('type', 'doujin')
                 ->with(['doujinAuthors:id,name']);
+
+            $collectionFilter = $this->collectionFilterData($request, 'doujins', 'doujin');
+            $this->applyCollectionFilter($q, $collectionFilter['selectedCollection'], 'doujins');
 
             $nameOrder = $request->query('name_order', 'none');
             $selectedAuthors = $request->query('author', []);
@@ -144,6 +215,7 @@ class CategoryController extends Controller
                 'allAuthors' => $allAuthors,
                 'allAuthorLinks' => $allAuthorLinks,
                 'selectedAuthors' => $selectedAuthors,
+                ...$collectionFilter,
             ]);
         }
 
@@ -151,6 +223,9 @@ class CategoryController extends Controller
             $q = Media::query()
                 ->where('type', 'vn')
                 ->with(['vnTags:id,name', 'vnLanguages:id,name', 'vnDevelopers:id,name']);
+
+            $collectionFilter = $this->collectionFilterData($request, 'visual-novel', 'vn');
+            $this->applyCollectionFilter($q, $collectionFilter['selectedCollection'], 'visual-novel');
 
             $listFilter = strtolower($request->query('list_filter', 'all'));
             if ($listFilter !== 'all') {
@@ -262,6 +337,7 @@ class CategoryController extends Controller
                 'selectedLanguages' => $selectedLanguages,
                 'allYears' => $allYears,
                 'selectedYears' => (array) $request->query('year', []),
+                ...$collectionFilter,
             ]);
         }
 
@@ -291,6 +367,10 @@ class CategoryController extends Controller
         };
 
         $q->whereIn('type', $categoryTypes);
+
+        $collectionItemType = strtolower($normalized);
+        $collectionFilter = $this->collectionFilterData($request, $collectionItemType, $categoryTypes[0]);
+        $this->applyCollectionFilter($q, $collectionFilter['selectedCollection'], $collectionItemType);
 
         if (in_array($normalized, ['ANIMES', 'HENTAIS'], true)) {
             foreach ($selectedStudio as $studio) {
@@ -456,6 +536,7 @@ class CategoryController extends Controller
             'selectedStudio' => $selectedStudio,
             'allAuthors' => $allAuthors,
             'selectedAuthor' => $selectedAuthor,
+            ...$collectionFilter,
         ]);
     }
 }

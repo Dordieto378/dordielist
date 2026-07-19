@@ -51,6 +51,8 @@ if (!function_exists('shortTitle')) {
                         </svg>
                     </div>
 
+                    @include('category._collection-filter')
+
                     <div class="relative mb-4">
                         <label class="block text-sm font-medium text-gray-900 mb-2">AUTHOR</label>
 
@@ -133,6 +135,7 @@ if (!function_exists('shortTitle')) {
                             <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
                         </svg>
                     </div>
+
                     <div class="relative mb-4">
                         <label class="block text-sm font-medium text-gray-900 mb-2">TITLE</label>
                         <select name="title_order" onchange="redirectWithFilters()"
@@ -147,6 +150,9 @@ if (!function_exists('shortTitle')) {
                             <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
                         </svg>
                     </div>
+
+                    @include('category._collection-filter')
+
                     <div class="relative mb-4">
                         <label class="block text-sm font-medium text-gray-900 mb-2">SCORE</label>
                         <select name="score_order" onchange="redirectWithFilters()"
@@ -340,6 +346,7 @@ if (!function_exists('shortTitle')) {
                             <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
                         </svg>
                     </div>
+
                     <div class="relative mb-4">
                         <label class="block text-sm font-medium text-gray-900 mb-2">TITLE</label>
                         <select name="title_order" onchange="redirectWithFilters()"
@@ -353,6 +360,9 @@ if (!function_exists('shortTitle')) {
                             <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
                         </svg>
                     </div>
+
+                    @include('category._collection-filter')
+
                     <div class="relative mb-4">
                         <label class="block text-sm font-medium text-gray-900 mb-2">SCORE</label>
                         <select name="score_order" onchange="redirectWithFilters()"
@@ -898,6 +908,7 @@ function redirectWithFilters () {
 
     const year       = document.querySelector('select[name="year"]')?.value ?? '';
     const era        = document.querySelector('select[name="era"]')?.value ?? '';
+    const collection = document.querySelector('select[name="collection"]')?.value ?? '';
     const qp = new URLSearchParams();
     if (tags)        qp.append('tags',        tags);
     if (languages)   qp.append('language',    languages);
@@ -907,6 +918,7 @@ function redirectWithFilters () {
     if (developers)  qp.append('developers',  developers);
     if (year)        qp.append('year',        year);
     if (era)         qp.append('era',         era);
+    if (collection)  qp.append('collection',  collection);
     if (yearOrder  !== 'none') qp.append('year_order',  yearOrder);
     if (titleOrder !== 'none') qp.append('title_order', titleOrder);
     if (scoreOrder !== 'none') qp.append('score_order', scoreOrder);

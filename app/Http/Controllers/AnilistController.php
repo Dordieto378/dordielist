@@ -365,7 +365,15 @@ GQL;
             }
 
             $category = $this->categorySlugForMedia($media);
+            $archivePath = $media->archive()->value('file_path');
             $media->delete();
+
+            if ($archivePath) {
+                $archiveDisk = Storage::disk('local');
+                if ($archiveDisk->exists($archivePath)) {
+                    $archiveDisk->delete($archivePath);
+                }
+            }
 
             return redirect()
                 ->route('category', ['category' => $category]);
@@ -760,7 +768,7 @@ GQL;
             if (!empty($seenIds)) {
                 Media::where('source', 'anilist')
                     ->whereNotIn('source_id', $seenIds)
-                    ->whereNotIn('id', DB::table('episodes')->whereNotNull('media_fk')->select('media_fk'))
+                    ->whereNotIn('id', DB::table('media_archives')->select('media_id'))
                     ->whereNotIn('id', DB::table('chapters')->whereNotNull('media_fk')->select('media_fk'))
                     ->delete();
             }

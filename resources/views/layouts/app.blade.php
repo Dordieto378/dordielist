@@ -6,7 +6,6 @@
     <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
         <meta name="csrf-token" content="{{ csrf_token() }}">
         <script src="//unpkg.com/alpinejs" defer></script>
-        <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css" />
     <title>Dordielist</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <style>
@@ -269,7 +268,6 @@
         </div>
     </div>
 
-    <script src="https://cdn.plyr.io/3.7.8/plyr.polyfilled.js"></script>
     <script>
         document.addEventListener("DOMContentLoaded", function () {
             const isGuest       = @json(!Auth::check());

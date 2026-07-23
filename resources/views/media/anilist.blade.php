@@ -3,7 +3,7 @@
 @section('content')
 @php
     use App\Models\Chapter;
-    use App\Models\Episode;
+    use App\Models\MediaArchive;
     use App\Models\Collection;
     use App\Models\CollectionItem;
     use App\Models\Favorite;
@@ -27,12 +27,9 @@
     $isChapterBased = in_array($type, ['MANGA', 'MANHWA']);
     $isAniListSource = ($item['source'] ?? null) === 'anilist';
 
-    $firstEpisode = null;
-    if ($isEpisodeBased) {
-        $firstEpisode = Episode::where('media_fk', $item['id'])
-                               ->orderBy('episode_number')
-                               ->first();
-    }
+    $mediaArchive = $isEpisodeBased
+        ? MediaArchive::where('media_id', $item['id'])->first()
+        : null;
 
     $firstChapter = null;
     if ($isChapterBased) {
@@ -41,9 +38,6 @@
                                ->first();
     }
 
-    $localEpisodeCount = $isEpisodeBased
-        ? Episode::where('media_fk', $item['id'])->count()
-        : null;
     $localChapterCount = $isChapterBased
         ? Chapter::where('item_id', $item['id'])->count()
         : null;
@@ -119,30 +113,42 @@
 
     $progressFieldLabel = $isEpisodeBased ? 'Episode Progress' : 'Chapter Progress';
     $progressTotal = $isEpisodeBased
-        ? ($item['episodes'] ?? (!$isAniListSource && ($localEpisodeCount ?? 0) > 0 ? $localEpisodeCount : null))
+        ? ($item['episodes'] ?? null)
         : ($item['chapters'] ?? (!$isAniListSource && ($localChapterCount ?? 0) > 0 ? $localChapterCount : null));
     $progressHardMax = $isEpisodeBased
         ? (($item['episodes'] ?? null) ?: null)
         : (($item['chapters'] ?? null) ?: null);
     $isAdmin = optional(auth()->user()?->role)->role === 'Admin';
     $contentUploadRoute = $isEpisodeBased
-        ? route('episodes.upload', ['media' => $item['id']])
+        ? route('media-archives.store', ['media' => $item['id']])
         : route('chapters.upload', ['media' => $item['id']]);
     $contentUploadChunkRoute = $isEpisodeBased
-        ? route('episodes.upload.chunk', ['media' => $item['id']])
+        ? route('media-archives.upload.chunk', ['media' => $item['id']])
         : route('chapters.upload.chunk', ['media' => $item['id']]);
     $contentUploadCompleteRoute = $isEpisodeBased
-        ? route('episodes.upload.complete', ['media' => $item['id']])
+        ? route('media-archives.upload.complete', ['media' => $item['id']])
         : route('chapters.upload.complete', ['media' => $item['id']]);
     $contentResetRoute = $isEpisodeBased
-        ? route('episodes.reset', ['media' => $item['id']])
+        ? route('media-archives.destroy', ['media' => $item['id']])
         : route('chapters.reset', ['media' => $item['id']]);
-    $contentUploadLabel = $isEpisodeBased ? 'Upload Episode(s)' : 'Upload Chapter(s)';
-    $contentUploadTitle = $isEpisodeBased ? 'Upload Episodes' : 'Upload Chapters';
-    $contentResetLabel = $isEpisodeBased ? 'Reset Episodes' : 'Reset Chapters';
+    $contentUploadLabel = $isEpisodeBased ? 'Upload' : 'Upload Chapter(s)';
+    $contentUploadTitle = $isEpisodeBased ? 'Store Video ZIP' : 'Upload Chapters';
+    $contentResetLabel = $isEpisodeBased ? 'Delete Stored ZIP' : 'Reset Chapters';
     $contentResetConfirm = $isEpisodeBased
-        ? 'Remove all uploaded episodes for this title?'
+        ? 'Permanently delete the stored ZIP for this title?'
         : 'Remove all uploaded chapters for this title?';
+    $hasStoredContent = $isEpisodeBased ? $mediaArchive !== null : $firstChapter !== null;
+    $archiveSizeLabel = null;
+    if ($mediaArchive) {
+        $archiveSize = (int) $mediaArchive->file_size;
+        $archiveUnits = ['B', 'KB', 'MB', 'GB', 'TB'];
+        $archiveUnitIndex = 0;
+        while ($archiveSize >= 1024 && $archiveUnitIndex < count($archiveUnits) - 1) {
+            $archiveSize /= 1024;
+            $archiveUnitIndex++;
+        }
+        $archiveSizeLabel = number_format($archiveSize, $archiveUnitIndex === 0 ? 0 : 2).' '.$archiveUnits[$archiveUnitIndex];
+    }
     $isViewer = optional(auth()->user()?->role)->role === 'Viewer';
 @endphp
 
@@ -165,30 +171,25 @@
                 @auth
                 @unless($isViewer)
                 <div class="mt-4 flex flex-col space-y-3 w-[325px] font-bold">
-                    @php
-                        $enabled = $isEpisodeBased ? $firstEpisode : $firstChapter;
-
-                        if ($isEpisodeBased) {
-                            $url   = route('episodes.show', [
-                                'media'   => $item['id'],
-                                'episode' => $firstEpisode?->episode_number ?? 1
-                            ]);
-                            $label = 'Start Watching';
-                        } else { // chapter-based
-                            $url   = route('chapters.page', [
-                                'media'   => $item['id'],
-                                'chapter' => $firstChapter?->chapter_number ?? 1,
-                                'page'    => 1,
-                                'view'    => 'one'
-                            ]);
-                            $label = 'Start Reading';
-                        }
-                    @endphp
-
-                    @if ($enabled)
-                        <a href="{{ $url }}"
+                    @if ($isEpisodeBased && $mediaArchive)
+                        <a href="{{ route('media-archives.download', ['media' => $item['id']]) }}"
                            class="flex items-center justify-start w-full flatGreen text-white
-              py-2 rounded-sm shadow-sm h-[50px] transition-200">
+               py-2 rounded-sm shadow-sm h-[50px] transition-200">
+                            <svg class="ml-6 mb-[0.1rem]" width="17" height="17"
+                                 viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" xmlns="http://www.w3.org/2000/svg">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14" />
+                            </svg>
+                            <span class="ml-3">Download ZIP</span>
+                        </a>
+                    @elseif ($isChapterBased && $firstChapter)
+                        <a href="{{ route('chapters.page', [
+                                'media' => $item['id'],
+                                'chapter' => $firstChapter->chapter_number ?? 1,
+                                'page' => 1,
+                                'view' => 'one',
+                            ]) }}"
+                           class="flex items-center justify-start w-full flatGreen text-white
+               py-2 rounded-sm shadow-sm h-[50px] transition-200">
                             <svg class="ml-6 mb-[0.1rem]" width="15" height="15"
                                  viewBox="0 0 460.114 460.114" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M393.538 203.629L102.557 5.543c-9.793-6.666-22.468-7.372-32.94-1.832
@@ -196,7 +197,7 @@
                       22.721 17.022 28.26 10.471 5.539 23.147 4.834 32.94-1.832l290.981-198.087
                       c8.746-5.954 13.98-15.848 13.98-26.428 0-10.58-5.234-20.475-13.981-26.428z"/>
                             </svg>
-                            <span class="ml-3">{{ $label }}</span>
+                            <span class="ml-3">Start Reading</span>
                         </a>
                     @endif
                     @php
@@ -332,7 +333,7 @@
                 @elseif($isEpisodeBased)
                     <div>Episodes</div>
                     @php
-                        $epTotal = $item['episodes'] ?? (!$isAniListSource && ($localEpisodeCount ?? 0) > 0 ? $localEpisodeCount : null);
+                        $epTotal = $item['episodes'] ?? null;
                         $epProgress  = $item['userProgress'] ?? null;
 
                         if ($epProgress !== null && $epProgress > 0) {
@@ -467,93 +468,32 @@
         </div>
     </div>
 
-    @php
-        use Illuminate\Support\Facades\Storage;
-
-        // === EPISODES pagination (12 per page, query param: ep_page) ===
-        $epPerPage = 12;
-        $epPage    = max(1, (int) request('ep_page', 1));
-
-        /** @var \Illuminate\Pagination\LengthAwarePaginator $episodesPaginator */
-        $episodesPaginator = \App\Models\Episode::where('media_fk', $item['id'])
-            ->orderBy('episode_number')
-            ->paginate($epPerPage, ['*'], 'ep_page', $epPage);
-
-        // collection for the current page
-        $episodes = $episodesPaginator->getCollection();
-        $rows     = $episodes->chunk(3);
-    @endphp
-
     @auth
-        @if($episodesPaginator->total() > 0)
-            <div class="space-y-6 mt-8 w-[1278px] mx-auto font-medium relative z-0">
-                @foreach($rows as $chunk)
-                    <div class="grid gap-6" style="grid-template-columns: repeat(3, minmax(0, 1fr));">
-                        @foreach($chunk as $ep)
-                            @php
-                                $thumbUrl = !empty($ep->thumbnail_path)
-                                    ? Storage::url($ep->thumbnail_path)
-                                    : asset('images/no-image.jpg');
-                            @endphp
-                            <div class="flex flex-col items-stretch">
-                                <a href="{{ route('episodes.show', ['media' => $item['id'], 'episode' => $ep->episode_number]) }}"
-                                   class="relative rounded-lg overflow-hidden shadow-lg w-full aspect-[16/9] bg-gray-100">
-                                    <img
-                                        class="absolute inset-0 w-full h-full object-cover"
-                                        src="{{ $thumbUrl }}"
-                                        alt="Episode {{ $ep->episode_number }} thumbnail"
-                                        loading="lazy"
-                                    >
-                                    <span class="absolute inset-0 z-10 pointer-events-none"
-                                          style="background: linear-gradient(to top, rgba(0, 0, 0, 0.76) 0%, rgba(0, 0, 0, 0.46) 9%, rgba(0, 0, 0, 0.22) 18%, rgba(0, 0, 0, 0.08) 28%, rgba(0, 0, 0, 0.02) 36%, rgba(0, 0, 0, 0) 46%);"></span>
-                                    <span class="absolute z-20 text-white text-lg font-semibold leading-none"
-                                          style="right: 10px; bottom: 8px; top: auto; left: auto; text-shadow: 0 2px 6px rgba(0, 0, 0, 0.98), 0 1px 2px rgba(0, 0, 0, 0.95);">
-                                        {{ $ep->episode_number }}
-                                    </span>
-                                </a>
-                            </div>
-                        @endforeach
+        @if($isEpisodeBased && $mediaArchive)
+            <div class="mt-8 w-[1278px] mx-auto rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+                <div class="flex items-center justify-between gap-6">
+                    <div class="min-w-0">
+                        <div class="mb-1 text-sm font-semibold uppercase tracking-wide text-red-600">Stored video archive</div>
+                        <div class="truncate text-lg font-bold text-gray-900">{{ $mediaArchive->original_name }}</div>
+                        <div class="mt-1 text-sm text-gray-500">
+                            {{ $archiveSizeLabel }} &middot; Uploaded {{ $mediaArchive->updated_at->format('j M Y, H:i') }}
+                        </div>
                     </div>
-                @endforeach
-            </div>
-
-            {{-- EPISODES pagination bar --}}
-            @php
-                $epCurrent = $episodesPaginator->currentPage();
-                $epLast    = $episodesPaginator->lastPage();
-                $epUrl     = fn($p) => request()->fullUrlWithQuery(['ep_page' => $p]);
-            @endphp
-            <div class="relative z-10 flex items-center justify-center space-x-2 mt-12 episode-bottom {{ $epLast > 1 ? '' : 'hidden' }}">
-            <span class="text-gray-600 text-lg font-medium">Episodes</span>
-
-                @if($epCurrent > 1)
-                    <a href="{{ $epUrl(1) }}"        class="pagination-arrow mb-1">&laquo;</a>
-                    <a href="{{ $epUrl($epCurrent-1) }}" class="pagination-arrow mb-1">&lsaquo;</a>
-                @endif
-
-                <div class="flex space-x-2 text-lg">
-                    @php
-                        $maxVisible = 7;
-                        $start = max(1, $epCurrent - intdiv($maxVisible,2));
-                        $end   = min($epLast, $start + $maxVisible - 1);
-                        if($end - $start + 1 < $maxVisible) $start = max(1, $end - $maxVisible + 1);
-                    @endphp
-                    @for ($i = $start; $i <= $end; $i++)
-                        @if ($i == $epCurrent)
-                            <span class="pagination-btn pagination-active">{{ $i }}</span>
-                        @else
-                            <a href="{{ $epUrl($i) }}" class="pagination-btn non-selected-page-number">{{ $i }}</a>
-                        @endif
-                    @endfor
+                    <a href="{{ route('media-archives.download', ['media' => $item['id']]) }}"
+                       class="flatGreen inline-flex shrink-0 items-center gap-2 rounded px-5 py-3 font-semibold text-white transition-200">
+                        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14" />
+                        </svg>
+                        Download ZIP
+                    </a>
                 </div>
-
-                @if($epCurrent < $epLast)
-                    <a href="{{ $epUrl($epCurrent+1) }}" class="pagination-arrow mb-1">&rsaquo;</a>
-                    <a href="{{ $epUrl($epLast) }}"      class="pagination-arrow mb-1">&raquo;</a>
-                @endif
             </div>
         @endif
     @endauth
+
+    @php
+        use Illuminate\Support\Facades\Storage;
+    @endphp
 
 </div>
 
@@ -834,13 +774,17 @@
     </div>
 
     <div class="mb-2 px-4 pt-4 flex items-center justify-between gap-3">
-      <form method="POST" action="{{ $contentResetRoute }}" onsubmit="return confirm(@js($contentResetConfirm));">
-        @csrf
-        @method('DELETE')
-        <button type="submit" class="rounded bg-red-600 px-5 py-3 text-white transition-colors hover:bg-red-700">
-          {{ $contentResetLabel }}
-        </button>
-      </form>
+      @if($hasStoredContent)
+        <form method="POST" action="{{ $contentResetRoute }}" onsubmit="return confirm(@js($contentResetConfirm));">
+          @csrf
+          @method('DELETE')
+          <button type="submit" class="rounded bg-red-600 px-5 py-3 text-white transition-colors hover:bg-red-700">
+            {{ $contentResetLabel }}
+          </button>
+        </form>
+      @else
+        <div></div>
+      @endif
 
       <div class="flex items-center gap-3">
         <button id="cancelMediaContentUploadModal" type="button" class="px-5 py-3 rounded border border-gray-200 text-gray-700 font-medium hover:bg-gray-100 transition-colors">
@@ -1302,7 +1246,7 @@ if (mediaContentUploadForm) {
     } catch (err) {
       const canReplace = Boolean(err?.canReplace);
       const message = canReplace
-        ? `${err?.message || 'This number already exists.'} Click Replace Existing to overwrite it, or Cancel to keep the current one.`
+        ? `${err?.message || 'Stored content already exists.'} Click Replace Existing to overwrite it, or Cancel to keep the current one.`
         : (err?.message || 'Upload failed.');
 
       if (!canReplace) {
@@ -1379,12 +1323,6 @@ listContainer.insertAdjacentHTML('beforeend', `
 });
 }
 
-    Plyr.setup('.plyr', {
-      controls: [
-        'play-large','play','progress','current-time',
-        'mute','volume','fullscreen'
-      ]
-    });
 });
 </script>
 

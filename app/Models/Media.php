@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Media extends Model
 {
@@ -19,6 +20,7 @@ class Media extends Model
     ];
 
     protected $guarded = [];
+
     public $timestamps = false;
 
     public function anilistTags(): BelongsToMany
@@ -61,9 +63,14 @@ class Media extends Model
         return $this->belongsToMany(VnDeveloper::class, 'vn_item_developer', 'media_id', 'developer_id');
     }
 
+    public function archive(): HasOne
+    {
+        return $this->hasOne(MediaArchive::class);
+    }
+
     public function metadataNamesFrom(string $relation): array
     {
-        if (!$this->relationLoaded($relation)) {
+        if (! $this->relationLoaded($relation)) {
             $this->load($relation);
         }
 

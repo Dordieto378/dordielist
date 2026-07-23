@@ -6,24 +6,14 @@ use App\Models\Media;
 
 class MediaStoragePath
 {
-    public static function episodeDirectory(Media $media): string
+    public static function archiveDirectory(Media $media): string
     {
-        return self::mediaDirectory($media).'/videos';
-    }
-
-    public static function subtitleDirectory(Media $media): string
-    {
-        return self::mediaDirectory($media).'/subtitles';
+        return 'media-archives/'.self::mediaTypeDirectory($media).'/'.self::stableMediaKey($media);
     }
 
     public static function mediaDirectory(Media $media): string
     {
         return self::mediaTypeDirectory($media).'/'.self::stableMediaKey($media);
-    }
-
-    public static function thumbnailDirectory(Media $media): string
-    {
-        return 'episode-thumbs/'.self::stableMediaKey($media);
     }
 
     public static function chapterDirectory(Media $media): string
@@ -38,16 +28,6 @@ class MediaStoragePath
     public static function legacyChapterDirectory(Media $media): string
     {
         return self::mediaTypeDirectory($media).'/'.$media->id;
-    }
-
-    public static function legacyEpisodeDirectory(Media $media): string
-    {
-        return self::mediaTypeDirectory($media).'/'.$media->id;
-    }
-
-    public static function legacyThumbnailDirectory(Media $media): string
-    {
-        return 'episode-thumbs/'.$media->id;
     }
 
     public static function mediaTypeDirectory(Media $media): string

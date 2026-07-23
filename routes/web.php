@@ -18,7 +18,7 @@ use App\Http\Controllers\CollectionController;
 use App\Http\Controllers\FavoriteController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\AdminController;
-use App\Http\Controllers\EpisodeController;
+use App\Http\Controllers\MediaArchiveController;
 use App\Http\Controllers\ChapterController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\NotificationController;
@@ -166,15 +166,12 @@ Route::middleware('auth')->group(function () {
     Route::post('/doujin/upload/chunk', [DoujinController::class, 'uploadChunk'])->name('doujin.upload.chunk');
     Route::post('/doujin/upload/complete', [DoujinController::class, 'completeUpload'])->name('doujin.upload.complete');
     Route::post('/doujin/upload', [DoujinController::class, 'storeUploaded'])->name('doujin.upload');
-    // Episode & Chapter management
-    Route::post('/media/{media}/episodes/upload/chunk', [EpisodeController::class, 'uploadChunk'])->name('episodes.upload.chunk');
-    Route::post('/media/{media}/episodes/upload/complete', [EpisodeController::class, 'completeUpload'])->name('episodes.upload.complete');
-    Route::post('/media/{media}/episodes/upload', [EpisodeController::class, 'storeUploaded'])->name('episodes.upload');
-    Route::delete('/media/{media}/episodes/reset', [EpisodeController::class, 'resetUploaded'])->name('episodes.reset');
-    Route::get('/media/{media}/episodes/{episode}/video', [EpisodeController::class, 'stream'])
-        ->middleware('signed')
-        ->name('episodes.stream');
-    Route::get('/media/{media}/episodes/{episode}', [EpisodeController::class, 'show'])->name('episodes.show');
+    // Stored video archives & chapter management
+    Route::post('/media/{media}/archive/upload/chunk', [MediaArchiveController::class, 'uploadChunk'])->name('media-archives.upload.chunk');
+    Route::post('/media/{media}/archive/upload/complete', [MediaArchiveController::class, 'completeUpload'])->name('media-archives.upload.complete');
+    Route::post('/media/{media}/archive', [MediaArchiveController::class, 'store'])->name('media-archives.store');
+    Route::get('/media/{media}/archive/download', [MediaArchiveController::class, 'download'])->name('media-archives.download');
+    Route::delete('/media/{media}/archive', [MediaArchiveController::class, 'destroy'])->name('media-archives.destroy');
 
     Route::post('/media/{media}/chapters/upload/chunk', [ChapterController::class, 'uploadChunk'])->name('chapters.upload.chunk');
     Route::post('/media/{media}/chapters/upload/complete', [ChapterController::class, 'completeUpload'])->name('chapters.upload.complete');

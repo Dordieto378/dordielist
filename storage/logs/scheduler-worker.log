@@ -1,0 +1,26 @@
+
+   INFO  Running scheduled tasks.  
+
+
+  2026-07-27 12:11:00 Running ["artisan" anilist:import] .................................................... 44s DONE
+  ⇂ "E:\Development\laragon\bin\php\php-8.3.16-Win32-vs16-x64\php.exe" "artisan" anilist:import > "NUL" 2>&1  
+  2026-07-27 12:11:45 Running ["artisan" vndb:import] 
+  2026-07-27 12:12:00 Running ["artisan" anilist:import] ....................................................... 37s DONE
+  ⇂ "E:\Development\laragon\bin\php\php-8.3.16-Win32-vs16-x64\php.exe" "artisan" vndb:import > "NUL" 2>&1  
+
+.................................................... 45s DONE
+  ⇂ "E:\Development\laragon\bin\php\php-8.3.16-Win32-vs16-x64\php.exe" "artisan" anilist:import > "NUL" 2>&1  
+  2026-07-27 12:12:45 Running ["artisan" vndb:import] 
+  2026-07-27 12:13:00 Running ["artisan" anilist:import] ....................................................... 38s DONE
+  ⇂ "E:\Development\laragon\bin\php\php-8.3.16-Win32-vs16-x64\php.exe" "artisan" vndb:import > "NUL" 2>&1  
+
+.................................................... 46s DONE
+  ⇂ "E:\Development\laragon\bin\php\php-8.3.16-Win32-vs16-x64\php.exe" "artisan" anilist:import > "NUL" 2>&1  
+  2026-07-27 12:13:46 Running ["artisan" vndb:import] 
+  2026-07-27 12:14:00 Running ["artisan" anilist:import] ....................................................... 38s DONE
+  ⇂ "E:\Development\laragon\bin\php\php-8.3.16-Win32-vs16-x64\php.exe" "artisan" vndb:import > "NUL" 2>&1  
+
+.................................................... 30s FAIL
+  ⇂ "E:\Development\laragon\bin\php\php-8.3.16-Win32-vs16-x64\php.exe" "artisan" anilist:import > "NUL" 2>&1  
+  2026-07-27 12:14:30 Running ["artisan" vndb:import] ........................................................ 8s FAIL
+  ⇂ "E:\Development\laragon\bin\php\php-8.3.16-Win32-vs16-x64\php.exe" "artisan" vndb:import > "NUL" 2>&1  

@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 
@@ -178,6 +179,24 @@ class AnilistController extends Controller
             ->pluck('collection_id')
             ->toArray();
 
+        $dordieWatchLaunchUrl = null;
+        $isOnDordieWatch = in_array(
+            strtolower((string) $media->type),
+            ['anime', 'hentai'],
+            true
+        ) && DB::table('dordiewatch_media')
+            ->where('media_id', $media->id)
+            ->exists();
+        if ($isOnDordieWatch) {
+            $manifestUrl = URL::temporarySignedRoute(
+                'dordiewatch.media',
+                now()->addMinutes(10),
+                ['media' => $media->id]
+            );
+            $encodedManifest = rtrim(strtr(base64_encode($manifestUrl), '+/', '-_'), '=');
+            $dordieWatchLaunchUrl = 'dordiewatch://open?manifest='.$encodedManifest;
+        }
+
         return view('media.anilist', [
             'item' => $item,
             'id' => $media->id,
@@ -185,6 +204,7 @@ class AnilistController extends Controller
             'isFavorited' => $isFavorited,
             'allCollections' => $allCollections,
             'attachedIds' => $attachedIds,
+            'dordieWatchLaunchUrl' => $dordieWatchLaunchUrl,
         ]);
     }
 

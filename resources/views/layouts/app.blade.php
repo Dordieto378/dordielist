@@ -71,7 +71,7 @@
             @guest
                 <div class="flex-1"></div>
                 <div class="flex-1 flex justify-center">
-                    <a href="{{ route('home') }}" class="text-2xl font-bold text-white">DORDIELIST</a>
+                    <a href="{{ route('home') }}" class="navbar-logo text-3xl text-white">DORDIELIST!</a>
                 </div>
                 <div class="flex-1"></div>
             @else
@@ -86,7 +86,7 @@
                 @endphp
                 <div class="flex items-center space-x-1">
                     <!-- Title -->
-                    <a href="{{ route('home') }}" class="text-2xl font-bold ml-[6.2rem] pr-2">DORDIELIST</a>
+                    <a href="{{ route('home') }}" class="navbar-logo text-3xl ml-[6.2rem] pr-2">DORDIELIST!</a>
                     <!-- Menu Items -->
                     <div class="hidden md:flex items-center">
                         <a href="{{ route('category', ['category' => 'ANIMES']) }}" class="text-white text-sm px-2 py-1 rounded hover:bg-red-600">Animes</a>

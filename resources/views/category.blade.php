@@ -586,21 +586,60 @@ if (!function_exists('shortTitle')) {
                             />
                         </label>
 
-                        <label class="block">
-                            <span class="block mb-2 text-red-600 font-medium">Author</span>
-                            <select
-                              id="addDoujinExistingAuthor"
-                              name="existing_author"
-                              class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
-                            >
-                                <option value="" disabled hidden {{ old('existing_author') ? '' : 'selected' }}>Select existing author</option>
-                                @foreach($allAuthors as $author)
-                                    <option value="{{ $author }}" {{ old('existing_author') === $author ? 'selected' : '' }}>
-                                        {{ $author }}
-                                    </option>
+                        <div class="block space-y-4 self-start">
+                            <label class="block">
+                                <span class="block mb-2 text-red-600 font-medium">Author</span>
+                                <select
+                                  id="addDoujinExistingAuthor"
+                                  name="existing_author"
+                                  class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
+                                >
+                                    <option value="" disabled hidden {{ old('existing_author') ? '' : 'selected' }}>Select existing author</option>
+                                    @foreach($allAuthors as $author)
+                                        <option value="{{ $author }}" {{ old('existing_author') === $author ? 'selected' : '' }}>
+                                            {{ $author }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </label>
+
+                            <div class="block space-y-4">
+                                @foreach([
+                                    'author_twitter_url' => 'Twitter',
+                                    'author_patreon_url' => 'Patreon',
+                                    'author_fanbox_url' => 'Fanbox',
+                                    'author_pixiv_url' => 'Pixiv',
+                                ] as $field => $label)
+                                    <div class="block" data-author-link-group data-field-name="{{ $field }}" data-label="{{ $label }}">
+                                        <span class="block mb-2 text-red-600 font-medium">{{ $label }}</span>
+                                        <div class="space-y-2" data-author-link-list>
+                                            @foreach($doujinAuthorLinkValues($field) as $url)
+                                                <div class="flex items-center gap-2" data-author-link-row>
+                                                    <input
+                                                      type="text"
+                                                      name="{{ $field }}[]"
+                                                      value="{{ $url }}"
+                                                      class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
+                                                    />
+                                                    <button type="button"
+                                                            data-add-author-link
+                                                            aria-label="Add {{ $label }} link"
+                                                            class="shrink-0 rounded-md border border-gray-200 bg-gray-100 px-3 py-2 text-base font-bold text-red-600 hover:bg-red-600 hover:text-white">
+                                                        +
+                                                    </button>
+                                                    <button type="button"
+                                                            data-remove-author-link
+                                                            aria-label="Remove {{ $label }} link"
+                                                            class="hidden shrink-0 rounded-md border border-gray-200 bg-gray-100 px-3 py-2 text-base font-bold text-gray-500 hover:bg-gray-200">
+                                                        &times;
+                                                    </button>
+                                                </div>
+                                            @endforeach
+                                        </div>
+                                    </div>
                                 @endforeach
-                            </select>
-                        </label>
+                            </div>
+                        </div>
 
                         <div class="block space-y-4 self-start">
                             <label class="block">
@@ -638,44 +677,6 @@ if (!function_exists('shortTitle')) {
                                     </span>
                                 </label>
                             </div>
-                        </div>
-
-                        <div class="block space-y-4">
-                            @foreach([
-                                'author_twitter_url' => 'Twitter',
-                                'author_patreon_url' => 'Patreon',
-                                'author_fanbox_url' => 'Fanbox',
-                                'author_pixiv_url' => 'Pixiv',
-                            ] as $field => $label)
-                                <div class="block" data-author-link-group data-field-name="{{ $field }}" data-label="{{ $label }}">
-                                    <span class="block mb-2 text-red-600 font-medium">{{ $label }}</span>
-                                    <div class="space-y-2" data-author-link-list>
-                                        @foreach($doujinAuthorLinkValues($field) as $url)
-                                            <div class="flex items-center gap-2" data-author-link-row>
-                                                <input
-                                                  type="text"
-                                                  name="{{ $field }}[]"
-                                                  value="{{ $url }}"
-                                                  class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
-                                                />
-                                                <button type="button"
-                                                        data-add-author-link
-                                                        aria-label="Add {{ $label }} link"
-                                                        class="shrink-0 rounded-md border border-gray-200 bg-gray-100 px-3 py-2 text-base font-bold text-red-600 hover:bg-red-600 hover:text-white">
-                                                    +
-                                                </button>
-                                                <button type="button"
-                                                        data-remove-author-link
-                                                        aria-label="Remove {{ $label }} link"
-                                                        class="hidden shrink-0 rounded-md border border-gray-200 bg-gray-100 px-3 py-2 text-base font-bold text-gray-500 hover:bg-gray-200">
-                                                    &times;
-                                                </button>
-                                            </div>
-                                        @endforeach
-                                    </div>
-                                </div>
-                            @endforeach
-
                         </div>
 
                     </div>

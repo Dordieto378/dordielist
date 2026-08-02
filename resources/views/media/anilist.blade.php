@@ -169,8 +169,23 @@
                         class="thumb-img w-full h-full">
                 </div>
                 @auth
-                @unless($isViewer)
+                @if (($isEpisodeBased && $dordieWatchLaunchUrl) || ! $isViewer)
                 <div class="mt-4 flex flex-col space-y-3 w-[325px] font-bold">
+                    @if ($isEpisodeBased && $dordieWatchLaunchUrl)
+                    <a href="{{ $dordieWatchLaunchUrl }}"
+                       class="flex items-center justify-start w-full flatGreen text-white
+                              py-2 rounded-sm shadow-sm h-[50px] transition-200">
+                        <svg class="ml-6 mb-[0.1rem]" width="15" height="15"
+                             viewBox="0 0 460.114 460.114" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M393.538 203.629L102.557 5.543c-9.793-6.666-22.468-7.372-32.94-1.832
+                  -10.472 5.538-17.022 16.413-17.022 28.26v396.173c0 11.846 6.55
+                  22.721 17.022 28.26 10.471 5.539 23.147 4.834 32.94-1.832l290.981-198.087
+                  c8.746-5.954 13.98-15.848 13.98-26.428 0-10.58-5.234-20.475-13.981-26.428z"/>
+                        </svg>
+                        <span class="ml-3">Play in DordieWatch</span>
+                    </a>
+                    @endif
+                    @unless($isViewer)
                     @if ($isEpisodeBased && $mediaArchive)
                         <a href="{{ route('media-archives.download', ['media' => $item['id']]) }}"
                            class="flex items-center justify-start w-full flatGreen text-white
@@ -289,8 +304,9 @@
                             <span class="ml-1">Delete</span>
                         </button>
                     </form>
+                    @endunless
                 </div>
-                @endunless
+                @endif
                 @endauth
             </div>
             {{-- Right Column: Basic Info --}}

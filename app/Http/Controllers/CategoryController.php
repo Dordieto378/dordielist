@@ -27,6 +27,7 @@ class CategoryController extends Controller
             'HENTAIS' => 'HENTAI',
             'MANGAS' => 'MANGA',
             'MANHWAS' => 'MANHWA',
+            'LIGHT-NOVELS' => 'LIGHT NOVELS',
             'VISUAL-NOVEL' => 'VISUAL-NOVEL',
             'DOUJINS' => 'DOUJINS',
             default => strtoupper(str_replace('-', ' ', $category)),
@@ -363,7 +364,8 @@ class CategoryController extends Controller
             'HENTAIS' => ['hentai'],
             'MANGAS' => ['manga'],
             'MANHWAS' => ['manhwa'],
-            default => ['anime', 'hentai', 'manga', 'manhwa'],
+            'LIGHT-NOVELS' => ['light_novel'],
+            default => ['anime', 'hentai', 'manga', 'manhwa', 'light_novel'],
         };
 
         $q->whereIn('type', $categoryTypes);
@@ -380,7 +382,7 @@ class CategoryController extends Controller
             }
         }
 
-        if (in_array($normalized, ['MANGAS', 'MANHWAS'], true)) {
+        if (in_array($normalized, ['MANGAS', 'MANHWAS', 'LIGHT-NOVELS'], true)) {
             foreach ($selectedAuthor as $author) {
                 if ($author !== '') {
                     $q->whereHas('anilistAuthors', fn ($query) => $query->where('name', $author));
@@ -451,13 +453,13 @@ class CategoryController extends Controller
         $p = $q->paginate($perPage)->appends($request->query());
 
         $allGenres = AnilistGenre::query()
-            ->whereHas('media', fn ($query) => $query->whereIn('type', ['anime', 'hentai', 'manga', 'manhwa']))
+            ->whereHas('media', fn ($query) => $query->whereIn('type', ['anime', 'hentai', 'manga', 'manhwa', 'light_novel']))
             ->orderBy('name')
             ->pluck('name')
             ->all();
 
         $allTags = AnilistTag::query()
-            ->whereHas('media', fn ($query) => $query->whereIn('type', ['anime', 'hentai', 'manga', 'manhwa']))
+            ->whereHas('media', fn ($query) => $query->whereIn('type', ['anime', 'hentai', 'manga', 'manhwa', 'light_novel']))
             ->orderBy('name')
             ->pluck('name')
             ->all();
@@ -507,6 +509,12 @@ class CategoryController extends Controller
         } elseif ($normalized === 'MANHWAS') {
             $allAuthors = AnilistAuthor::query()
                 ->whereHas('media', fn ($query) => $query->where('type', 'manhwa'))
+                ->orderBy('name')
+                ->pluck('name')
+                ->all();
+        } elseif ($normalized === 'LIGHT-NOVELS') {
+            $allAuthors = AnilistAuthor::query()
+                ->whereHas('media', fn ($query) => $query->where('type', 'light_novel'))
                 ->orderBy('name')
                 ->pluck('name')
                 ->all();

@@ -91,31 +91,44 @@ class UploadedArchive
         return $segment !== '' ? $segment : $fallback;
     }
 
-    private function extractArchive(UploadedFile $archive, string $extractRoot): void
+    public function extractArchiveFileToDirectory(string $archivePath, string $extractRoot, string $archiveLabel = 'ZIP archive'): void
     {
+        File::ensureDirectoryExists($extractRoot);
+
         $workingZip = $extractRoot.DIRECTORY_SEPARATOR.'upload.zip';
 
-        if (!@copy((string) $archive->getRealPath(), $workingZip)) {
-            throw new \RuntimeException('Could not prepare the uploaded ZIP archive.');
+        if (!@copy($archivePath, $workingZip)) {
+            throw new \RuntimeException("Could not prepare the uploaded {$archiveLabel}.");
         }
 
+        try {
+            $this->extractZipPath($workingZip, $extractRoot, $archiveLabel);
+        } finally {
+            @unlink($workingZip);
+        }
+    }
+
+    private function extractArchive(UploadedFile $archive, string $extractRoot): void
+    {
+        $this->extractArchiveFileToDirectory((string) $archive->getRealPath(), $extractRoot);
+    }
+
+    private function extractZipPath(string $workingZip, string $extractRoot, string $archiveLabel): void
+    {
         if (class_exists(\ZipArchive::class)) {
             $zip = new \ZipArchive();
             $opened = $zip->open($workingZip);
 
             if ($opened !== true) {
-                @unlink($workingZip);
-                throw new \RuntimeException('Could not open the ZIP archive.');
+                throw new \RuntimeException("Could not open the {$archiveLabel}.");
             }
 
             if (!$zip->extractTo($extractRoot)) {
                 $zip->close();
-                @unlink($workingZip);
-                throw new \RuntimeException('Could not extract the ZIP archive.');
+                throw new \RuntimeException("Could not extract the {$archiveLabel}.");
             }
 
             $zip->close();
-            @unlink($workingZip);
 
             return;
         }
@@ -135,8 +148,6 @@ class UploadedArchive
             $process->run();
 
             if ($process->isSuccessful()) {
-                @unlink($workingZip);
-
                 return;
             }
         }
@@ -158,13 +169,10 @@ class UploadedArchive
         $process->run();
 
         if (!$process->isSuccessful()) {
-            @unlink($workingZip);
             $errorOutput = trim($process->getErrorOutput().' '.$process->getOutput());
 
-            throw new \RuntimeException($errorOutput !== '' ? $errorOutput : 'Could not extract the ZIP archive.');
+            throw new \RuntimeException($errorOutput !== '' ? $errorOutput : "Could not extract the {$archiveLabel}.");
         }
-
-        @unlink($workingZip);
     }
 
     private function archiveExtractionTimeout(): ?int

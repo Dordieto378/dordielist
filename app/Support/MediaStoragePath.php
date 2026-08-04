@@ -18,7 +18,7 @@ class MediaStoragePath
 
     public static function chapterDirectory(Media $media): string
     {
-        if (in_array(self::mediaTypeDirectory($media), ['manga', 'manhwa'], true)) {
+        if (in_array(self::mediaTypeDirectory($media), ['manga', 'manhwa', 'light_novel'], true)) {
             return self::mediaTypeDirectory($media).'/'.self::stableMediaKey($media);
         }
 

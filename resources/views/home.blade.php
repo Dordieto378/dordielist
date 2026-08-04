@@ -32,6 +32,8 @@
                 return 'Doujin';
             } elseif ($type === 'VN') {
                 return 'Visual Novel';
+            } elseif ($type === 'LIGHT_NOVEL') {
+                return 'Light Novel';
             }
             return ucfirst(strtolower($type));
         }
@@ -98,6 +100,7 @@
                                     $item['type'] === 'ANIME' ||
                                     $item['type'] === 'MANGA' ||
                                     $item['type'] === 'MANHWA'||
+                                    $item['type'] === 'LIGHT_NOVEL'||
                                     $item['type'] === 'HENTAI'||
                                     $item['type'] === 'DOUJIN'
                                 )
@@ -175,6 +178,7 @@
                         $item['type'] === 'ANIME' ||
                         $item['type'] === 'MANGA' ||
                         $item['type'] === 'MANHWA'||
+                        $item['type'] === 'LIGHT_NOVEL'||
                         $item['type'] === 'HENTAI'||
                         $item['type'] === 'DOUJIN'
                     )
@@ -285,6 +289,7 @@
                     $item['type'] === 'ANIME' ||
                     $item['type'] === 'MANGA' ||
                     $item['type'] === 'MANHWA'||
+                    $item['type'] === 'LIGHT_NOVEL'||
                     $item['type'] === 'HENTAI'||
                     $item['type'] === 'DOUJIN'
                 )
@@ -344,6 +349,7 @@
                         $item['type'] === 'ANIME' ||
                         $item['type'] === 'MANGA' ||
                         $item['type'] === 'MANHWA'||
+                        $item['type'] === 'LIGHT_NOVEL'||
                         $item['type'] === 'HENTAI'||
                         $item['type'] === 'DOUJIN'
                     )
@@ -395,6 +401,7 @@
                                     'HENTAI' => 'hentais',
                                     'MANHWA' => 'manhwas',
                                     'MANGA' => 'mangas',
+                                    'LIGHT_NOVEL' => 'light-novels',
                                     'DOUJIN' => 'doujins',
                                     default => null,
                                 };
@@ -442,6 +449,10 @@
                                     </a>
                                     @elseif($item['type']  === 'MANHWA')
                                         <a href="{{ category_filter_url('manhwas', 'tags', $tag) }}">
+                                        {{ $tag }}
+                                    </a>
+                                    @elseif($item['type']  === 'LIGHT_NOVEL')
+                                        <a href="{{ category_filter_url('light-novels', 'tags', $tag) }}">
                                         {{ $tag }}
                                     </a>
                                     @elseif($item['type']  === 'HENTAI')

@@ -129,6 +129,7 @@
                                     'HENTAI' => 'hentais',
                                     'MANHWA' => 'manhwas',
                                     'MANGA' => 'mangas',
+                                    'LIGHT_NOVEL' => 'light-novels',
                                     'DOUJIN' => 'doujins',
                                     default => null,
                                 };
@@ -166,6 +167,7 @@
                                         'ANIME' => 'animes',
                                         'MANGA' => 'mangas',
                                         'MANHWA' => 'manhwas',
+                                        'LIGHT_NOVEL' => 'light-novels',
                                         'HENTAI' => 'hentais',
                                         'VN' => 'visual-novel',
                                         default => null,

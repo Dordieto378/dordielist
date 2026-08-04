@@ -43,7 +43,7 @@ class AnilistController extends Controller
             (sprintf('%04d%02d%02d', $a['startDate']['year'] ?? 0, $a['startDate']['month'] ?? 0, $a['startDate']['day'] ?? 0))
         );
 
-        $droppedTypes = ['ANIME', 'MANGA', 'MANHWA', 'HENTAI', 'DOUJIN', 'VN'];
+        $droppedTypes = ['ANIME', 'MANGA', 'MANHWA', 'LIGHT_NOVEL', 'HENTAI', 'DOUJIN', 'VN'];
         $dropped = array_values(array_filter($all, fn ($media) =>
             ($media['listStatus'] ?? '') === 'DROPPED'
             && in_array($media['type'] ?? null, $droppedTypes, true)
@@ -129,7 +129,7 @@ class AnilistController extends Controller
                     'title' => ['english' => $media->title_english, 'romaji' => $media->title_romaji, 'native' => $media->title_native],
                     'coverImage' => ['extraLarge' => $this->externalOrStorage($media->cover_url, $canonicalType === 'doujin')],
                     'listPreviewImage' => $doujinListPreviewImage,
-                    'genres' => in_array($canonicalType, ['anime', 'hentai', 'manga', 'manhwa'], true)
+                    'genres' => in_array($canonicalType, ['anime', 'hentai', 'manga', 'manhwa', 'light_novel'], true)
                         ? $media->metadataNamesFrom('anilistGenres')
                         : [],
                     'countryOfOrigin' => $media->origin,
@@ -137,7 +137,7 @@ class AnilistController extends Controller
                         ? $media->metadataNamesFrom('anilistStudios')
                         : [],
                     'authors' => match ($canonicalType) {
-                        'manga', 'manhwa' => $media->metadataNamesFrom('anilistAuthors'),
+                        'manga', 'manhwa', 'light_novel' => $media->metadataNamesFrom('anilistAuthors'),
                         'doujin' => $media->metadataNamesFrom('doujinAuthors'),
                         default => [],
                     },
@@ -162,8 +162,10 @@ class AnilistController extends Controller
             $category = 'hentais';
         } elseif ($type === 'ANIME') {
             $category = 'animes';
-        } elseif ($type === 'MANGA') {
-            $category = $origin === 'KR' ? 'manhwas' : 'mangas';
+        } elseif (in_array($type, ['MANGA', 'MANHWA'], true)) {
+            $category = $type === 'MANHWA' || $origin === 'KR' ? 'manhwas' : 'mangas';
+        } elseif ($type === 'LIGHT_NOVEL') {
+            $category = 'light-novels';
         } else {
             $category = 'animes';
         }
@@ -251,7 +253,7 @@ class AnilistController extends Controller
 
     public function updateEntry(Request $request, Media $media)
     {
-        abort_unless(in_array($media->type, ['anime', 'hentai', 'manga', 'manhwa'], true), 404);
+        abort_unless(in_array($media->type, ['anime', 'hentai', 'manga', 'manhwa', 'light_novel'], true), 404);
 
         $validator = Validator::make($request->all(), [
             'progress' => ['nullable', 'integer', 'min:0'],
@@ -360,7 +362,7 @@ GQL;
 
     public function destroy(Media $media)
     {
-        abort_unless(in_array($media->type, ['anime', 'hentai', 'manga', 'manhwa'], true), 404);
+        abort_unless(in_array($media->type, ['anime', 'hentai', 'manga', 'manhwa', 'light_novel'], true), 404);
 
         $token = Auth::user()?->anilist_access_token;
         if (!$token) {
@@ -425,6 +427,7 @@ GQL;
             'hentai' => 'hentais',
             'manga' => 'mangas',
             'manhwa' => 'manhwas',
+            'light_novel' => 'light-novels',
             default => 'animes',
         };
     }
@@ -439,9 +442,13 @@ GQL;
             ];
         }
 
-        if ($filter === 'author' && in_array($category, ['mangas', 'manhwas'], true)) {
+        if ($filter === 'author' && in_array($category, ['mangas', 'manhwas', 'light-novels'], true)) {
             return [
-                'type' => $category === 'manhwas' ? 'manhwa' : 'manga',
+                'type' => match ($category) {
+                    'manhwas' => 'manhwa',
+                    'light-novels' => 'light_novel',
+                    default => 'manga',
+                },
                 'relation' => 'anilistAuthors',
                 'label' => 'Author',
             ];
@@ -470,19 +477,19 @@ GQL;
     {
         $canonicalType = strtolower($this->canonicalType($media));
 
-        $genres = in_array($canonicalType, ['anime', 'hentai', 'manga', 'manhwa'], true)
+        $genres = in_array($canonicalType, ['anime', 'hentai', 'manga', 'manhwa', 'light_novel'], true)
             ? $media->metadataNamesFrom('anilistGenres')
             : [];
         $tags = match (true) {
             $canonicalType === 'vn' => $media->metadataNamesFrom('vnTags'),
-            in_array($canonicalType, ['anime', 'hentai', 'manga', 'manhwa'], true) => $media->metadataNamesFrom('anilistTags'),
+            in_array($canonicalType, ['anime', 'hentai', 'manga', 'manhwa', 'light_novel'], true) => $media->metadataNamesFrom('anilistTags'),
             default => [],
         };
         $studios = in_array($canonicalType, ['anime', 'hentai'], true)
             ? $media->metadataNamesFrom('anilistStudios')
             : [];
         $authors = match ($canonicalType) {
-            'manga', 'manhwa' => $media->metadataNamesFrom('anilistAuthors'),
+            'manga', 'manhwa', 'light_novel' => $media->metadataNamesFrom('anilistAuthors'),
             'doujin' => $media->metadataNamesFrom('doujinAuthors'),
             default => [],
         };
@@ -734,7 +741,11 @@ GQL;
                 if ($remoteType === 'ANIME') {
                     $localType = in_array('Hentai', $genres, true) ? 'hentai' : 'anime';
                 } else {
+                    $format = strtoupper((string) ($media['format'] ?? ''));
                     $localType = strtoupper((string) $origin) === 'KR' ? 'manhwa' : 'manga';
+                    if ($format === 'NOVEL') {
+                        $localType = 'light_novel';
+                    }
                 }
 
                 $base = $titleRo ?: $titleEn ?: ('media-'.$sourceId);
@@ -774,7 +785,7 @@ GQL;
                     $genres,
                     $tagRecords,
                     in_array($localType, ['anime', 'hentai'], true) ? $studioRecords : [],
-                    in_array($localType, ['manga', 'manhwa'], true) ? $authorRecords : []
+                    in_array($localType, ['manga', 'manhwa', 'light_novel'], true) ? $authorRecords : []
                 );
 
                 if ($model->wasRecentlyCreated) {

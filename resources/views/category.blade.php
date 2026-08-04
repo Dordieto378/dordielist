@@ -309,6 +309,7 @@ if (!function_exists('shortTitle')) {
                             $isReadingCategory = in_array($listCategory, [
                                 'MANGA', 'MANGAS',
                                 'MANHWA', 'MANHWAS',
+                                'LIGHT-NOVEL', 'LIGHT-NOVELS',
                                 'H-MANGA', 'H-MANGAS',
                             ], true);
                         @endphp

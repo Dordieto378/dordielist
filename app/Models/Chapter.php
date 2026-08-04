@@ -12,6 +12,7 @@ class Chapter extends Model
         'media_fk',
         'chapter_number',
         'chapter_title',
+        'thumbnail_path',
     ];
 
     public function pages()

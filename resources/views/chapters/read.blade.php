@@ -13,12 +13,18 @@
             }
         }
         $allowedExts = ['jpg','jpeg','png','gif','webp'];
+        $htmlExts = ['html','htm','xhtml'];
 
         // --- FORCE VIEW FOR MANHWA ---
-        $view = request('view', 'one');
+        $view = $readerView ?? request('view', 'one');
         $isManhwa = $isManhwa ?? false; // passed from controller
+        $isLightNovel = $isLightNovel ?? false;
+        $readerUnitLabel = $readerUnitLabel ?? 'Chapter';
         if ($isManhwa) {
             $view = 'scroll';
+        }
+        if ($isLightNovel) {
+            $view = 'double';
         }
         $isFixedView = in_array($view, ['one', 'double'], true) && !$isManhwa;
 
@@ -33,18 +39,27 @@
         // View switcher base params
         $baseParams = ['media' => $chapter->item_id, 'chapter' => $chapter->chapter_number];
 
-        // Build landscape-aware spreads for double-page mode.
+        // Build spreads for double-page mode.
         $pageObjectsByNumber = $chapter->pages->sortBy('page_number')->keyBy('page_number');
         $pageNums = $pageObjectsByNumber->keys()->values();
         $nums = $pageNums->all();
 
-        $getChapterPageDimensions = static function (?string $filePath): ?array {
+        $getStoredPageAbsolutePath = static function (?string $filePath): ?string {
             if (!$filePath) {
                 return null;
             }
 
             $absolutePath = public_path('storage/' . ltrim($filePath, '/'));
             if (!is_file($absolutePath)) {
+                return null;
+            }
+
+            return $absolutePath;
+        };
+
+        $getChapterPageDimensions = static function (?string $filePath) use ($getStoredPageAbsolutePath): ?array {
+            $absolutePath = $getStoredPageAbsolutePath($filePath);
+            if (!$absolutePath) {
                 return null;
             }
 
@@ -56,34 +71,95 @@
             return [(int) $size[0], (int) $size[1]];
         };
 
-        $pageIsLandscape = [];
-        foreach ($pageObjectsByNumber as $number => $page) {
-            $dimensions = $getChapterPageDimensions($page->file_path ?? null);
-            $pageIsLandscape[$number] = $dimensions ? ($dimensions[0] > $dimensions[1]) : false;
-        }
+        $getLightNovelPageKind = static function (?string $filePath) use ($allowedExts, $htmlExts, $getStoredPageAbsolutePath): string {
+            $ext = strtolower(pathinfo((string) $filePath, PATHINFO_EXTENSION));
+            if (in_array($ext, $allowedExts, true)) {
+                return 'image';
+            }
+
+            if (!in_array($ext, $htmlExts, true)) {
+                return 'text';
+            }
+
+            $absolutePath = $getStoredPageAbsolutePath($filePath);
+            if (!$absolutePath) {
+                return 'text';
+            }
+
+            $html = @file_get_contents($absolutePath, false, null, 0, 524288);
+            if ($html === false || trim($html) === '') {
+                return 'text';
+            }
+
+            $mediaCount = preg_match_all('/<(?:img|svg|image)\b/i', $html);
+            $withoutScriptAndStyle = preg_replace('/<(?:script|style)\b[^>]*>.*?<\/(?:script|style)>/is', '', $html) ?? $html;
+            $text = trim((string) preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($withoutScriptAndStyle), ENT_QUOTES | ENT_HTML5, 'UTF-8')));
+
+            if ($mediaCount < 1 && $text === '') {
+                return 'blank';
+            }
+
+            return $mediaCount > 0 && mb_strlen($text) <= 120 ? 'image' : 'text';
+        };
 
         $spreads = [];
-        for ($i = 0; $i < count($nums);) {
-            $currentNum = $nums[$i] ?? null;
-            if ($currentNum === null) {
-                break;
+        if ($isLightNovel) {
+            $pageKinds = [];
+            foreach ($pageObjectsByNumber as $number => $page) {
+                $pageKinds[$number] = $getLightNovelPageKind($page->file_path ?? null);
+            }
+            $nums = array_values(array_filter($nums, fn ($number) => ($pageKinds[$number] ?? 'text') !== 'blank'));
+
+            if ($nums !== [] && !in_array($pageNumber, $nums, true)) {
+                $after = collect($nums)->first(fn ($number) => $number > $pageNumber);
+                $pageNumber = $after ?? collect($nums)->last();
             }
 
-            if ($pageIsLandscape[$currentNum] ?? false) {
+            for ($i = 0; $i < count($nums);) {
+                $currentNum = $nums[$i] ?? null;
+                if ($currentNum === null) {
+                    break;
+                }
+
+                $nextNum = $nums[$i + 1] ?? null;
+                if ($nextNum !== null && ($pageKinds[$currentNum] ?? 'text') === ($pageKinds[$nextNum] ?? 'text')) {
+                    $spreads[] = ['pages' => [$currentNum, $nextNum]];
+                    $i += 2;
+                    continue;
+                }
+
                 $spreads[] = ['pages' => [$currentNum]];
                 $i++;
-                continue;
+            }
+        } else {
+            $pageIsLandscape = [];
+            foreach ($pageObjectsByNumber as $number => $page) {
+                $dimensions = $getChapterPageDimensions($page->file_path ?? null);
+                $pageIsLandscape[$number] = $dimensions ? ($dimensions[0] > $dimensions[1]) : false;
             }
 
-            $nextNum = $nums[$i + 1] ?? null;
-            if ($nextNum !== null && !($pageIsLandscape[$nextNum] ?? false)) {
-                $spreads[] = ['pages' => [$currentNum, $nextNum]];
-                $i += 2;
-                continue;
-            }
+            for ($i = 0; $i < count($nums);) {
+                $currentNum = $nums[$i] ?? null;
+                if ($currentNum === null) {
+                    break;
+                }
 
-            $spreads[] = ['pages' => [$currentNum]];
-            $i++;
+                if ($pageIsLandscape[$currentNum] ?? false) {
+                    $spreads[] = ['pages' => [$currentNum]];
+                    $i++;
+                    continue;
+                }
+
+                $nextNum = $nums[$i + 1] ?? null;
+                if ($nextNum !== null && !($pageIsLandscape[$nextNum] ?? false)) {
+                    $spreads[] = ['pages' => [$currentNum, $nextNum]];
+                    $i += 2;
+                    continue;
+                }
+
+                $spreads[] = ['pages' => [$currentNum]];
+                $i++;
+            }
         }
 
         $currentSpreadIndex = 0;
@@ -98,8 +174,8 @@
         $spreadA = $currentSpreadPages[0] ?? null;
         $spreadB = $currentSpreadPages[1] ?? null;
 
-        // Right-to-left style swap (larger page left, smaller right)
-        if ($spreadA !== null && $spreadB !== null && $spreadA < $spreadB) {
+        // Manga stays right-to-left; light novels read left-to-right.
+        if (!$isLightNovel && $spreadA !== null && $spreadB !== null && $spreadA < $spreadB) {
             $leftNum = $spreadB;
             $rightNum = $spreadA;
         } else {
@@ -124,11 +200,22 @@
 
         $chapterTitleText = trim((string) ($chapter->chapter_title ?? ''));
         $usesTitleChapterDisplay = preg_match('/^\d+(?:\.\d+)?\s*&\s*\d+(?:\.\d+)?$/', $chapterTitleText) === 1
-            || strcasecmp($chapterTitleText, 'Extra Chapter') === 0;
+            || strcasecmp($chapterTitleText, 'Extra '.$readerUnitLabel) === 0
+            || ($readerUnitLabel === 'Vol.' && strcasecmp($chapterTitleText, 'Extra Volume') === 0)
+            || ($readerUnitLabel !== 'Chapter' && strcasecmp($chapterTitleText, 'Extra Chapter') === 0);
         $chapterDisplay = $usesTitleChapterDisplay
             ? $chapterTitleText
             : rtrim(rtrim((string)$chapter->chapter_number, '0'), '.');
-        $readerTitleWithChapter = $itemTitle.' - Chapter '.$chapterDisplay;
+        if ($readerUnitLabel !== 'Chapter' && strcasecmp($chapterDisplay, 'Extra Chapter') === 0) {
+            $chapterDisplay = 'Extra Volume';
+        }
+        $chapterDisplayAlreadyLabeled = preg_match('/^'.preg_quote($readerUnitLabel, '/').'\b/i', $chapterDisplay) === 1;
+        $readerUnitSeparator = str_ends_with($readerUnitLabel, '.') ? '' : ' ';
+        $readerUnitHeading = $chapterDisplayAlreadyLabeled
+            || preg_match('/^Extra\b/i', $chapterDisplay) === 1
+            ? $chapterDisplay
+            : $readerUnitLabel.$readerUnitSeparator.$chapterDisplay;
+        $readerTitleWithChapter = $itemTitle.' - '.$readerUnitHeading;
         $readerImageExpiresAt = now()->addHours($view === 'scroll' ? 8 : 2);
     @endphp
 
@@ -429,6 +516,7 @@
         .reader-content-fixed .reader-full {
             min-height: 100dvh;
             height: 100dvh;
+            width: 100vw;
         }
         .reader-img {
             width: 100%;
@@ -456,19 +544,29 @@
             gap: 0;
             align-items: center;
             flex-wrap: nowrap;
+            width: 100%;
+            max-width: 100%;
         }
         .dual-full {
             height: 100vh;
             align-items: center;
+            width: 100vw;
+            max-width: 100vw;
         }
         .reader-content-fixed .dual-full {
             height: 100dvh;
+            width: 100vw;
+            max-width: 100vw;
         }
         .dual-page > div {
             flex: 0 0 50%;
+            width: 50%;
             max-width: 50%;
         }
         .reader-content-fixed .dual-page > div {
+            flex-basis: 50vw;
+            width: 50vw;
+            max-width: 50vw;
             height: 100dvh;
             display: flex;
             align-items: center;
@@ -489,6 +587,43 @@
             height: 100dvh;
             max-height: 100dvh;
             max-width: 50vw;
+        }
+        .reader-epub-frame {
+            display: block;
+            width: 100%;
+            height: 100vh;
+            min-height: 100vh;
+            border: 0;
+            background: #ffffff;
+            overflow: hidden;
+        }
+        .reader-content-fixed .reader-epub-frame {
+            height: 100dvh;
+            min-height: 100dvh;
+        }
+        .reader-epub-pane-wrap {
+            background: #ffffff;
+            box-shadow: none;
+        }
+        .reader-content-fixed .dual-page > div.reader-epub-pane-wrap {
+            align-items: stretch;
+        }
+        .reader-epub-debug-badge {
+            position: absolute;
+            top: 0.5rem;
+            left: 0.5rem;
+            z-index: 40;
+            max-width: min(26rem, calc(100% - 1rem));
+            padding: 0.35rem 0.55rem;
+            border-radius: 4px;
+            background: rgba(18, 120, 84, 0.92);
+            color: #ffffff;
+            font-size: 0.75rem;
+            line-height: 1.25;
+            pointer-events: none;
+        }
+        .reader-epub-debug-badge.is-warning {
+            background: rgba(178, 65, 65, 0.94);
         }
         .reader-bottom-panel {
             position: fixed;
@@ -650,7 +785,7 @@
                         <a href="{{ $itemUrl }}" class="reader-title" title="{{ $itemTitle }}">
                             {{ shortTitle($itemTitle, 40) }}
                         </a>
-                        <span class="reader-title-chapter">Chapter {{ $chapterDisplay }}</span>
+                        <span class="reader-title-chapter">{{ $readerUnitHeading }}</span>
                     </div>
                 </div>
                 <div class="flex items-center space-x-2 text-white text-sm">
@@ -673,7 +808,7 @@
                             <path d="M9 21v-6H3" />
                         </svg>
                     </button>
-                    @if(!$isManhwa)
+                    @if(!$isManhwa && !$isLightNovel)
                         <a href="{{ route('chapters.page', array_merge($baseParams, ['page' => $pageNumber, 'view' => 'scroll'])) }}"
                            class="control-btn {{ $view === 'scroll' ? 'active' : '' }}"
                            aria-label="Scroll view">
@@ -712,6 +847,7 @@
         data-reader-fixed="{{ $isFixedView ? '1' : '0' }}"
         data-reader-view="{{ $view }}"
         data-reader-is-manhwa="{{ $isManhwa ? '1' : '0' }}"
+        data-reader-is-light-novel="{{ $isLightNovel ? '1' : '0' }}"
         data-reader-next-page="{{ $nextLink ?? '' }}"
         data-reader-prev-page="{{ $prevLink ?? '' }}"
         data-reader-next-pair="{{ $nextPairLink ?? '' }}"
@@ -761,17 +897,28 @@
                     $current   = $chapter->pages->firstWhere('page_number', $pageNumber);
                     $extOne    = strtolower(pathinfo(optional($current)->file_path ?? '', PATHINFO_EXTENSION));
                     $isImage   = in_array($extOne, $allowedExts, true);
-                    $singleUrl = $isImage ? $pageUrl : null; // from controller
+                    $isHtml    = in_array($extOne, $htmlExts, true);
+                    $singleUrl = ($isImage || $isHtml) ? $pageUrl : null; // from controller
                 @endphp
 
-                @if($isImage)
+                @if($isImage || $isHtml)
                     <div class="reader-page reader-full">
-                        <img
-                            src="{{ $singleUrl }}"
-                            alt="Page {{ $pageNumber }}"
-                            class="zoomable reader-img z-10"
-                            draggable="false"
-                        >
+                        @if($isHtml)
+                            <iframe
+                                src="{{ $singleUrl }}"
+                                title="Page {{ $pageNumber }}"
+                                class="reader-epub-frame"
+                                sandbox="allow-same-origin"
+                                scrolling="no"
+                            ></iframe>
+                        @else
+                            <img
+                                src="{{ $singleUrl }}"
+                                alt="Page {{ $pageNumber }}"
+                                class="zoomable reader-img z-10"
+                                draggable="false"
+                            >
+                        @endif
 
                         {{-- Half-screen click zones: LEFT = NEXT, RIGHT = PREVIOUS --}}
                         @if($nextLink)
@@ -806,20 +953,29 @@
 
                     $isLeftImg  = in_array($extLeft,  $allowedExts, true);
                     $isRightImg = in_array($extRight, $allowedExts, true);
+                    $isLeftHtml = in_array($extLeft, $htmlExts, true);
+                    $isRightHtml = in_array($extRight, $htmlExts, true);
+                    $isLeftRenderable = $leftObj && ($isLeftImg || $isLeftHtml);
+                    $isRightRenderable = $rightObj && ($isRightImg || $isRightHtml);
 
-                    $leftUrl = $isLeftImg
+                    $leftUrl = $isLeftRenderable
                         ? URL::temporarySignedRoute('reader.page.image', $readerImageExpiresAt, ['page' => $leftObj->id])
                         : null;
-                    $rightUrl = $isRightImg
+                    $rightUrl = $isRightRenderable
                         ? URL::temporarySignedRoute('reader.page.image', $readerImageExpiresAt, ['page' => $rightObj->id])
                         : null;
-                    $hasSingleSpreadPage = ($isLeftImg xor $isRightImg);
-                    $singleSpreadUrl = $isLeftImg ? $leftUrl : $rightUrl;
-                    $singleSpreadNum = $isLeftImg ? $leftNum : $rightNum;
+                    $hasSingleSpreadPage = ($isLeftRenderable xor $isRightRenderable);
+                    $singleSpreadUrl = $isLeftRenderable ? $leftUrl : $rightUrl;
+                    $singleSpreadNum = $isLeftRenderable ? $leftNum : $rightNum;
+                    $singleSpreadIsHtml = $isLeftRenderable ? $isLeftHtml : $isRightHtml;
 
                     // Pair-aware targets for this view
                     $doubleNext = $nextPairLink ?? null;
                     $doublePrev = $prevPairLink ?? null;
+                    $leftZoneTarget = $isLightNovel ? $doublePrev : $doubleNext;
+                    $rightZoneTarget = $isLightNovel ? $doubleNext : $doublePrev;
+                    $leftZoneAction = $isLightNovel ? 'Previous pages' : 'Next pages';
+                    $rightZoneAction = $isLightNovel ? 'Next pages' : 'Previous pages';
 
                     $hasDoubleNext = !empty($doubleNext);
                     $hasDoublePrev = !empty($doublePrev);
@@ -828,55 +984,84 @@
 
                 <div class="reader-page reader-full">
                     @if($hasSingleSpreadPage)
-                        <img
-                            src="{{ $singleSpreadUrl }}"
-                            alt="Page {{ $singleSpreadNum }}"
-                            class="zoomable reader-img z-10"
-                            draggable="false"
-                        >
+                        @if($singleSpreadIsHtml)
+                            <iframe
+                                src="{{ $singleSpreadUrl }}"
+                                title="Page {{ $singleSpreadNum }}"
+                                class="reader-epub-frame"
+                                sandbox="allow-same-origin"
+                                scrolling="no"
+                            ></iframe>
+                        @else
+                            <img
+                                src="{{ $singleSpreadUrl }}"
+                                alt="Page {{ $singleSpreadNum }}"
+                                class="zoomable reader-img z-10"
+                                draggable="false"
+                            >
+                        @endif
                     @else
                         <div class="dual-page dual-full">
-                            @if($isLeftImg)
-                                <div class="relative overflow-hidden">
-                                    <img
-                                        src="{{ $leftUrl }}"
-                                        alt="Page {{ $leftNum }}"
-                                        class="zoomable reader-img"
-                                        draggable="false"
-                                    >
+                            @if($isLeftRenderable)
+                                <div class="relative overflow-hidden {{ $isLeftHtml ? 'reader-epub-pane-wrap' : '' }}">
+                                    @if($isLeftHtml)
+                                        <iframe
+                                            src="{{ $leftUrl }}"
+                                            title="Page {{ $leftNum }}"
+                                            class="reader-epub-frame"
+                                            sandbox="allow-same-origin"
+                                            scrolling="no"
+                                        ></iframe>
+                                    @else
+                                        <img
+                                            src="{{ $leftUrl }}"
+                                            alt="Page {{ $leftNum }}"
+                                            class="zoomable reader-img"
+                                            draggable="false"
+                                        >
+                                    @endif
                                 </div>
                             @endif
 
-                            @if($isRightImg)
-                                <div class="relative overflow-hidden">
-                                    <img
-                                        src="{{ $rightUrl }}"
-                                        alt="Page {{ $rightNum }}"
-                                        class="zoomable reader-img"
-                                        draggable="false"
-                                    >
+                            @if($isRightRenderable)
+                                <div class="relative overflow-hidden {{ $isRightHtml ? 'reader-epub-pane-wrap' : '' }}">
+                                    @if($isRightHtml)
+                                        <iframe
+                                            src="{{ $rightUrl }}"
+                                            title="Page {{ $rightNum }}"
+                                            class="reader-epub-frame"
+                                            sandbox="allow-same-origin"
+                                            scrolling="no"
+                                        ></iframe>
+                                    @else
+                                        <img
+                                            src="{{ $rightUrl }}"
+                                            alt="Page {{ $rightNum }}"
+                                            class="zoomable reader-img"
+                                            draggable="false"
+                                        >
+                                    @endif
                                 </div>
                             @endif
                         </div>
                     @endif
 
-                    {{-- LEFT = NEXT (pair), RIGHT = PREVIOUS (pair) --}}
-                    @if($doubleNext)
+                    @if($leftZoneTarget)
                         <button
                             type="button"
                             class="absolute inset-y-0 left-0 w-1/2 z-20 border-0 bg-transparent p-0"
                             style="cursor:pointer;"
-                            data-reader-target="{{ $doubleNext }}"
-                            aria-label="Next pages"
+                            data-reader-target="{{ $leftZoneTarget }}"
+                            aria-label="{{ $leftZoneAction }}"
                         ></button>
                     @endif
-                    @if($doublePrev)
+                    @if($rightZoneTarget)
                         <button
                             type="button"
                             class="absolute inset-y-0 right-0 w-1/2 z-20 border-0 bg-transparent p-0"
                             style="cursor:pointer;"
-                            data-reader-target="{{ $doublePrev }}"
-                            aria-label="Previous pages"
+                            data-reader-target="{{ $rightZoneTarget }}"
+                            aria-label="{{ $rightZoneAction }}"
                         ></button>
                     @endif
                 </div>
@@ -911,13 +1096,13 @@
         } elseif ($view === 'double' && !$isManhwa) {
             $doubleNext = $nextPairLink ?? null;
             $doublePrev = $prevPairLink ?? null;
-            $bottomLeftLink  = $doubleNext;
-            $bottomRightLink = $doublePrev;
-            $bottomLeftAction = 'next';
-            $bottomRightAction = 'prev';
+            $bottomLeftLink  = $isLightNovel ? $doublePrev : $doubleNext;
+            $bottomRightLink = $isLightNovel ? $doubleNext : $doublePrev;
+            $bottomLeftAction = $isLightNovel ? 'prev' : 'next';
+            $bottomRightAction = $isLightNovel ? 'next' : 'prev';
         }
-        $nextArrowClass = $isManhwa ? 'is-right' : 'is-left';
-        $prevArrowClass = $isManhwa ? 'is-left' : 'is-right';
+        $nextArrowClass = ($isManhwa || $isLightNovel) ? 'is-right' : 'is-left';
+        $prevArrowClass = ($isManhwa || $isLightNovel) ? 'is-left' : 'is-right';
         $bottomInfoLink = route('media.show', ['id' => $chapter->item_id]);
 
         if ($view === 'one' && !$isManhwa) {
@@ -929,7 +1114,7 @@
             $bottomMainValue = $rightNum ? ($leftNum.' | '.$rightNum) : (string)$leftNum;
             $bottomSub = null;
         } else {
-            $bottomMainLabel = 'Chapter';
+            $bottomMainLabel = $readerUnitLabel;
             $bottomMainValue = $chapterDisplay;
             $bottomSub = null;
         }
@@ -1199,6 +1384,217 @@
                 frame.setAttribute('aria-label', `${img.alt || 'Reader page'} failed to load`);
             };
 
+            const epubDebugEnabled = new URLSearchParams(window.location.search).get('epubdebug') === '1';
+            const setEpubDebug = (frame, message, ok = true) => {
+                if (!epubDebugEnabled || !frame) return;
+
+                const host = frame.closest('.reader-epub-pane-wrap') || frame.closest('.reader-page') || frame.parentElement;
+                if (!host) return;
+
+                let badge = host.querySelector(':scope > .reader-epub-debug-badge');
+                if (!badge) {
+                    badge = document.createElement('div');
+                    badge.className = 'reader-epub-debug-badge';
+                    host.appendChild(badge);
+                }
+
+                badge.classList.toggle('is-warning', !ok);
+                badge.textContent = message;
+            };
+
+            const epubDocumentNode = (doc, localName) => {
+                if (!doc) return null;
+
+                const direct = localName === 'head' ? doc.head : (localName === 'body' ? doc.body : null);
+                if (direct) return direct;
+
+                try {
+                    const queried = doc.querySelector(localName);
+                    if (queried) return queried;
+                } catch (error) {
+                    // XHTML documents can behave like XML documents depending on MIME type.
+                }
+
+                const nodes = doc.getElementsByTagName('*');
+                for (const node of nodes) {
+                    if ((node.localName || '').toLowerCase() === localName) {
+                        return node;
+                    }
+                }
+
+                return null;
+            };
+
+            const epubReaderCss = `
+html {
+    width: 100% !important;
+    min-height: 100% !important;
+    margin: 0 !important;
+    background: #ffffff !important;
+    overflow: hidden !important;
+    scrollbar-width: none !important;
+}
+body {
+    width: min(720px, calc(100% - 120px)) !important;
+    min-width: 0 !important;
+    max-width: 720px !important;
+    min-height: 100% !important;
+    margin: 82px auto 0 !important;
+    padding: 0 0 30px !important;
+    box-sizing: border-box !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-family: Georgia, "Times New Roman", serif !important;
+    font-size: 18px !important;
+    line-height: 1.36 !important;
+    text-align: left !important;
+    overflow: hidden !important;
+    overflow-wrap: break-word !important;
+    scrollbar-width: none !important;
+}
+body.reader-image-page {
+    min-height: 100vh !important;
+    margin: 0 auto !important;
+    padding: 84px 0 0 !important;
+    display: flex !important;
+    align-items: flex-start !important;
+    justify-content: center !important;
+}
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+    display: none !important;
+}
+body * {
+    box-sizing: border-box !important;
+    max-width: 100% !important;
+}
+p {
+    margin: 0 0 0.74em !important;
+    text-align: left !important;
+}
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    margin: 0 0 2rem !important;
+    text-align: center !important;
+    line-height: 1.25 !important;
+}
+img,
+svg {
+    display: block !important;
+    max-width: min(76%, 640px) !important;
+    max-height: 78vh !important;
+    width: auto !important;
+    height: auto !important;
+    margin: 0 auto !important;
+    object-fit: contain !important;
+}
+a {
+    color: #0000ee !important;
+    text-decoration: underline !important;
+}
+`;
+
+            const epubBodyLooksImageOnly = (body) => {
+                if (!body) return false;
+
+                const mediaCount = body.querySelectorAll?.('img, svg, image').length || 0;
+                if (mediaCount < 1) return false;
+
+                const clone = body.cloneNode(true);
+                clone.querySelectorAll?.('script, style').forEach((node) => node.remove());
+                const text = (clone.textContent || '').replace(/\s+/g, ' ').trim();
+
+                return text.length <= 120;
+            };
+
+            const fitEpubFrame = (frame, doc) => {
+                const body = epubDocumentNode(doc, 'body');
+                const html = doc.documentElement;
+                if (!body || !html) return;
+
+                body.classList.toggle('reader-image-page', epubBodyLooksImageOnly(body));
+
+                const availableHeight = frame.clientHeight || html.clientHeight || window.innerHeight;
+                if (!availableHeight) return;
+
+                let fontSize = 18;
+                let lineHeight = 1.36;
+                const applyMetrics = () => {
+                    body.style.setProperty('font-size', `${fontSize.toFixed(2)}px`, 'important');
+                    body.style.setProperty('line-height', lineHeight.toFixed(2), 'important');
+                };
+                const pageHeight = () => Math.max(html.scrollHeight, body.scrollHeight);
+
+                applyMetrics();
+                for (let i = 0; i < 18 && pageHeight() > availableHeight + 2; i += 1) {
+                    if (fontSize > 16.5) {
+                        fontSize -= 0.25;
+                    } else if (lineHeight > 1.26) {
+                        lineHeight -= 0.02;
+                    } else {
+                        break;
+                    }
+                    applyMetrics();
+                }
+
+                const computed = doc.defaultView?.getComputedStyle(body);
+                setEpubDebug(
+                    frame,
+                    `EPUB CSS applied: width ${Math.round(body.getBoundingClientRect().width)}px, height ${Math.round(pageHeight())}/${Math.round(availableHeight)}, font ${computed?.fontSize || `${fontSize}px`}, line ${computed?.lineHeight || lineHeight}`,
+                    pageHeight() <= availableHeight + 2
+                );
+            };
+
+            const normalizeEpubFrame = (frame) => {
+                if (!frame || frame.dataset.readerEpubBound === '1') return;
+
+                frame.dataset.readerEpubBound = '1';
+                const apply = () => {
+                    try {
+                        const doc = frame.contentDocument;
+                        const head = epubDocumentNode(doc, 'head') || doc?.documentElement;
+                        const body = epubDocumentNode(doc, 'body');
+                        if (!doc || !head || !body) {
+                            setEpubDebug(frame, 'EPUB debug: iframe document not ready yet.', false);
+                            return;
+                        }
+
+                        let style = doc.getElementById('dordielist-epub-reader-style');
+                        if (!style) {
+                            style = doc.createElementNS(head.namespaceURI || 'http://www.w3.org/1999/xhtml', 'style');
+                            style.id = 'dordielist-epub-reader-style';
+                            head.appendChild(style);
+                        }
+                        style.textContent = epubReaderCss;
+                        fitEpubFrame(frame, doc);
+                        requestAnimationFrame(() => fitEpubFrame(frame, doc));
+                        setTimeout(() => fitEpubFrame(frame, doc), 150);
+                        if (doc.fonts?.ready) {
+                            doc.fonts.ready.then(() => fitEpubFrame(frame, doc));
+                        }
+                        Array.from(doc.querySelectorAll?.('img, image') || []).forEach((img) => {
+                            if (!img.complete) {
+                                img.addEventListener('load', () => fitEpubFrame(frame, doc), { once: true });
+                            }
+                        });
+                    } catch (error) {
+                        setEpubDebug(frame, `EPUB debug: iframe styling blocked (${error.message || 'unknown error'}).`, false);
+                        // If a browser refuses iframe access, the generated page CSS still applies.
+                    }
+                };
+
+                frame.addEventListener('load', apply);
+                apply();
+            };
+
+            const initEpubFrames = () => {
+                document.querySelectorAll('iframe.reader-epub-frame').forEach(normalizeEpubFrame);
+            };
+
             const initReaderImageErrors = () => {
                 document.querySelectorAll('img.reader-img:not([data-reader-lazy])').forEach((img) => {
                     if (img.dataset.readerErrorBound === '1') return;
@@ -1277,6 +1673,7 @@
                 syncFullscreenButtons();
                 initLazyReaderImages();
                 initReaderImageErrors();
+                initEpubFrames();
             };
 
             const navigateReader = async (targetUrl) => {
@@ -1324,6 +1721,7 @@
 
                 const isDouble = root.dataset.readerView === 'double';
                 const isManhwa = root.dataset.readerIsManhwa === '1';
+                const isLightNovel = root.dataset.readerIsLightNovel === '1';
                 const nextPage = root.dataset.readerNextPage || '';
                 const prevPage = root.dataset.readerPrevPage || '';
                 const nextPair = root.dataset.readerNextPair || '';
@@ -1332,7 +1730,7 @@
                 let leftTarget = isDouble ? (nextPair || nextPage) : nextPage;
                 let rightTarget = isDouble ? (prevPair || prevPage) : prevPage;
 
-                if (isManhwa) {
+                if (isManhwa || isLightNovel) {
                     const tmp = leftTarget;
                     leftTarget = rightTarget;
                     rightTarget = tmp;

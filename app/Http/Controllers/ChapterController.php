@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Chapter;
 use App\Models\ChapterPage;
 use App\Models\Media;
+use App\Support\EpubVolumeExtractor;
 use App\Support\MediaStoragePath;
 use App\Support\UploadedArchive;
 use Illuminate\Http\Request;
@@ -38,7 +39,7 @@ class ChapterController extends Controller
     {
         $mediaType = strtolower((string) $media->type);
 
-        abort_unless(in_array($mediaType, ['manga', 'manhwa', 'doujin'], true), 404);
+        abort_unless(in_array($mediaType, $this->contentUploadMediaTypes(), true), 404);
         abort_unless(optional($request->user()?->role)->role === 'Admin', 403);
 
         $uploadId = $this->normalizeUploadId($request->input('upload_id'));
@@ -74,8 +75,10 @@ class ChapterController extends Controller
     public function completeUpload(Request $request, Media $media, UploadedArchive $uploadedArchive)
     {
         $mediaType = strtolower((string) $media->type);
+        $unitLabel = $this->contentUnitLabel($mediaType);
+        $archiveLabel = $this->contentUploadDisplayName($mediaType);
 
-        abort_unless(in_array($mediaType, ['manga', 'manhwa', 'doujin'], true), 404);
+        abort_unless(in_array($mediaType, $this->contentUploadMediaTypes(), true), 404);
         abort_unless(optional($request->user()?->role)->role === 'Admin', 403);
 
         $uploadId = $this->normalizeUploadId($request->input('upload_id'));
@@ -86,18 +89,19 @@ class ChapterController extends Controller
             return response()->json(['message' => 'Invalid upload request.'], 422);
         }
 
-        if (strtolower(pathinfo($originalName, PATHINFO_EXTENSION)) !== 'zip') {
-            return response()->json(['message' => 'Upload a ZIP archive.'], 422);
+        $requiredExtension = $this->contentUploadExtension($mediaType);
+        if (strtolower(pathinfo($originalName, PATHINFO_EXTENSION)) !== $requiredExtension) {
+            return response()->json(['message' => $this->contentUploadPrompt($mediaType)], 422);
         }
 
         $disk = Storage::disk('local');
         $chunkDirectory = $this->chunkDirectory($media, $uploadId);
-        $tempRelativePath = $chunkDirectory.'/archive.zip';
+        $tempRelativePath = $chunkDirectory.'/archive.'.$requiredExtension;
         $tempAbsolutePath = $disk->path($tempRelativePath);
         $output = @fopen($tempAbsolutePath, 'wb');
 
         if ($output === false) {
-            return response()->json(['message' => 'Chapter ZIP upload failed.'], 500);
+            return response()->json(['message' => "{$unitLabel} {$archiveLabel} upload failed."], 500);
         }
 
         try {
@@ -109,7 +113,7 @@ class ChapterController extends Controller
 
                 $input = @fopen($disk->path($chunkRelativePath), 'rb');
                 if ($input === false) {
-                    throw new \RuntimeException('Chapter ZIP upload failed.');
+                    throw new \RuntimeException("{$unitLabel} {$archiveLabel} upload failed.");
                 }
 
                 stream_copy_to_stream($input, $output);
@@ -117,7 +121,7 @@ class ChapterController extends Controller
             }
 
             fclose($output);
-            $archive = new UploadedFile($tempAbsolutePath, $originalName, 'application/zip', null, true);
+            $archive = new UploadedFile($tempAbsolutePath, $originalName, $this->contentUploadMimeType($mediaType), null, true);
             $response = $this->processUploadedArchive($request, $media, $uploadedArchive, $archive);
 
             if (method_exists($response, 'getStatusCode') && $response->getStatusCode() < 400) {
@@ -133,7 +137,7 @@ class ChapterController extends Controller
             report($e);
 
             return response()->json([
-                'message' => trim($e->getMessage()) !== '' ? $e->getMessage() : 'Chapter ZIP upload failed.',
+                'message' => trim($e->getMessage()) !== '' ? $e->getMessage() : "{$unitLabel} {$archiveLabel} upload failed.",
             ], 500);
         } finally {
             if (is_file($tempAbsolutePath)) {
@@ -145,13 +149,16 @@ class ChapterController extends Controller
     private function processUploadedArchive(Request $request, Media $media, UploadedArchive $uploadedArchive, UploadedFile $archive)
     {
         $mediaType = strtolower((string) $media->type);
+        $unitLabel = $this->contentUnitLabel($mediaType);
+        $unitName = strtolower($unitLabel);
+        $archiveLabel = $this->contentUploadDisplayName($mediaType);
 
-        abort_unless(in_array($mediaType, ['manga', 'manhwa', 'doujin'], true), 404);
+        abort_unless(in_array($mediaType, $this->contentUploadMediaTypes(), true), 404);
         abort_unless(optional($request->user()?->role)->role === 'Admin', 403);
         $replaceExisting = $request->boolean('replace_existing');
 
-        if (strtolower((string) $archive->getClientOriginalExtension()) !== 'zip') {
-            return $this->redirectUploadFailure('Upload a ZIP archive.', $request);
+        if (strtolower((string) $archive->getClientOriginalExtension()) !== $this->contentUploadExtension($mediaType)) {
+            return $this->redirectUploadFailure($this->contentUploadPrompt($mediaType), $request);
         }
 
         $disk = Storage::disk('public');
@@ -161,19 +168,21 @@ class ChapterController extends Controller
         $extractRoot = null;
 
         try {
-            $extractRoot = $uploadedArchive->extractArchiveToTemporaryRoot($archive, 'chapter-upload-');
-            $contentRoot = $uploadedArchive->resolveContentRoot($extractRoot);
-            $imports = $this->buildChapterImports($contentRoot, $archive, $uploadedArchive);
+            $extractRoot = $uploadedArchive->extractArchiveToTemporaryRoot(
+                $archive,
+                $mediaType === 'light_novel' ? 'light-novel-upload-' : 'chapter-upload-'
+            );
+            $imports = $this->buildContentImports($extractRoot, $archive, $uploadedArchive, $mediaType);
 
             if ($imports === []) {
-                throw new \RuntimeException('ZIP must contain chapter folders or chapter images.');
+                throw new \RuntimeException($this->emptyContentUploadMessage($mediaType, $unitName));
             }
 
             File::ensureDirectoryExists($disk->path($targetRelRoot));
 
             $existingChapters = Chapter::with(['pages:id,chapter_id,file_path'])
                 ->where('media_fk', $media->id)
-                ->get(['id', 'chapter_number', 'chapter_title']);
+                ->get(['id', 'chapter_number', 'chapter_title', 'thumbnail_path']);
 
             $existingByNumber = [];
             $existingByTitle = [];
@@ -213,7 +222,7 @@ class ChapterController extends Controller
                     $replacementChapter = $existingByNumber[$numberKey] ?? null;
 
                     if ($replacementChapter && !$replaceExisting) {
-                        return $this->redirectUploadFailure("Chapter {$this->displayChapterNumber($resolvedNumber)} already exists.", $request, true, 409);
+                        return $this->redirectUploadFailure("{$unitLabel} {$this->displayChapterNumber($resolvedNumber)} already exists.", $request, true, 409);
                     }
                 } else {
                     while (
@@ -228,7 +237,7 @@ class ChapterController extends Controller
                 }
 
                 if (isset($plannedNumberKeys[$numberKey])) {
-                    throw new \RuntimeException("Chapter {$this->displayChapterNumber($resolvedNumber)} appears more than once in the ZIP.");
+                    throw new \RuntimeException("{$unitLabel} {$this->displayChapterNumber($resolvedNumber)} appears more than once in the {$archiveLabel}.");
                 }
 
                 if ($replacementChapter) {
@@ -237,17 +246,17 @@ class ChapterController extends Controller
 
                 $resolvedTitle = trim((string) ($import['title'] ?? ''));
                 if ($resolvedTitle === '') {
-                    $resolvedTitle = 'Chapter '.$this->displayChapterNumber($resolvedNumber);
+                    $resolvedTitle = $this->defaultContentUnitTitle($resolvedNumber, $mediaType);
                 }
 
                 $titleKey = mb_strtolower($resolvedTitle);
                 $existingTitleChapter = $existingByTitle[$titleKey] ?? null;
                 if ($existingTitleChapter && (!$replacementChapter || $existingTitleChapter->id !== $replacementChapter->id)) {
-                    throw new \RuntimeException("Chapter '{$resolvedTitle}' already exists.");
+                    throw new \RuntimeException("{$unitLabel} '{$resolvedTitle}' already exists.");
                 }
 
                 if (isset($plannedTitleKeys[$titleKey])) {
-                    throw new \RuntimeException("Chapter '{$resolvedTitle}' appears more than once in the ZIP.");
+                    throw new \RuntimeException("{$unitLabel} '{$resolvedTitle}' appears more than once in the {$archiveLabel}.");
                 }
 
                 $plannedNumberKeys[$numberKey] = true;
@@ -259,6 +268,7 @@ class ChapterController extends Controller
             }
 
             $firstImportedPage = null;
+            $firstImportedThumbnail = null;
             $chapterOneCoverPage = null;
             $replacedChapterIds = array_keys($replacedChapters);
             $replacedFiles = [];
@@ -267,6 +277,15 @@ class ChapterController extends Controller
             $currentCoverPath = is_string($media->cover_url) ? $media->cover_url : null;
 
             foreach ($replacedChapters as $chapter) {
+                if ($chapter->thumbnail_path) {
+                    $replacedFiles[] = $chapter->thumbnail_path;
+                    $replacedDirectories[preg_replace('#/[^/]+$#', '', $chapter->thumbnail_path) ?: ''] = true;
+
+                    if ($currentCoverPath !== null && $currentCoverPath === $chapter->thumbnail_path) {
+                        $coverNeedsRefresh = true;
+                    }
+                }
+
                 foreach ($chapter->pages as $page) {
                     if (!$page->file_path) {
                         continue;
@@ -293,7 +312,8 @@ class ChapterController extends Controller
                 &$createdFiles,
                 &$createdDirectories,
                 &$firstImportedPage,
-                &$chapterOneCoverPage
+                &$chapterOneCoverPage,
+                &$firstImportedThumbnail
             ) {
                 if ($replacedChapterIds !== []) {
                     ChapterPage::whereIn('chapter_id', $replacedChapterIds)->delete();
@@ -303,7 +323,7 @@ class ChapterController extends Controller
                 foreach ($imports as $import) {
                     $chapterNumber = (float) $import['resolved_number'];
                     $chapterTitle = (string) $import['resolved_title'];
-                    $directoryName = $this->makeChapterDirectoryName($chapterNumber, $chapterTitle, $uploadedArchive);
+                    $directoryName = $this->makeContentUnitDirectoryName($chapterNumber, $chapterTitle, $uploadedArchive, $mediaType);
                     $targetRelDir = $this->reserveChapterDirectory($disk, $targetRelRoot, $directoryName);
                     $createdDirectories[] = $targetRelDir;
 
@@ -313,28 +333,31 @@ class ChapterController extends Controller
                         'media_fk' => $media->id,
                         'chapter_number' => $chapterNumber,
                         'chapter_title' => $chapterTitle,
+                        'thumbnail_path' => null,
                     ]);
 
                     $pageRows = [];
-                    foreach (array_values($import['images']) as $pageIndex => $imagePath) {
-                        $pageNumber = $pageIndex + 1;
-                        $basename = basename($imagePath);
-                        $ext = strtolower(pathinfo($basename, PATHINFO_EXTENSION));
-                        $sourceName = pathinfo($basename, PATHINFO_FILENAME);
-                        $safeName = $uploadedArchive->sanitizePathSegment($sourceName, 'page-'.$pageNumber);
-                        $targetFilename = sprintf('%03d-%s.%s', $pageNumber, $safeName, $ext);
-                        $targetRelPath = $targetRelDir.'/'.$targetFilename;
-                        $targetAbsPath = $disk->path($targetRelPath);
+                    $chapterFirstPage = null;
+                    $chapterThumbnail = null;
 
-                        if (!@rename($imagePath, $targetAbsPath)) {
-                            if (!@copy($imagePath, $targetAbsPath)) {
-                                throw new \RuntimeException("Could not store uploaded page '{$basename}'.");
-                            }
+                    if (!empty($import['thumbnail'])) {
+                        $chapterThumbnail = $this->storeImportThumbnail((string) $import['thumbnail'], $targetRelDir, $disk);
+                        $createdFiles[] = $chapterThumbnail;
 
-                            @unlink($imagePath);
+                        if ($firstImportedThumbnail === null) {
+                            $firstImportedThumbnail = $chapterThumbnail;
                         }
+                    }
+
+                    foreach (array_values($import['pages']) as $pageIndex => $sourcePath) {
+                        $pageNumber = $pageIndex + 1;
+                        $targetRelPath = $this->storeImportPage((string) $sourcePath, $targetRelDir, $pageNumber, $uploadedArchive, $disk);
 
                         $createdFiles[] = $targetRelPath;
+
+                        if ($chapterFirstPage === null) {
+                            $chapterFirstPage = $targetRelPath;
+                        }
 
                         if ($firstImportedPage === null) {
                             $firstImportedPage = $targetRelPath;
@@ -359,13 +382,32 @@ class ChapterController extends Controller
                     }
 
                     ChapterPage::insert($pageRows);
+
+                    if ($chapterThumbnail === null && $chapterFirstPage !== null && $this->isImagePath($chapterFirstPage)) {
+                        $chapterThumbnail = $chapterFirstPage;
+
+                        if ($firstImportedThumbnail === null) {
+                            $firstImportedThumbnail = $chapterThumbnail;
+                        }
+                    }
+
+                    if ($chapterThumbnail !== null) {
+                        $chapter->thumbnail_path = $chapterThumbnail;
+                        $chapter->save();
+                    }
                 }
 
                 if (($media->source ?? null) !== 'anilist') {
-                    $media->chapters_cnt = Chapter::where('media_fk', $media->id)->count();
+                    if ($this->usesVolumeUnits($mediaType)) {
+                        $media->volumes_cnt = Chapter::where('media_fk', $media->id)->count();
+                    } else {
+                        $media->chapters_cnt = Chapter::where('media_fk', $media->id)->count();
+                    }
                 }
                 if ($mediaType === 'doujin' && $chapterOneCoverPage !== null) {
                     $media->cover_url = $chapterOneCoverPage;
+                } elseif ($mediaType === 'light_novel' && ($coverNeedsRefresh || !$media->cover_url) && $firstImportedThumbnail !== null) {
+                    $media->cover_url = $firstImportedThumbnail;
                 } elseif (($coverNeedsRefresh || !$media->cover_url) && $firstImportedPage !== null) {
                     $media->cover_url = $firstImportedPage;
                 }
@@ -384,7 +426,7 @@ class ChapterController extends Controller
 
             $message = trim($e->getMessage()) !== ''
                 ? $e->getMessage()
-                : 'Chapter ZIP upload failed.';
+                : "{$unitLabel} {$archiveLabel} upload failed.";
 
             return $this->redirectUploadFailure($message, $request);
         } finally {
@@ -419,7 +461,7 @@ class ChapterController extends Controller
     {
         $mediaType = strtolower((string) $media->type);
 
-        abort_unless(in_array($mediaType, ['manga', 'manhwa', 'doujin'], true), 404);
+        abort_unless(in_array($mediaType, $this->contentUploadMediaTypes(), true), 404);
         abort_unless(optional($request->user()?->role)->role === 'Admin', 403);
 
         $disk = Storage::disk('public');
@@ -460,7 +502,11 @@ class ChapterController extends Controller
             }
 
             if (($media->source ?? null) !== 'anilist') {
-                $media->chapters_cnt = 0;
+                if ($this->usesVolumeUnits($mediaType)) {
+                    $media->volumes_cnt = 0;
+                } else {
+                    $media->chapters_cnt = 0;
+                }
             }
 
             if ($mediaType === 'doujin' && $preservedCoverPath !== null) {
@@ -479,28 +525,42 @@ class ChapterController extends Controller
         return $this->uploadSuccessResponse($request);
     }
 
-    private function buildChapterImports(string $contentRoot, UploadedFile $archive, UploadedArchive $uploadedArchive): array
+    private function buildContentImports(string $extractRoot, UploadedFile $archive, UploadedArchive $uploadedArchive, string $mediaType): array
+    {
+        if ($mediaType === 'light_novel') {
+            return app(EpubVolumeExtractor::class)->buildImportsFromZipRoot($extractRoot);
+        }
+
+        $contentRoot = $this->resolveContentRoot($extractRoot, $uploadedArchive, $mediaType);
+
+        return $this->buildChapterImports($contentRoot, $archive, $uploadedArchive, $mediaType);
+    }
+
+    private function buildChapterImports(string $contentRoot, UploadedFile $archive, UploadedArchive $uploadedArchive, string $mediaType): array
     {
         $chapterDirs = $uploadedArchive->listDirectories($contentRoot);
         $rootImages = $uploadedArchive->listImageFiles($contentRoot);
+        $unitLabel = $this->contentUnitLabel($mediaType);
+        $unitName = strtolower($unitLabel);
 
         if ($chapterDirs !== []) {
             if ($rootImages !== []) {
-                throw new \RuntimeException('ZIP should contain chapter folders or a single chapter of images, not both.');
+                throw new \RuntimeException("ZIP should contain {$unitName} folders or a single {$unitName} of images, not both.");
             }
 
             $imports = [];
             foreach ($chapterDirs as $chapterDir) {
                 $images = $uploadedArchive->listImageFiles($chapterDir, true);
                 if ($images === []) {
-                    throw new \RuntimeException("Chapter folder '".basename($chapterDir)."' has no images.");
+                    throw new \RuntimeException("{$unitLabel} folder '".basename($chapterDir)."' has no images.");
                 }
 
                 $title = basename($chapterDir);
                 $imports[] = [
-                    'title' => $this->displayChapterTitle($title),
-                    'number' => $this->parseChapterNumber($title),
-                    'images' => $images,
+                    'title' => $this->displayContentUnitTitle($title, $mediaType),
+                    'number' => $this->parseContentUnitNumber($title, $mediaType),
+                    'pages' => $images,
+                    'thumbnail' => null,
                 ];
             }
 
@@ -511,9 +571,10 @@ class ChapterController extends Controller
             $title = trim((string) pathinfo($archive->getClientOriginalName(), PATHINFO_FILENAME));
 
             return [[
-                'title' => $this->displayChapterTitle($title),
-                'number' => $this->parseChapterNumber($title),
-                'images' => $rootImages,
+                'title' => $this->displayContentUnitTitle($title, $mediaType),
+                'number' => $this->parseContentUnitNumber($title, $mediaType),
+                'pages' => $rootImages,
+                'thumbnail' => null,
             ]];
         }
 
@@ -535,12 +596,85 @@ class ChapterController extends Controller
         return $candidate;
     }
 
-    private function makeChapterDirectoryName(float $chapterNumber, string $chapterTitle, UploadedArchive $uploadedArchive): string
+    private function storeImportPage(string $sourcePath, string $targetRelDir, int $pageNumber, UploadedArchive $uploadedArchive, $disk): string
     {
-        $numberSegment = str_replace('.', '-', $this->displayChapterNumber($chapterNumber));
-        $titleSegment = $uploadedArchive->sanitizePathSegment($chapterTitle, 'chapter-'.$numberSegment);
+        $basename = basename($sourcePath);
+        $ext = strtolower(pathinfo($basename, PATHINFO_EXTENSION));
+        $sourceName = pathinfo($basename, PATHINFO_FILENAME);
+        $safeName = $uploadedArchive->sanitizePathSegment($sourceName, 'page-'.$pageNumber);
+        $targetFilename = sprintf('%03d-%s.%s', $pageNumber, $safeName, $ext ?: 'dat');
+        $targetRelPath = $targetRelDir.'/'.$targetFilename;
+        $targetAbsPath = $disk->path($targetRelPath);
 
-        return 'chapter-'.$numberSegment.'-'.$titleSegment;
+        if (!@rename($sourcePath, $targetAbsPath)) {
+            if (!@copy($sourcePath, $targetAbsPath)) {
+                throw new \RuntimeException("Could not store uploaded page '{$basename}'.");
+            }
+
+            @unlink($sourcePath);
+        }
+
+        return $targetRelPath;
+    }
+
+    private function storeImportThumbnail(string $sourcePath, string $targetRelDir, $disk): string
+    {
+        $ext = strtolower(pathinfo($sourcePath, PATHINFO_EXTENSION));
+        if ($ext === '') {
+            $mime = File::mimeType($sourcePath) ?: '';
+            $ext = match ($mime) {
+                'image/jpeg' => 'jpg',
+                'image/png' => 'png',
+                'image/gif' => 'gif',
+                'image/webp' => 'webp',
+                'image/svg+xml' => 'svg',
+                default => 'jpg',
+            };
+        }
+
+        $targetRelPath = $targetRelDir.'/cover.'.$ext;
+        $targetAbsPath = $disk->path($targetRelPath);
+
+        if (!@copy($sourcePath, $targetAbsPath)) {
+            throw new \RuntimeException('Could not store EPUB cover image.');
+        }
+
+        return $targetRelPath;
+    }
+
+    private function resolveContentRoot(string $extractRoot, UploadedArchive $uploadedArchive, string $mediaType): string
+    {
+        $current = realpath($extractRoot) ?: $extractRoot;
+
+        for ($depth = 0; $depth < 5; $depth++) {
+            $childDirectories = $uploadedArchive->listDirectories($current);
+            $visibleFiles = $uploadedArchive->listFiles($current);
+
+            if ($visibleFiles !== [] || count($childDirectories) !== 1) {
+                break;
+            }
+
+            if ($this->usesVolumeUnits($mediaType) && $this->looksLikeVolumeDirectoryName(basename($childDirectories[0]))) {
+                break;
+            }
+
+            $current = $childDirectories[0];
+        }
+
+        return $current;
+    }
+
+    private function makeContentUnitDirectoryName(float $chapterNumber, string $chapterTitle, UploadedArchive $uploadedArchive, string $mediaType): string
+    {
+        if ($this->usesVolumeUnits($mediaType)) {
+            return 'Vol.'.$this->displayChapterNumber($chapterNumber);
+        }
+
+        $unitSlug = $this->contentUnitSlug($mediaType);
+        $numberSegment = str_replace('.', '-', $this->displayChapterNumber($chapterNumber));
+        $titleSegment = $uploadedArchive->sanitizePathSegment($chapterTitle, $unitSlug.'-'.$numberSegment);
+
+        return $unitSlug.'-'.$numberSegment.'-'.$titleSegment;
     }
 
     private function redirectUploadFailure(string $message, Request $request, bool $canReplace = false, int $status = 422)
@@ -606,6 +740,112 @@ class ChapterController extends Controller
         File::deleteDirectory($disk->path($relativePath));
     }
 
+    private function contentUploadMediaTypes(): array
+    {
+        return ['manga', 'manhwa', 'doujin', 'light_novel'];
+    }
+
+    private function contentUploadExtension(string $mediaType): string
+    {
+        return 'zip';
+    }
+
+    private function contentUploadMimeType(string $mediaType): string
+    {
+        return 'application/zip';
+    }
+
+    private function contentUploadDisplayName(string $mediaType): string
+    {
+        return strtoupper($this->contentUploadExtension($mediaType));
+    }
+
+    private function contentUploadPrompt(string $mediaType): string
+    {
+        return strtolower($mediaType) === 'light_novel'
+            ? 'Upload a ZIP archive containing EPUB files.'
+            : 'Upload a ZIP archive.';
+    }
+
+    private function emptyContentUploadMessage(string $mediaType, string $unitName): string
+    {
+        return strtolower($mediaType) === 'light_novel'
+            ? 'ZIP must contain EPUB files with readable book content.'
+            : "ZIP must contain {$unitName} folders or {$unitName} images.";
+    }
+
+    private function isImagePath(string $path): bool
+    {
+        return in_array(strtolower(pathinfo($path, PATHINFO_EXTENSION)), ['jpg', 'jpeg', 'png', 'gif', 'webp'], true);
+    }
+
+    private function usesVolumeUnits(string $mediaType): bool
+    {
+        return in_array(strtolower($mediaType), ['manga', 'light_novel'], true);
+    }
+
+    private function contentUnitLabel(string $mediaType): string
+    {
+        return $this->usesVolumeUnits($mediaType) ? 'Volume' : 'Chapter';
+    }
+
+    private function contentUnitSlug(string $mediaType): string
+    {
+        return strtolower($this->contentUnitLabel($mediaType));
+    }
+
+    private function parseContentUnitNumber(string $name, string $mediaType): ?float
+    {
+        return $this->usesVolumeUnits($mediaType)
+            ? $this->parseVolumeNumber($name)
+            : $this->parseChapterNumber($name);
+    }
+
+    private function displayContentUnitTitle(string $name, string $mediaType): string
+    {
+        if ($this->usesVolumeUnits($mediaType)) {
+            if (preg_match('/\b(?:extra|bonus|special)(?:\s+(?:volume|vol\.?))?\b/i', $name)) {
+                return 'Extra Volume';
+            }
+
+            $number = $this->parseVolumeNumber($name);
+            if ($number !== null && $this->looksLikeVolumeDirectoryName($name)) {
+                return 'Vol.'.$this->displayChapterNumber($number);
+            }
+        }
+
+        return $this->displayChapterTitle($name);
+    }
+
+    private function defaultContentUnitTitle(float $number, string $mediaType): string
+    {
+        if ($this->usesVolumeUnits($mediaType)) {
+            return 'Vol.'.$this->displayChapterNumber($number);
+        }
+
+        return $this->contentUnitLabel($mediaType).' '.$this->displayChapterNumber($number);
+    }
+
+    private function parseVolumeNumber(string $name): ?float
+    {
+        $normalized = mb_strtolower($name);
+
+        if (preg_match('/\b(?:volume|vol|v)[\s\._-]*([0-9]+(?:[\._][0-9]+)?)/i', $normalized, $matches)) {
+            return (float) strtr($matches[1], ['_' => '.', ',' => '.']);
+        }
+
+        if (preg_match('/\b([0-9]+(?:[\._][0-9]+)?)\b/', $normalized, $matches)) {
+            return (float) strtr($matches[1], ['_' => '.', ',' => '.']);
+        }
+
+        return null;
+    }
+
+    private function looksLikeVolumeDirectoryName(string $name): bool
+    {
+        return preg_match('/\b(?:volume|vol\.?|v)[\s\._-]*[0-9]+(?:[\._][0-9]+)?/i', $name) === 1;
+    }
+
     private function parseChapterNumber(string $name): ?float
     {
         $normalized = mb_strtolower($name);
@@ -654,12 +894,15 @@ class ChapterController extends Controller
             $byTitle = Chapter::where('item_id', $mediaId)
                 ->where('chapter_title', $chapterParam)
                 ->firstOrFail();
+            $redirectView = strtolower((string) ($byTitle->item_type ?? '')) === 'light_novel'
+                ? 'double'
+                : $view;
 
             return redirect()->route('chapters.page', [
                 'media' => $mediaId,
                 'chapter' => $byTitle->chapter_number,
                 'page' => $pageNumber ?? 1,
-                'view' => $view,
+                'view' => $redirectView,
             ]);
         }
 
@@ -685,6 +928,13 @@ class ChapterController extends Controller
 
         $isManhwa = strtoupper($mediaRow->type ?? '') === 'MANHWA'
             || strtoupper($mediaRow->origin ?? '') === 'KR';
+        $isLightNovel = strtolower((string) ($mediaRow->type ?? '')) === 'light_novel';
+        if ($isLightNovel) {
+            $view = 'double';
+        }
+        $readerUnitLabel = $this->usesVolumeUnits(strtolower((string) ($mediaRow->type ?? '')))
+            ? 'Vol.'
+            : 'Chapter';
 
         if (strtolower($mediaRow->type ?? '') === 'doujin') {
             $itemUrl = route('doujins.show', ['media' => $chapter->media_fk]);
@@ -785,6 +1035,9 @@ class ChapterController extends Controller
             'itemTitle' => $itemTitle,
             'itemUrl' => $itemUrl,
             'isManhwa' => $isManhwa,
+            'isLightNovel' => $isLightNovel,
+            'readerView' => $view,
+            'readerUnitLabel' => $readerUnitLabel,
         ]);
     }
 
@@ -796,7 +1049,7 @@ class ChapterController extends Controller
         abort_unless($chapter, 404);
 
         $mediaType = strtolower((string) ($chapter->item_type ?? ''));
-        abort_unless(in_array($mediaType, ['manga', 'manhwa', 'doujin'], true), 404);
+        abort_unless(in_array($mediaType, $this->contentUploadMediaTypes(), true), 404);
 
         $path = ltrim((string) $page->file_path, '/');
         abort_if($path === '' || str_contains($path, '..'), 404);

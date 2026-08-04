@@ -7,6 +7,7 @@ use App\Models\ChapterPage;
 use App\Models\Media;
 use App\Support\MediaStoragePath;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -16,7 +17,7 @@ class StabilizeChapterStorage extends Command
         {--dry-run : Show the folder and database changes without applying them}
         {--force : Overwrite files if a stable target path already exists}';
 
-    protected $description = 'Move manga/manhwa chapter files to source-based folders and repair chapter page paths.';
+    protected $description = 'Move manga/manhwa/light novel chapter files to source-based folders and repair chapter page paths.';
 
     public function handle(): int
     {
@@ -30,7 +31,7 @@ class StabilizeChapterStorage extends Command
         $conflicts = 0;
 
         Media::query()
-            ->whereIn('type', ['manga', 'manhwa'])
+            ->whereIn('type', ['manga', 'manhwa', 'light_novel'])
             ->whereNotNull('source_id')
             ->orderBy('id')
             ->chunkById(100, function ($mediaItems) use ($disk, $dryRun, $force, &$movedFiles, &$updatedPages, &$updatedCovers, &$conflicts) {
@@ -153,6 +154,29 @@ class StabilizeChapterStorage extends Command
                 $media->cover_url = $newCoverPath;
                 $media->save();
             }
+        }
+
+        if (Schema::hasColumn('chapters', 'thumbnail_path')) {
+            Chapter::whereIn('id', $chapterIds)
+                ->whereNotNull('thumbnail_path')
+                ->orderBy('id')
+                ->chunkById(500, function ($chapters) use ($sourceDirs, $targetDir, $dryRun, &$updatedCovers) {
+                    foreach ($chapters as $chapter) {
+                        $newPath = $this->rewriteByPrefixes((string) $chapter->thumbnail_path, $sourceDirs, $targetDir);
+                        if ($newPath === $chapter->thumbnail_path) {
+                            continue;
+                        }
+
+                        $updatedCovers++;
+                        if ($dryRun) {
+                            $this->line("update chapter {$chapter->id} thumbnail: {$chapter->thumbnail_path} -> {$newPath}");
+                            continue;
+                        }
+
+                        $chapter->thumbnail_path = $newPath;
+                        $chapter->save();
+                    }
+                });
         }
 
         return [$updatedPages, $updatedCovers];

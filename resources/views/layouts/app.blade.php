@@ -92,6 +92,7 @@
                         <a href="{{ route('category', ['category' => 'ANIMES']) }}" class="text-white text-sm px-2 py-1 rounded hover:bg-red-600">Animes</a>
                         <a href="{{ route('category', ['category' => 'MANGAS']) }}" class="text-white text-sm px-2 py-1 rounded hover:bg-red-600">Mangas</a>
                         <a href="{{ route('category', ['category' => 'MANHWAS']) }}" class="text-white text-sm px-2 py-1 rounded hover:bg-red-600">Manhwas</a>
+                        <a href="{{ route('category', ['category' => 'LIGHT-NOVELS']) }}" class="text-white text-sm px-2 py-1 rounded hover:bg-red-600">Light Novels</a>
                         <a href="{{ route('category', ['category' => 'HENTAIS']) }}" class="text-white text-sm px-2 py-1 rounded hover:bg-red-600">Hentais</a>
                         <div class="h-4 w-0.5 bg-gray-300 bg-opacity-25 rounded mx-1"></div>
                         <a href="{{ route('category', ['category' => 'DOUJINS']) }}" class="text-white text-sm px-2 py-1 rounded hover:bg-red-600">Doujins</a>

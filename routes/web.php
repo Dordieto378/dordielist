@@ -87,7 +87,7 @@ Route::prefix('vndb')->middleware('auth')->group(function () {
 Route::get('/category/{category}/{listFilter?}/{mediaStatus?}/{titleOrder?}/{scoreOrder?}/{dateOrder?}',
     [CategoryController::class, 'show'])
     ->middleware('auth')
-    ->where('category', '(?i)(ANIMES|MANGAS|MANHWAS|HENTAIS|DOUJINS|VISUAL-NOVEL)')
+    ->where('category', '(?i)(ANIMES|MANGAS|MANHWAS|LIGHT-NOVELS|HENTAIS|DOUJINS|VISUAL-NOVEL)')
     ->name('category');
 
 // Doujin pages

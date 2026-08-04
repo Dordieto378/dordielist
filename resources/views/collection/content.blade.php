@@ -59,6 +59,7 @@
                         'animes'       => 'Anime',
                         'mangas'       => 'Manga',
                         'manhwas'      => 'Manhwa',
+                        'light-novels' => 'Light Novel',
                         'hentais'      => 'Hentai',
                     ];
                     $typeLabel = $typeMap[$ci->item_type] ?? ucfirst($ci->item_type);

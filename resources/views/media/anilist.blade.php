@@ -24,8 +24,19 @@
     $type = strtoupper($item['type'] ?? '');
 
     $isEpisodeBased = in_array($type, ['ANIME', 'HENTAI']);
-    $isChapterBased = in_array($type, ['MANGA', 'MANHWA']);
+    $isChapterBased = in_array($type, ['MANGA', 'MANHWA', 'LIGHT_NOVEL']);
+    $isLightNovel = $type === 'LIGHT_NOVEL';
+    $isVolumeBased = in_array($type, ['MANGA', 'LIGHT_NOVEL'], true);
+    $isManga = $type === 'MANGA';
     $isAniListSource = ($item['source'] ?? null) === 'anilist';
+    $contentUnitPlural = $isVolumeBased ? 'Volumes' : 'Chapters';
+    $contentArchiveLabel = 'ZIP';
+    $contentArchiveExtension = '.zip';
+    $contentArchivePrompt = $isLightNovel ? 'Upload a ZIP archive containing EPUB files.' : 'Upload a ZIP archive.';
+    $contentArchiveInputLabel = 'ZIP File';
+    $contentArchivePlaceholder = 'No ZIP selected';
+    $contentArchiveSelectLabel = 'Select ZIP';
+    $contentArchiveSubmitLabel = 'Upload ZIP';
 
     $mediaArchive = $isEpisodeBased
         ? MediaArchive::where('media_id', $item['id'])->first()
@@ -72,6 +83,7 @@
         'HENTAI' => 'hentais',
         'MANGA'  => 'mangas',
         'MANHWA' => 'manhwas',
+        'LIGHT_NOVEL' => 'light-novels',
         default  => 'animes',
     };
 
@@ -131,12 +143,12 @@
     $contentResetRoute = $isEpisodeBased
         ? route('media-archives.destroy', ['media' => $item['id']])
         : route('chapters.reset', ['media' => $item['id']]);
-    $contentUploadLabel = $isEpisodeBased ? 'Upload' : 'Upload Chapter(s)';
-    $contentUploadTitle = $isEpisodeBased ? 'Store Video ZIP' : 'Upload Chapters';
-    $contentResetLabel = $isEpisodeBased ? 'Delete Stored ZIP' : 'Reset Chapters';
+    $contentUploadLabel = $isEpisodeBased ? 'Upload' : ($isVolumeBased ? 'Upload Volume(s)' : 'Upload Chapter(s)');
+    $contentUploadTitle = $isEpisodeBased ? 'Store Video ZIP' : ($isLightNovel ? 'Upload EPUB Volumes' : 'Upload '.$contentUnitPlural);
+    $contentResetLabel = $isEpisodeBased ? 'Delete Stored ZIP' : 'Reset '.$contentUnitPlural;
     $contentResetConfirm = $isEpisodeBased
         ? 'Permanently delete the stored ZIP for this title?'
-        : 'Remove all uploaded chapters for this title?';
+        : 'Remove all uploaded '.strtolower($contentUnitPlural).' for this title?';
     $hasStoredContent = $isEpisodeBased ? $mediaArchive !== null : $firstChapter !== null;
     $archiveSizeLabel = null;
     if ($mediaArchive) {
@@ -197,11 +209,14 @@
                             <span class="ml-3">Download ZIP</span>
                         </a>
                     @elseif ($isChapterBased && $firstChapter)
+                        @php
+                            $defaultReaderView = $isLightNovel ? 'double' : 'one';
+                        @endphp
                         <a href="{{ route('chapters.page', [
                                 'media' => $item['id'],
                                 'chapter' => $firstChapter->chapter_number ?? 1,
                                 'page' => 1,
-                                'view' => 'one',
+                                'view' => $defaultReaderView,
                             ]) }}"
                            class="flex items-center justify-start w-full flatGreen text-white
                py-2 rounded-sm shadow-sm h-[50px] transition-200">
@@ -412,6 +427,23 @@
                                 @endforeach
                             @endif
                         </div>
+                    @elseif(strtoupper($item['type'] ?? '') === 'LIGHT_NOVEL')
+                        <div>Author</div>
+                        @php
+                            $authors = collect($item['authors'] ?? [])->filter()->unique()->values();
+                        @endphp
+                        <div>
+                            @if($authors->isEmpty())
+                                N/A
+                            @else
+                                @foreach($authors as $name)
+                                    <a href="{{ category_filter_url('light-novels', 'author', $name) }}"
+                                       class="text-blue-600 hover:underline cursor-pointer">
+                                        {{ $name }}
+                                    </a>@if(!$loop->last), @endif
+                                @endforeach
+                            @endif
+                        </div>
                     @elseif(strtoupper($item['type'] ?? '') === 'HENTAI')
                         <div>Studios</div>
                         @php
@@ -514,7 +546,7 @@
 </div>
 
 @php
-    // === CHAPTERS pagination (70 per page, query param: ch_page) ===
+    // === Uploaded content pagination (48 per page, query param: ch_page) ===
     $chPerPage = 48;
     $chPage    = max(1, (int) request('ch_page', 1));
 
@@ -535,6 +567,7 @@
             <div id="chaptersGrid" class="w-[1278px] ml-[13px] grid grid-cols-4 gap-4 transition-opacity duration-500 ease-in-out">
                 @php
                     $allowedExts = ['jpg','jpeg','png','gif','webp'];
+                    $thumbnailExts = ['jpg','jpeg','png','gif','webp','svg'];
                     $isMangaType = strtoupper($item['type'] ?? '') === 'MANGA';
                 @endphp
 
@@ -556,9 +589,10 @@
                         @foreach($cells as $chapter)
                             @php
                                 $firstPage = $chapter->pages->first();
-                                $ext       = strtolower(pathinfo($firstPage->file_path ?? '', PATHINFO_EXTENSION));
-                                $isImage   = $firstPage && in_array($ext, $allowedExts, true);
-                                $thumb     = $isImage ? Storage::url($firstPage->file_path) : asset('images/no-thumb.jpg');
+                                $thumbPath = $chapter->thumbnail_path ?: ($firstPage->file_path ?? null);
+                                $ext       = strtolower(pathinfo($thumbPath ?? '', PATHINFO_EXTENSION));
+                                $isImage   = $thumbPath && in_array($ext, $thumbnailExts, true);
+                                $thumb     = $isImage ? Storage::url($thumbPath) : asset('images/no-image.jpg');
                                 $chapterBadge = ($chapter->chapter_number !== null && $chapter->chapter_number !== '')
                                     ? rtrim(rtrim((string) $chapter->chapter_number, '0'), '.')
                                     : ((preg_match('/\d+(?:\.\d+)?/', (string) $chapter->chapter_title, $m) === 1) ? $m[0] : '?');
@@ -566,9 +600,13 @@
                                 $chapterParam = $chapter->chapter_number !== null && $chapter->chapter_number !== ''
                                     ? (string) $chapter->chapter_number
                                     : rawurlencode((string) $chapter->chapter_title);
+                                $chapterRouteParams = ['media' => $chapter->item_id, 'chapter' => $chapterParam, 'page' => 1];
+                                if ($isLightNovel) {
+                                    $chapterRouteParams['view'] = 'double';
+                                }
                             @endphp
 
-                        <div onclick="window.location.href='{{ route('chapters.page', ['media' => $chapter->item_id, 'chapter' => $chapterParam, 'page' => 1]) }}'"
+                        <div onclick="window.location.href='{{ route('chapters.page', $chapterRouteParams) }}'"
                              class="cursor-pointer">
                             <div class="chapter-thumb-frame shadow-lg">
                                 <img
@@ -589,14 +627,14 @@
             </div>
         </div>
 
-        {{-- CHAPTERS pagination bar --}}
+        {{-- Uploaded content pagination bar --}}
         @php
             $chCurrent = $chaptersPaginator->currentPage();
             $chLast    = $chaptersPaginator->lastPage();
             $chUrl     = fn($p) => request()->fullUrlWithQuery(['ch_page' => $p]);
         @endphp
         <div class="flex items-center justify-center space-x-2 mt-6 mb-6 {{ $chLast > 1 ? '' : 'hidden' }}">
-            <span class="text-gray-600 text-lg font-medium">Chapters</span>
+            <span class="text-gray-600 text-lg font-medium">{{ $contentUnitPlural }}</span>
 
             @if($chCurrent > 1)
                 <a href="{{ $chUrl(1) }}"            class="pagination-arrow mb-1">&laquo;</a>
@@ -762,12 +800,12 @@
         </div>
 
         <div>
-          <span class="block mb-2 text-red-600 font-medium">ZIP File</span>
+          <span class="block mb-2 text-red-600 font-medium">{{ $contentArchiveInputLabel }}</span>
           <input
             id="mediaContentArchiveInput"
             type="file"
             name="archive"
-            accept=".zip"
+            accept="{{ $contentArchiveExtension }}"
             class="sr-only"
           />
           <label
@@ -777,12 +815,12 @@
             <span
               id="mediaContentArchiveName"
               class="min-w-0 flex-1 truncate text-gray-500"
-              data-placeholder="No ZIP selected"
+              data-placeholder="{{ $contentArchivePlaceholder }}"
             >
-              No ZIP selected
+              {{ $contentArchivePlaceholder }}
             </span>
             <span class="flatGreen shrink-0 rounded-[0.19rem] px-3 py-2 text-sm font-medium text-white">
-              Select ZIP
+              {{ $contentArchiveSelectLabel }}
             </span>
           </label>
         </div>
@@ -806,8 +844,8 @@
         <button id="cancelMediaContentUploadModal" type="button" class="px-5 py-3 rounded border border-gray-200 text-gray-700 font-medium hover:bg-gray-100 transition-colors">
           Cancel
         </button>
-        <button id="submitMediaContentUploadBtn" form="mediaContentUploadForm" type="submit" class="flatGreen transition-200 text-white px-5 py-3 rounded" data-default-label="Upload ZIP" data-replace-label="Replace Existing">
-          Upload ZIP
+        <button id="submitMediaContentUploadBtn" form="mediaContentUploadForm" type="submit" class="flatGreen transition-200 text-white px-5 py-3 rounded" data-default-label="{{ $contentArchiveSubmitLabel }}" data-replace-label="Replace Existing">
+          {{ $contentArchiveSubmitLabel }}
         </button>
       </div>
     </div>
@@ -1011,6 +1049,9 @@ const mediaContentReplaceExisting = document.getElementById('mediaContentReplace
 const submitMediaContentUploadBtn = document.getElementById('submitMediaContentUploadBtn');
 const mediaContentUploadChunkRoute = @json($contentUploadChunkRoute);
 const mediaContentUploadCompleteRoute = @json($contentUploadCompleteRoute);
+const mediaContentArchivePrompt = @json($contentArchivePrompt);
+const mediaContentArchiveLabel = @json($contentArchiveLabel);
+const mediaContentArchiveSubmitLabel = @json($contentArchiveSubmitLabel);
 const mediaContentChunkSizeBytes = 8 * 1024 * 1024;
 let currentMediaContentUploadSession = null;
 
@@ -1057,7 +1098,7 @@ function setMediaContentReplaceMode(canReplace) {
 
   submitMediaContentUploadBtn.textContent = canReplace
     ? (submitMediaContentUploadBtn.dataset.replaceLabel || 'Replace Existing')
-    : (submitMediaContentUploadBtn.dataset.defaultLabel || 'Upload ZIP');
+    : (submitMediaContentUploadBtn.dataset.defaultLabel || mediaContentArchiveSubmitLabel);
 
   submitMediaContentUploadBtn.classList.toggle('flatGreen', !canReplace);
   submitMediaContentUploadBtn.classList.toggle('bg-red-600', canReplace);
@@ -1120,7 +1161,7 @@ async function parseMediaContentUploadResponse(response) {
   return payload;
 }
 
-async function uploadMediaContentChunks(file, session, token) {
+async function uploadMediaContentChunks(file, session, token, batchLabel = '') {
   for (let chunkIndex = 0; chunkIndex < session.totalChunks; chunkIndex++) {
     const start = chunkIndex * mediaContentChunkSizeBytes;
     const end = Math.min(file.size, start + mediaContentChunkSizeBytes);
@@ -1144,7 +1185,7 @@ async function uploadMediaContentChunks(file, session, token) {
     await parseMediaContentUploadResponse(res);
 
     const percent = Math.max(1, Math.min(99, Math.round(((chunkIndex + 1) / session.totalChunks) * 100)));
-    setMediaContentUploadBusy(true, `Uploading ${percent}%`);
+    setMediaContentUploadBusy(true, `Uploading ${batchLabel}${percent}%`);
   }
 }
 
@@ -1171,12 +1212,23 @@ async function completeMediaContentUpload(session, file, token) {
 function updateMediaContentArchiveName() {
   if (!mediaContentArchiveInput || !mediaContentArchiveName) return;
 
-  const selectedFile = mediaContentArchiveInput.files?.[0];
-  const placeholder = mediaContentArchiveName.dataset.placeholder ?? 'No ZIP selected';
+  const selectedFiles = Array.from(mediaContentArchiveInput.files || []);
+  const placeholder = mediaContentArchiveName.dataset.placeholder ?? @json($contentArchivePlaceholder);
 
-  mediaContentArchiveName.textContent = selectedFile ? selectedFile.name : placeholder;
-  mediaContentArchiveName.classList.toggle('text-gray-500', !selectedFile);
-  mediaContentArchiveName.classList.toggle('text-gray-800', Boolean(selectedFile));
+  if (selectedFiles.length === 0) {
+    mediaContentArchiveName.textContent = placeholder;
+  } else if (selectedFiles.length === 1) {
+    mediaContentArchiveName.textContent = selectedFiles[0].name;
+  } else {
+    mediaContentArchiveName.textContent = `${selectedFiles.length} ${mediaContentArchiveLabel} files selected`;
+  }
+
+  mediaContentArchiveName.classList.toggle('text-gray-500', selectedFiles.length === 0);
+  mediaContentArchiveName.classList.toggle('text-gray-800', selectedFiles.length > 0);
+}
+
+function selectedMediaContentFiles() {
+  return Array.from(mediaContentArchiveInput?.files || []);
 }
 
 // open/close Add→Collection
@@ -1233,37 +1285,56 @@ if (mediaContentUploadForm) {
     e.preventDefault();
 
     if (!mediaContentArchiveInput?.files?.length) {
-      setMediaContentUploadError('Upload a ZIP archive.');
+      setMediaContentUploadError(mediaContentArchivePrompt);
       showUpload();
       return;
     }
 
     const token = document.querySelector('meta[name="csrf-token"]')?.content;
-    const selectedFile = mediaContentArchiveInput.files[0];
-    const fileKey = mediaContentFileKey(selectedFile);
-    const canReuseUpload = currentMediaContentUploadSession
-      && currentMediaContentUploadSession.fileKey === fileKey;
-    setMediaContentUploadBusy(true, submitMediaContentUploadBtn?.dataset.defaultLabel || 'Upload ZIP');
+    const selectedFiles = selectedMediaContentFiles();
+    let startIndex = 0;
+    if (currentMediaContentUploadSession?.fileKey) {
+      const reusableIndex = selectedFiles.findIndex((file) => mediaContentFileKey(file) === currentMediaContentUploadSession.fileKey);
+      startIndex = reusableIndex >= 0 ? reusableIndex : 0;
+    }
+    setMediaContentUploadBusy(true, submitMediaContentUploadBtn?.dataset.defaultLabel || mediaContentArchiveSubmitLabel);
 
     try {
-      if (!canReuseUpload) {
-        currentMediaContentUploadSession = {
-          uploadId: createMediaContentUploadId(),
-          totalChunks: Math.max(1, Math.ceil(selectedFile.size / mediaContentChunkSizeBytes)),
-          fileKey,
-        };
-        await uploadMediaContentChunks(selectedFile, currentMediaContentUploadSession, token);
+      for (let fileIndex = startIndex; fileIndex < selectedFiles.length; fileIndex++) {
+        const selectedFile = selectedFiles[fileIndex];
+        const fileKey = mediaContentFileKey(selectedFile);
+        const batchLabel = selectedFiles.length > 1 ? `${fileIndex + 1}/${selectedFiles.length} ` : '';
+        const canReuseUpload = currentMediaContentUploadSession
+          && currentMediaContentUploadSession.fileKey === fileKey;
+
+        try {
+          if (!canReuseUpload) {
+            currentMediaContentUploadSession = {
+              uploadId: createMediaContentUploadId(),
+              totalChunks: Math.max(1, Math.ceil(selectedFile.size / mediaContentChunkSizeBytes)),
+              fileKey,
+            };
+            await uploadMediaContentChunks(selectedFile, currentMediaContentUploadSession, token, batchLabel);
+          }
+
+          setMediaContentUploadBusy(true, `Processing ${batchLabel}${selectedFile.name}`);
+          await completeMediaContentUpload(currentMediaContentUploadSession, selectedFile, token);
+          currentMediaContentUploadSession = null;
+          setMediaContentReplaceMode(false);
+        } catch (err) {
+          err.fileName = selectedFile.name;
+          throw err;
+        }
       }
 
-      await completeMediaContentUpload(currentMediaContentUploadSession, selectedFile, token);
-      currentMediaContentUploadSession = null;
       window.location.reload();
       return;
     } catch (err) {
       const canReplace = Boolean(err?.canReplace);
+      const filePrefix = err?.fileName ? `${err.fileName}: ` : '';
       const message = canReplace
-        ? `${err?.message || 'Stored content already exists.'} Click Replace Existing to overwrite it, or Cancel to keep the current one.`
-        : (err?.message || 'Upload failed.');
+        ? `${filePrefix}${err?.message || 'Stored content already exists.'} Click Replace Existing to overwrite it, or Cancel to keep the current one.`
+        : `${filePrefix}${err?.message || 'Upload failed.'}`;
 
       if (!canReplace) {
         currentMediaContentUploadSession = null;

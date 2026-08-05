@@ -13,7 +13,7 @@ class DordieWatchController extends Controller
 {
     public function show(Media $media): JsonResponse
     {
-        abort_unless(in_array(strtolower((string) $media->type), ['anime', 'hentai'], true), 404);
+        abort_unless(in_array($this->dordieWatchMediaType($media), ['anime', 'hentai'], true), 404);
 
         return response()->json([
             ...$this->mediaPayload($media),
@@ -41,7 +41,7 @@ class DordieWatchController extends Controller
             ])
             ->get()
             ->filter(fn (Media $media): bool => in_array(
-                strtolower((string) $media->type),
+                $this->dordieWatchMediaType($media),
                 ['anime', 'hentai'],
                 true
             ))
@@ -98,13 +98,14 @@ class DordieWatchController extends Controller
             'romaji' => $this->cleanString($media->title_romaji),
             'native' => $this->cleanString($media->title_native),
         ];
+        $genres = $media->metadataNamesFrom('anilistGenres');
 
         return [
             'version' => 1,
             'id' => $media->id,
             'source' => $media->source,
             'source_id' => $media->source_id,
-            'type' => strtolower((string) $media->type),
+            'type' => $this->dordieWatchMediaType($media, $genres),
             'title' => $titles,
             'display_title' => collect($titles)->first(fn (?string $title) => filled($title)) ?? 'Untitled',
             'cover_url' => $this->absoluteMediaUrl($media->cover_url),
@@ -112,10 +113,31 @@ class DordieWatchController extends Controller
             'description' => $this->plainDescription($media->description),
             'episodes' => $media->episodes_cnt ? (int) $media->episodes_cnt : null,
             'year' => $media->year ? (int) $media->year : null,
-            'genres' => $media->metadataNamesFrom('anilistGenres'),
+            'genres' => $genres,
             'studios' => $media->metadataNamesFrom('anilistStudios'),
             'website_url' => route('media.show', ['id' => $media->id]),
         ];
+    }
+
+    private function dordieWatchMediaType(Media $media, ?array $genres = null): string
+    {
+        $type = strtolower((string) $media->type);
+        $genres ??= $media->metadataNamesFrom('anilistGenres');
+
+        if ($type === 'hentai') {
+            return 'hentai';
+        }
+
+        $normalizedGenres = array_map(
+            fn (string $genre): string => strtolower($genre),
+            $genres
+        );
+
+        if ($type === 'anime' && in_array('hentai', $normalizedGenres, true)) {
+            return 'hentai';
+        }
+
+        return $type;
     }
 
     private function cleanString(mixed $value): ?string

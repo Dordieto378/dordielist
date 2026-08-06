@@ -8,6 +8,7 @@ use App\Models\CollectionItem;
 use App\Models\Favorite;
 use Illuminate\Support\Facades\Storage;
 use App\Models\Media;
+use Illuminate\Support\Collection as SupportCollection;
 use Illuminate\Support\Str;
 
 
@@ -169,10 +170,121 @@ class CollectionController extends Controller
             $items = $collection->items()->orderBy('id', 'asc')->get();
         }
 
+        $items = $this->hydrateCollectionItemCards($items);
+
         return view('collection.content', [
             'collection' => $collection,
             'items'      => $items,
         ]);
+    }
+
+    private function hydrateCollectionItemCards(SupportCollection $items): SupportCollection
+    {
+        $itemIds = [];
+
+        foreach ($items as $item) {
+            $isKnownType = $this->isMediaCollectionItem((string) ($item->item_type ?? ''));
+            $itemId = $this->normalizeCollectionItemId($item->item_id ?? null);
+
+            if (! $isKnownType || $itemId === null) {
+                continue;
+            }
+
+            $itemIds[] = $itemId;
+        }
+
+        if ($itemIds === []) {
+            return $items;
+        }
+
+        $mediaById = Media::query()
+            ->whereIn('id', array_values(array_unique($itemIds)))
+            ->get()
+            ->keyBy('id');
+
+        return $items->map(function ($item) use ($mediaById) {
+            $isKnownType = $this->isMediaCollectionItem((string) ($item->item_type ?? ''));
+            $itemId = $this->normalizeCollectionItemId($item->item_id ?? null);
+
+            if (! $isKnownType || $itemId === null) {
+                return $item;
+            }
+
+            $media = $mediaById->get($itemId);
+
+            if (! $media) {
+                return $item;
+            }
+
+            $title = $this->titleForCollectionMedia($media);
+            if ($title !== null) {
+                $item->title = $title;
+            }
+
+            $thumbnailUrl = $this->thumbnailForCollectionMedia($media);
+            if ($thumbnailUrl !== null) {
+                $item->thumbnail_url = $thumbnailUrl;
+            }
+
+            return $item;
+        });
+    }
+
+    private function isMediaCollectionItem(string $itemType): bool
+    {
+        return in_array($itemType, [
+            'animes',
+            'anime',
+            'mangas',
+            'manga',
+            'manhwas',
+            'manhwa',
+            'light-novels',
+            'light_novel',
+            'hentais',
+            'hentai',
+            'doujins',
+            'doujin',
+            'visual-novel',
+            'vn',
+        ], true);
+    }
+
+    private function normalizeCollectionItemId(mixed $itemId): ?int
+    {
+        $id = (int) ltrim((string) $itemId, 'vV');
+
+        return $id > 0 ? $id : null;
+    }
+
+    private function titleForCollectionMedia(Media $media): ?string
+    {
+        foreach ([$media->title_english, $media->title_romaji, $media->title_native, $media->slug] as $title) {
+            $title = trim((string) $title);
+
+            if ($title !== '') {
+                return $title;
+            }
+        }
+
+        return null;
+    }
+
+    private function thumbnailForCollectionMedia(Media $media): ?string
+    {
+        $cover = trim((string) ($media->cover_url ?? ''));
+
+        if ($cover === '') {
+            return null;
+        }
+
+        if (Str::startsWith($cover, ['http://', 'https://', '/'])) {
+            return $cover;
+        }
+
+        return $media->type === 'doujin'
+            ? Storage::url($cover)
+            : asset($cover);
     }
 
 

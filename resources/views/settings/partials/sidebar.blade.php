@@ -26,6 +26,13 @@
           API
         </a>
       </li>
+      <li>
+        <a href="{{ route('settings.doujin-authors') }}"
+           class="block pl-4 pr-4 py-3 rounded-md
+                  {{ request()->routeIs('settings.doujin-authors*') ? 'bg-red-600 text-white' : 'text-gray-700' }}">
+          Doujin Artists
+        </a>
+      </li>
     @endunless
     <li>
       <a href="{{ route('settings.security') }}"

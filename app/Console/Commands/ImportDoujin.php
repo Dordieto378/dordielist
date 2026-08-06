@@ -274,7 +274,7 @@ class ImportDoujin extends Command
             return 'Extra Chapter';
         }
 
-        if (preg_match('/\b(?:chapter|ch|c)?[\s\-_]*([0-9]+(?:[\._][0-9]+)?)\s*&\s*([0-9]+(?:[\._][0-9]+)?)\b/i', $name, $matches)) {
+        if (preg_match('/\b(?:chapter|ch|c)?[\s\-_]*([0-9]+(?:[\._][0-9]+)?)\s*(?:&|and)\s*(?:chapter|ch|c)?[\s\-_]*([0-9]+(?:[\._][0-9]+)?)\b/i', $name, $matches)) {
             return $this->displayChapterNumber((float) strtr($matches[1], ['_' => '.', ',' => '.']))
                 .' & '
                 .$this->displayChapterNumber((float) strtr($matches[2], ['_' => '.', ',' => '.']));

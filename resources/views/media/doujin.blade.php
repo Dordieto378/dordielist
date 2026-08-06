@@ -276,13 +276,17 @@
                                     $isImage   = $firstPage && in_array($ext, $allowedExts, true);
                                     $thumb     = $isImage ? Storage::url($firstPage->file_path) : asset('images/no-thumb.jpg');
                                     $chapterTitleText = trim((string) $chapter->chapter_title);
-                                    $usesTitleBadge = preg_match('/^\d+(?:\.\d+)?\s*&\s*\d+(?:\.\d+)?$/', $chapterTitleText) === 1
-                                        || strcasecmp($chapterTitleText, 'Extra Chapter') === 0;
-                                    $chapterBadge = $usesTitleBadge
-                                        ? $chapterTitleText
-                                        : (($chapter->chapter_number !== null && $chapter->chapter_number !== '')
-                                            ? rtrim(rtrim((string) $chapter->chapter_number, '0'), '.')
-                                            : ((preg_match('/\d+(?:\.\d+)?/', $chapterTitleText, $m) === 1) ? $m[0] : '?'));
+                                    $formatChapterBadgeNumber = fn ($number) => rtrim(rtrim(number_format((float) strtr((string) $number, ['_' => '.', ',' => '.']), 2, '.', ''), '0'), '.');
+                                    $chapterPairBadge = null;
+                                    if (preg_match('/\b(?:chapter|ch|c)?[\s\-_]*([0-9]+(?:[\._][0-9]+)?)\s*(?:&|and)\s*(?:chapter|ch|c)?[\s\-_]*([0-9]+(?:[\._][0-9]+)?)\b/i', $chapterTitleText, $pairMatches) === 1) {
+                                        $chapterPairBadge = $formatChapterBadgeNumber($pairMatches[1]).' & '.$formatChapterBadgeNumber($pairMatches[2]);
+                                    }
+                                    $chapterBadge = $chapterPairBadge
+                                        ?: (strcasecmp($chapterTitleText, 'Extra Chapter') === 0
+                                            ? 'Extra Chapter'
+                                            : (($chapter->chapter_number !== null && $chapter->chapter_number !== '')
+                                                ? rtrim(rtrim((string) $chapter->chapter_number, '0'), '.')
+                                                : ((preg_match('/\d+(?:\.\d+)?/', $chapterTitleText, $m) === 1) ? $m[0] : '?')));
 
                                     // Prefer numeric chapter param; fall back to title if needed
                                     $chapterParam = $chapter->chapter_number !== null && $chapter->chapter_number !== ''

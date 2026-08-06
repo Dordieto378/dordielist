@@ -2,12 +2,16 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\DoujinAuthor;
+use App\Models\Media;
+use App\Models\Role;
+use App\Models\User;
+use App\Support\DoujinAuthorLinks;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Validator;
-use App\Models\User;
-use App\Models\Role;
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class SettingsController extends Controller
 {
@@ -166,6 +170,234 @@ class SettingsController extends Controller
 
         return redirect()
             ->route('settings.users');
+    }
+
+    public function doujinAuthors()
+    {
+        $this->abortIfViewer();
+
+        $authors = DoujinAuthor::query()
+            ->with([
+                'media' => fn ($query) => $query
+                    ->where('type', 'doujin')
+                    ->select('media.id', 'media.type', 'media.title_english', 'media.title_romaji', 'media.title_native', 'media.slug', 'media.cover_url')
+                    ->with('doujinAuthors:id,name')
+                    ->orderBy('title_english')
+                    ->orderBy('slug')
+                    ->orderBy('id'),
+            ])
+            ->withCount([
+                'media as doujin_count' => fn ($query) => $query->where('type', 'doujin'),
+            ])
+            ->orderBy('name')
+            ->get();
+
+        $socialPlatforms = DoujinAuthorLinks::PLATFORMS;
+        $authorForms = $authors
+            ->mapWithKeys(function (DoujinAuthor $author) use ($socialPlatforms) {
+                $links = [];
+
+                foreach ($socialPlatforms as $column => $meta) {
+                    $links[$column] = (string) ($author->{$column} ?? '');
+                }
+
+                return [
+                    (string) $author->id => [
+                        'name' => $author->name,
+                        'update_url' => route('settings.doujin-authors.update', ['author' => $author->id]),
+                        'links' => $links,
+                    ],
+                ];
+            })
+            ->all();
+
+        return view('settings.doujin-authors', compact('authors', 'socialPlatforms', 'authorForms'));
+    }
+
+    public function updateDoujinAuthor(Request $request, DoujinAuthor $author)
+    {
+        $this->abortIfViewer();
+
+        $rules = [
+            'name' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('doujin_authors', 'name')->ignore($author->id),
+            ],
+        ];
+
+        foreach (array_keys(DoujinAuthorLinks::PLATFORMS) as $column) {
+            $rules[$column] = ['nullable', 'string', 'max:12000'];
+        }
+
+        $validator = Validator::make($request->all(), $rules);
+
+        if ($validator->fails()) {
+            return redirect()
+                ->route('settings.doujin-authors')
+                ->withInput()
+                ->with('open_edit_author_id', $author->id)
+                ->with('status', $validator->errors()->first())
+                ->with('status_color', 'red');
+        }
+
+        $data = $validator->validated();
+        $name = trim((string) $data['name']);
+
+        if ($name === '') {
+            return redirect()
+                ->route('settings.doujin-authors')
+                ->withInput()
+                ->with('open_edit_author_id', $author->id)
+                ->with('status', 'Add an artist name.')
+                ->with('status_color', 'red');
+        }
+
+        $updates = [
+            'name' => $name,
+            'slug' => $this->makeUniqueDoujinAuthorSlug($author, $name),
+        ];
+
+        foreach (array_keys(DoujinAuthorLinks::PLATFORMS) as $column) {
+            $updates[$column] = DoujinAuthorLinks::store($data[$column] ?? null);
+        }
+
+        $author->forceFill($updates)->save();
+
+        return redirect()
+            ->route('settings.doujin-authors')
+            ->with('status', 'Artist saved.')
+            ->with('status_color', 'green');
+    }
+
+    public function attachDoujinAuthor(Request $request, DoujinAuthor $author, Media $media)
+    {
+        $this->abortIfViewer();
+        abort_unless($media->type === 'doujin', 404);
+        abort_unless($media->doujinAuthors()->whereKey($author->id)->exists(), 404);
+
+        $validator = Validator::make($request->all(), [
+            'target_author_id' => ['nullable', 'integer', 'exists:doujin_authors,id'],
+            'new_author' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        if ($validator->fails()) {
+            return $this->redirectDoujinAuthorError($validator->errors()->first());
+        }
+
+        $data = $validator->validated();
+        $newAuthorName = trim((string) ($data['new_author'] ?? ''));
+        $targetAuthorId = $data['target_author_id'] ?? null;
+
+        if ($newAuthorName === '' && !$targetAuthorId) {
+            return $this->redirectDoujinAuthorError('Choose an artist to move the doujin to.');
+        }
+
+        if ($newAuthorName !== '') {
+            $targetAuthor = DoujinAuthor::firstOrCreate(['name' => $newAuthorName]);
+
+            if (!$targetAuthor->slug) {
+                $targetAuthor->slug = $this->makeUniqueDoujinAuthorSlug($targetAuthor, $newAuthorName);
+                $targetAuthor->save();
+            }
+        } else {
+            $targetAuthor = DoujinAuthor::findOrFail((int) $targetAuthorId);
+        }
+
+        if ((int) $targetAuthor->id === (int) $author->id) {
+            return $this->redirectDoujinAuthorError('That artist is already attached to this doujin.');
+        }
+
+        if ($media->doujinAuthors()->whereKey($targetAuthor->id)->exists()) {
+            return $this->redirectDoujinAuthorError('That artist is already attached to this doujin.');
+        }
+
+        $media->doujinAuthors()->syncWithoutDetaching([$targetAuthor->id]);
+
+        return redirect()
+            ->route('settings.doujin-authors')
+            ->with('status', $targetAuthor->name.' added to the doujin.')
+            ->with('status_color', 'green');
+    }
+
+    public function detachDoujinAuthor(DoujinAuthor $author, Media $media)
+    {
+        $this->abortIfViewer();
+        abort_unless($media->type === 'doujin', 404);
+        abort_unless($media->doujinAuthors()->whereKey($author->id)->exists(), 404);
+
+        if ($media->doujinAuthors()->count() <= 1) {
+            return $this->redirectDoujinAuthorError('Add another artist before removing the only artist.');
+        }
+
+        $media->doujinAuthors()->detach($author->id);
+
+        return redirect()
+            ->route('settings.doujin-authors')
+            ->with('status', $author->name.' removed from the doujin.')
+            ->with('status_color', 'green');
+    }
+
+    public function destroyDoujinAuthor(Request $request, DoujinAuthor $author)
+    {
+        $this->abortIfViewer();
+
+        $validator = Validator::make($request->all(), [
+            'confirm_author_id' => ['required', Rule::in([(string) $author->id])],
+        ]);
+
+        if ($validator->fails()) {
+            return $this->redirectDoujinAuthorError('Could not confirm the artist delete.');
+        }
+
+        $doujinCount = $author->media()
+            ->where('type', 'doujin')
+            ->count();
+
+        if ($doujinCount > 0) {
+            return $this->redirectDoujinAuthorError('Remove this artist from all doujins before deleting the artist record.');
+        }
+
+        $name = $author->name;
+        $author->delete();
+
+        return redirect()
+            ->route('settings.doujin-authors')
+            ->with('status', $name.' deleted.')
+            ->with('status_color', 'green');
+    }
+
+    private function redirectDoujinAuthorError(string $message)
+    {
+        return redirect()
+            ->route('settings.doujin-authors')
+            ->withInput()
+            ->with('status', $message)
+            ->with('status_color', 'red');
+    }
+
+    private function makeUniqueDoujinAuthorSlug(DoujinAuthor $author, string $name): ?string
+    {
+        $base = Str::slug($name);
+
+        if ($base === '') {
+            return null;
+        }
+
+        $slug = $base;
+        $index = 2;
+
+        while (
+            DoujinAuthor::query()
+                ->where('slug', $slug)
+                ->when($author->exists, fn ($query) => $query->whereKeyNot($author->getKey()))
+                ->exists()
+        ) {
+            $slug = $base.'-'.$index++;
+        }
+
+        return $slug;
     }
 
 }

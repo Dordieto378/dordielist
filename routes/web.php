@@ -125,6 +125,13 @@ Route::middleware('auth')->group(function () {
         Route::get('/api', [SettingsController::class, 'api'])->name('api');
         Route::put('/api', [SettingsController::class, 'updateApi'])->name('api.update');
 
+        // Doujin artist management
+        Route::get('/doujin-authors', [SettingsController::class, 'doujinAuthors'])->name('doujin-authors');
+        Route::put('/doujin-authors/{author}', [SettingsController::class, 'updateDoujinAuthor'])->name('doujin-authors.update');
+        Route::post('/doujin-authors/{author}/doujins/{media}/authors', [SettingsController::class, 'attachDoujinAuthor'])->name('doujin-authors.doujins.authors.attach');
+        Route::delete('/doujin-authors/{author}/doujins/{media}/authors', [SettingsController::class, 'detachDoujinAuthor'])->name('doujin-authors.doujins.authors.detach');
+        Route::delete('/doujin-authors/{author}', [SettingsController::class, 'destroyDoujinAuthor'])->name('doujin-authors.destroy');
+
         // Users
         Route::get('/users', [SettingsController::class, 'users'])->name('users');
         Route::put('/users/{user}', [SettingsController::class, 'updateManagedUser'])->name('users.update');

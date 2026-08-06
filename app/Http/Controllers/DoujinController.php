@@ -8,6 +8,7 @@ use App\Models\DoujinAuthor;
 use App\Models\Media;
 use App\Support\DoujinFolderIndex;
 use App\Support\DoujinAuthorLinks;
+use App\Support\DoujinMediaDeleter;
 use App\Support\MediaMetadataSyncer;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -24,6 +25,7 @@ class DoujinController extends Controller
     public function __construct(
         private readonly MediaMetadataSyncer $metadataSyncer,
         private readonly DoujinFolderIndex $folderIndex,
+        private readonly DoujinMediaDeleter $doujinMediaDeleter,
     )
     {
     }
@@ -227,38 +229,7 @@ class DoujinController extends Controller
     {
         abort_unless($media->type === 'doujin', 404);
 
-        $disk = Storage::disk('public');
-        $pathsToDelete = [];
-
-        $media->loadMissing('doujinAuthors:id,name');
-        $entries = $this->folderIndex->scanDisk($disk, 'doujin');
-        $entry = $this->folderIndex->findEntryForMedia($media, $entries);
-
-        if ($entry && !empty($entry['path'])) {
-            $pathsToDelete[] = trim((string) $entry['path'], '/');
-        }
-
-        $pathsToDelete[] = 'doujin/'.$media->id;
-        $pathsToDelete = array_values(array_unique(array_filter($pathsToDelete)));
-
-        $authorPath = null;
-        if ($entry && !empty($entry['author'])) {
-            $authorPath = 'doujin/'.trim((string) $entry['author'], '/');
-        }
-
-        $media->delete();
-
-        foreach ($pathsToDelete as $path) {
-            if ($disk->exists($path)) {
-                File::deleteDirectory($disk->path($path));
-            }
-        }
-
-        if ($authorPath && $disk->exists($authorPath)) {
-            if ($disk->directories($authorPath) === [] && $disk->files($authorPath) === []) {
-                File::deleteDirectory($disk->path($authorPath));
-            }
-        }
+        $this->doujinMediaDeleter->delete($media);
 
         return redirect()
             ->route('category', ['category' => 'doujins']);
@@ -762,7 +733,7 @@ class DoujinController extends Controller
             return 'Extra Chapter';
         }
 
-        if (preg_match('/\b(?:chapter|ch|c)?[\s\-_]*([0-9]+(?:[\._][0-9]+)?)\s*&\s*([0-9]+(?:[\._][0-9]+)?)\b/i', $name, $matches)) {
+        if (preg_match('/\b(?:chapter|ch|c)?[\s\-_]*([0-9]+(?:[\._][0-9]+)?)\s*(?:&|and)\s*(?:chapter|ch|c)?[\s\-_]*([0-9]+(?:[\._][0-9]+)?)\b/i', $name, $matches)) {
             return $this->formatChapterDisplayNumber($matches[1]).' & '.$this->formatChapterDisplayNumber($matches[2]);
         }
 

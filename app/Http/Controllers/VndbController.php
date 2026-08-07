@@ -7,6 +7,7 @@ use App\Models\CollectionItem;
 use App\Models\Favorite;
 use App\Models\Media;
 use App\Support\MediaMetadataSyncer;
+use App\Support\VndbPublisherData;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -40,7 +41,7 @@ class VndbController extends Controller
     {
         $q = Media::query()
             ->where('type', 'vn')
-            ->with(['vnTags:id,name', 'vnLanguages:id,name', 'vnDevelopers:id,name']);
+            ->with(['vnTags:id,name', 'vnLanguages:id,name', 'vnDevelopers:id,name', 'vnPublishers:id,name,language']);
 
         if ($status && isset($this->labelMapDb[strtolower($status)])) {
             $q->where('list_status', $this->labelMapDb[strtolower($status)]);
@@ -238,7 +239,7 @@ class VndbController extends Controller
     }
     public function fetchVnById(int $id): ?array
     {
-        $media = Media::with(['vnTags:id,name', 'vnLanguages:id,name', 'vnDevelopers:id,name'])
+        $media = Media::with(['vnTags:id,name', 'vnLanguages:id,name', 'vnDevelopers:id,name', 'vnPublishers:id,name,language'])
             ->where('type', 'vn')
             ->where('id', $id)
             ->first();
@@ -250,6 +251,7 @@ class VndbController extends Controller
         $title = $media->title_english ?: ($media->title_romaji ?: ($media->title_native ?: 'No Title'));
         $tags = array_map(fn ($tag) => ['name' => $tag], $media->metadataNamesFrom('vnTags'));
         $developers = array_map(fn ($developer) => ['name' => $developer], $media->metadataNamesFrom('vnDevelopers'));
+        $publishers = VndbPublisherData::displayRows($media->vnPublishers);
         $descHtml = $this->renderVnDescription($media->description ?? '');
         $languages = $media->metadataNamesFrom('vnLanguages');
 
@@ -270,6 +272,7 @@ class VndbController extends Controller
             'image' => ['url' => $media->cover_url],
             'tags' => $tags,
             'developers' => $developers,
+            'publishers' => $publishers,
             'languages' => $languages,
             'average' => (float) ($media->avg_score ?? 0),
             'released' => $media->year ? sprintf('%04d', (int) $media->year) : null,
@@ -367,6 +370,17 @@ class VndbController extends Controller
         $created = 0;
         $updated = 0;
         $seen = [];
+        $vndbIds = [];
+
+        foreach ($rows as $entry) {
+            $vidRaw = $entry['vn']['id'] ?? ($entry['id'] ?? null);
+            $vid = is_string($vidRaw) ? (int) ltrim($vidRaw, 'vV') : (int) $vidRaw;
+            if ($vid > 0) {
+                $vndbIds[] = $vid;
+            }
+        }
+
+        $publishersByVn = $this->vndbFetchReleasePublishers($token, array_values(array_unique($vndbIds)));
 
         DB::beginTransaction();
         try {
@@ -424,6 +438,8 @@ class VndbController extends Controller
                 $developers = array_values(array_filter(
                     array_map(fn ($developer) => trim((string) ($developer['name'] ?? '')), $vn['developers'] ?? [])
                 ));
+
+                $publishers = $publishersByVn === null ? null : ($publishersByVn[$vid] ?? []);
 
                 $languages = array_values(array_filter(
                     array_map(fn ($language) => trim((string) $language), $vn['languages'] ?? [])
@@ -524,7 +540,7 @@ class VndbController extends Controller
                 $wasNew = !$model->exists;
                 $model->save();
 
-                $this->metadataSyncer->syncVn($model, $tags, $languages, $developers);
+                $this->metadataSyncer->syncVn($model, $tags, $languages, $developers, $publishers);
 
                 if ($wasNew || $model->wasRecentlyCreated) {
                     $created++;
@@ -614,6 +630,48 @@ class VndbController extends Controller
         } while ($more);
 
         return $all;
+    }
+
+    private function vndbFetchReleasePublishers(string $token, array $vnIds): ?array
+    {
+        $vnIds = array_values(array_unique(array_filter(
+            array_map(fn ($id) => (int) $id, $vnIds),
+            fn ($id) => $id > 0
+        )));
+
+        if (empty($vnIds)) {
+            return [];
+        }
+
+        $grouped = [];
+
+        foreach (array_chunk($vnIds, 50) as $chunk) {
+            $page = 1;
+
+            do {
+                $response = $this->vndbClient($token)->post('release', [
+                    'filters' => VndbPublisherData::releaseFilter($chunk),
+                    'fields' => VndbPublisherData::releaseFields(),
+                    'results' => 100,
+                    'page' => $page,
+                ]);
+
+                if (! $response->successful()) {
+                    return null;
+                }
+
+                $json = $response->json();
+                $grouped = VndbPublisherData::mergeGrouped(
+                    $grouped,
+                    VndbPublisherData::groupByVn($json['results'] ?? [])
+                );
+
+                $more = !empty($json['more']);
+                $page++;
+            } while ($more);
+        }
+
+        return $grouped;
     }
 
     private function pickNativeTitle(array $titles): ?string

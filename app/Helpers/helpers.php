@@ -10,7 +10,7 @@ if (! function_exists('category_filter_url')) {
      */
     function category_filter_url(string $category, string $filter, string $value): string
     {
-        if (in_array(strtolower($filter), ['studio', 'author', 'developers', 'developer'], true)) {
+        if (in_array(strtolower($filter), ['studio', 'author', 'developers', 'developer', 'publishers', 'publisher'], true)) {
             return url('/metadata/'.rawurlencode($category).'/'.rawurlencode($filter))
                 . '?' . http_build_query(['name' => $value]);
         }

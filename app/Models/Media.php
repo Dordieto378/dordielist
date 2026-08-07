@@ -17,6 +17,7 @@ class Media extends Model
         'vnTags:id,name',
         'vnLanguages:id,name',
         'vnDevelopers:id,name',
+        'vnPublishers:id,name,language',
     ];
 
     protected $guarded = [];
@@ -61,6 +62,11 @@ class Media extends Model
     public function vnDevelopers(): BelongsToMany
     {
         return $this->belongsToMany(VnDeveloper::class, 'vn_item_developer', 'media_id', 'developer_id');
+    }
+
+    public function vnPublishers(): BelongsToMany
+    {
+        return $this->belongsToMany(VnPublisher::class, 'vn_item_publisher', 'media_id', 'publisher_id');
     }
 
     public function archive(): HasOne

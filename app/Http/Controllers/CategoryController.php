@@ -15,6 +15,7 @@ use App\Support\DoujinAuthorLinks;
 use App\Models\VnDeveloper;
 use App\Models\VnLanguage;
 use App\Models\VnTag;
+use App\Support\VndbLanguages;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 
@@ -250,10 +251,12 @@ class CategoryController extends Controller
             if (!is_array($selectedLanguages)) {
                 $selectedLanguages = explode(',', $selectedLanguages);
             }
+            $selectedLanguages = array_values(array_filter(
+                array_map('trim', $selectedLanguages),
+                fn ($language) => $language !== ''
+            ));
             foreach ($selectedLanguages as $language) {
-                if ($language !== '') {
-                    $q->whereHas('vnLanguages', fn ($query) => $query->where('name', $language));
-                }
+                $q->whereHas('vnLanguages', fn ($query) => $query->where('name', $language));
             }
 
             $selectedDevelopers = $request->query('developers', '');
@@ -302,11 +305,12 @@ class CategoryController extends Controller
                 ->pluck('name')
                 ->all();
 
-            $allLanguages = VnLanguage::query()
+            $allLanguageCodes = VnLanguage::query()
                 ->whereHas('media', fn ($query) => $query->where('type', 'vn'))
                 ->orderBy('name')
                 ->pluck('name')
                 ->all();
+            $allLanguages = VndbLanguages::options($allLanguageCodes);
 
             $allYears = Media::where('type', 'vn')
                 ->whereNotNull('year')

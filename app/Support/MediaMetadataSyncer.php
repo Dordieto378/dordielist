@@ -10,6 +10,7 @@ use App\Models\DoujinAuthor;
 use App\Models\Media;
 use App\Models\VnDeveloper;
 use App\Models\VnLanguage;
+use App\Models\VnPublisher;
 use App\Models\VnTag;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
@@ -39,11 +40,13 @@ class MediaMetadataSyncer
         Media $media,
         ?array $tags = null,
         ?array $languages = null,
-        ?array $developers = null
+        ?array $developers = null,
+        ?array $publishers = null
     ): void {
         $this->syncRelation($media, 'vnTags', VnTag::class, $tags);
         $this->syncRelation($media, 'vnLanguages', VnLanguage::class, $languages);
         $this->syncRelation($media, 'vnDevelopers', VnDeveloper::class, $developers);
+        $this->syncRelation($media, 'vnPublishers', VnPublisher::class, $publishers);
     }
 
     public function normalizedNames(?array $values): ?array
@@ -64,7 +67,7 @@ class MediaMetadataSyncer
             return;
         }
 
-        $records = $this->normalizePayload($values);
+        $records = $this->normalizePayload($values, $modelClass);
         $ids = [];
 
         foreach ($records as $record) {
@@ -74,7 +77,7 @@ class MediaMetadataSyncer
         $media->{$relation}()->sync($ids);
     }
 
-    private function normalizePayload(array $values): Collection
+    private function normalizePayload(array $values, ?string $modelClass = null): Collection
     {
         return collect($values)
             ->map(function ($value) {
@@ -90,6 +93,7 @@ class MediaMetadataSyncer
                     return [
                         'name' => $name,
                         'source_id' => $sourceId,
+                        'language' => trim((string) ($value['language'] ?? $value['lang'] ?? '')),
                     ];
                 }
 
@@ -97,15 +101,19 @@ class MediaMetadataSyncer
 
                 return $name === ''
                     ? null
-                    : ['name' => $name, 'source_id' => null];
+                    : ['name' => $name, 'source_id' => null, 'language' => ''];
             })
             ->filter()
-            ->unique(fn (array $record) => mb_strtolower($record['name']))
+            ->unique(fn (array $record) => $this->recordIdentity($record, $modelClass))
             ->values();
     }
 
     private function firstOrCreateMetadata(string $modelClass, array $record): Model
     {
+        if ($modelClass === VnPublisher::class) {
+            return $this->firstOrCreateVnPublisher($record);
+        }
+
         $model = new $modelClass();
         $sourceColumn = $this->sourceIdColumn($modelClass);
         $entity = null;
@@ -161,6 +169,61 @@ class MediaMetadataSyncer
         return $entity;
     }
 
+    private function firstOrCreateVnPublisher(array $record): VnPublisher
+    {
+        $name = $record['name'];
+        $language = trim((string) ($record['language'] ?? ''));
+        $sourceId = $record['source_id'] ?? null;
+
+        $entity = null;
+        if (!empty($sourceId)) {
+            $entity = VnPublisher::query()
+                ->where('source_id', $sourceId)
+                ->where('language', $language)
+                ->first();
+        }
+
+        if ($entity === null) {
+            $entity = VnPublisher::query()
+                ->where('name', $name)
+                ->where('language', $language)
+                ->first();
+        }
+
+        if ($entity === null) {
+            $entity = VnPublisher::create([
+                'name' => $name,
+                'language' => $language,
+                'source_id' => $sourceId,
+                'slug' => $this->makeUniqueSlug(new VnPublisher(), trim($name.' '.$language)),
+            ]);
+        }
+
+        $dirty = false;
+        if ($entity->name !== $name) {
+            $entity->name = $name;
+            $dirty = true;
+        }
+        if ((string) $entity->language !== $language) {
+            $entity->language = $language;
+            $dirty = true;
+        }
+        if (empty($entity->source_id) && !empty($sourceId)) {
+            $entity->source_id = $sourceId;
+            $dirty = true;
+        }
+        if (empty($entity->slug)) {
+            $entity->slug = $this->makeUniqueSlug($entity, trim($name.' '.$language));
+            $dirty = true;
+        }
+
+        if ($dirty) {
+            $entity->save();
+        }
+
+        return $entity;
+    }
+
     private function makeUniqueSlug(Model $model, string $name): ?string
     {
         $base = Str::slug($name);
@@ -193,5 +256,17 @@ class MediaMetadataSyncer
         return in_array($modelClass, [AnilistTag::class, AnilistStudio::class, AnilistAuthor::class], true)
             ? 'source_id'
             : null;
+    }
+
+    private function recordIdentity(array $record, ?string $modelClass): string
+    {
+        if ($modelClass === VnPublisher::class) {
+            $sourceId = $record['source_id'] ?? null;
+            $publisher = $sourceId ? 'id:'.$sourceId : 'name:'.mb_strtolower($record['name']);
+
+            return $publisher.'|lang:'.mb_strtolower((string) ($record['language'] ?? ''));
+        }
+
+        return mb_strtolower($record['name']);
     }
 }

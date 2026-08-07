@@ -470,6 +470,14 @@ GQL;
             ];
         }
 
+        if (in_array($filter, ['publishers', 'publisher'], true) && $category === 'visual-novel') {
+            return [
+                'type' => 'vn',
+                'relation' => 'vnPublishers',
+                'label' => 'Publisher',
+            ];
+        }
+
         return null;
     }
 

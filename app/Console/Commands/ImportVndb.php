@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Schema;
 use App\Models\Media;
 use App\Models\User;
 use App\Support\MediaMetadataSyncer;
+use App\Support\VndbPublisherData;
 use GuzzleHttp\Client;
 
 class ImportVndb extends Command
@@ -61,6 +62,16 @@ class ImportVndb extends Command
 
         $this->info('Received ' . count($rows) . ' entries.');
         if (!count($rows)) return self::SUCCESS;
+
+        $vndbIds = [];
+        foreach ($rows as $entry) {
+            $vidRaw = $entry['vn']['id'] ?? ($entry['id'] ?? null);
+            $vidNum = is_string($vidRaw) ? (int) ltrim($vidRaw, 'vV') : (int) $vidRaw;
+            if ($vidNum > 0) {
+                $vndbIds[] = $vidNum;
+            }
+        }
+        $publishersByVn = $this->fetchReleasePublishers(array_values(array_unique($vndbIds)));
 
         $inserted = 0;
         $updated  = 0;
@@ -116,6 +127,8 @@ class ImportVndb extends Command
                 array_map(fn($d) => $d['name'] ?? null, $vn['developers'] ?? []),
                 fn($x) => (string)$x !== ''
             ));
+
+            $publishers = $publishersByVn === null ? null : ($publishersByVn[$vidNum] ?? []);
 
             $langs = $vn['languages'] ?? [];
 
@@ -179,7 +192,7 @@ class ImportVndb extends Command
                 ->first();
 
             if ($model) {
-                $this->metadataSyncer->syncVn($model, $tags, $langs, $devs);
+                $this->metadataSyncer->syncVn($model, $tags, $langs, $devs, $publishers);
             }
 
             $bar->advance();
@@ -272,6 +285,54 @@ class ImportVndb extends Command
         } while ($more);
 
         return $all;
+    }
+
+    private function fetchReleasePublishers(array $vnIds): ?array
+    {
+        $vnIds = array_values(array_unique(array_filter(
+            array_map(fn ($id) => (int) $id, $vnIds),
+            fn ($id) => $id > 0
+        )));
+
+        if (empty($vnIds)) {
+            return [];
+        }
+
+        $grouped = [];
+
+        foreach (array_chunk($vnIds, 50) as $chunk) {
+            $page = 1;
+
+            do {
+                try {
+                    $res = $this->client->post('release', [
+                        'json' => [
+                            'filters' => VndbPublisherData::releaseFilter($chunk),
+                            'fields' => VndbPublisherData::releaseFields(),
+                            'results' => 100,
+                            'page' => $page,
+                        ],
+                    ]);
+                } catch (\Throwable) {
+                    return null;
+                }
+
+                $json = json_decode((string) $res->getBody(), true);
+                if (!is_array($json)) {
+                    return null;
+                }
+
+                $grouped = VndbPublisherData::mergeGrouped(
+                    $grouped,
+                    VndbPublisherData::groupByVn($json['results'] ?? [])
+                );
+
+                $more = !empty($json['more']);
+                $page++;
+            } while ($more);
+        }
+
+        return $grouped;
     }
 
     private function pickNativeTitle(array $titles): ?string

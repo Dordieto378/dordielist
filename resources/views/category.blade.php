@@ -228,7 +228,12 @@ if (!function_exists('shortTitle')) {
                     <div class="relative mb-4">
                     <label class="block text-sm font-medium text-gray-900 mb-2">LANGUAGE</label>
                     <ul class="space-y-2">
-                        @foreach($allLanguages as $lang)
+                        @foreach($allLanguages as $language)
+                        @php
+                            $lang = $language['value'];
+                            $languageLabel = $language['label'];
+                            $languageFlag = $language['flag'];
+                        @endphp
                         <li class="group">
                             <label class="flex items-center bg-white border rounded-sm px-3 py-2 text-sm cursor-pointer">
                             <input
@@ -248,7 +253,13 @@ if (!function_exists('shortTitle')) {
                                     <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
                                 </svg>
                             </span>
-                            <span class="text-gray-900 ml-3 font-medium">{{ $lang }}</span>
+                            <span
+                                title="{{ $languageLabel }}"
+                                aria-label="{{ $languageLabel }}"
+                                class="text-gray-900 ml-3 font-medium inline-flex items-center gap-2">
+                                <span aria-hidden="true">{{ $languageFlag }}</span>
+                                <span>{{ $languageLabel }}</span>
+                            </span>
                             </label>
                         </li>
                         @endforeach

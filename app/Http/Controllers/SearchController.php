@@ -102,6 +102,16 @@ class SearchController extends Controller
                 $metadataLimit,
                 ['vn']
             ))
+            ->merge($this->searchMetadata(
+                $q,
+                'vn_publishers',
+                'vn_item_publisher',
+                'publisher_id',
+                'publishers',
+                'Publisher',
+                $metadataLimit,
+                ['vn']
+            ))
             ->sortBy([
                 ['sort_rank', 'asc'],
                 ['label', 'asc'],

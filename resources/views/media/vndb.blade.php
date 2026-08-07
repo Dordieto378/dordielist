@@ -159,6 +159,27 @@
                           N/A
                       @endforelse
                     </div>
+
+                    <div>Publishers</div>
+                    <div class="space-y-1">
+                      @forelse ($item['publishers'] ?? [] as $publisher)
+                          <div class="flex items-center gap-2">
+                              @if($publisher['language_flag'] !== '')
+                                  <span
+                                      title="{{ $publisher['language_label'] }}"
+                                      aria-label="{{ $publisher['language_label'] }}">
+                                      {{ $publisher['language_flag'] }}
+                                  </span>
+                              @endif
+                              <a  href="{{ category_filter_url('visual-novel', 'publishers', $publisher['name']) }}"
+                                  class="text-blue-600 hover:underline cursor-pointer">
+                                  {{ $publisher['name'] }}
+                              </a>
+                          </div>
+                      @empty
+                          N/A
+                      @endforelse
+                    </div>
                 </div>
                 <p class="vn-desc text-sm mb-2 mt-2">
                     {!! $item['description_html'] !!}

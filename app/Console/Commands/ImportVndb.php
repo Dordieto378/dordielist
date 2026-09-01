@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Support\MediaMetadataSyncer;
 use App\Support\VndbPublisherData;
 use GuzzleHttp\Client;
+use GuzzleHttp\Exception\RequestException;
 
 class ImportVndb extends Command
 {
@@ -34,6 +35,18 @@ class ImportVndb extends Command
 
     public function handle(): int
     {
+        try {
+            return $this->runImport();
+        } catch (\Throwable $e) {
+            $this->newLine();
+            $this->error('VNDB import failed: '.$this->formatExceptionMessage($e));
+
+            return self::FAILURE;
+        }
+    }
+
+    private function runImport(): int
+    {
         $credentials = $this->resolveCredentials();
         if (!$credentials) {
             $this->error('No VNDB API token and username found. Save them in API settings or set VNDB_API_TOKEN and VNDB_USERNAME.');
@@ -47,6 +60,7 @@ class ImportVndb extends Command
                 'Authorization' => 'Token '.$token,
                 'Accept'        => 'application/json',
             ],
+            'connect_timeout' => 10,
             'timeout'  => 30,
         ]);
 
@@ -203,6 +217,32 @@ class ImportVndb extends Command
         $this->info("VNDB import complete. Inserted: {$inserted}, Updated: {$updated}");
 
         return self::SUCCESS;
+    }
+
+    private function formatExceptionMessage(\Throwable $e): string
+    {
+        if ($e instanceof RequestException && $e->hasResponse()) {
+            $response = $e->getResponse();
+            $statusCode = $response->getStatusCode();
+
+            if ($statusCode === 429) {
+                return 'VNDB rate limit hit (HTTP 429). The import will try again on the next scheduled run.';
+            }
+
+            if (in_array($statusCode, [401, 403], true)) {
+                return "VNDB rejected the saved credentials (HTTP {$statusCode}). Check the VNDB API token and username.";
+            }
+
+            $reason = trim($response->getReasonPhrase());
+
+            return $reason !== ''
+                ? "VNDB API returned HTTP {$statusCode}: {$reason}."
+                : "VNDB API returned HTTP {$statusCode}.";
+        }
+
+        $message = trim($e->getMessage());
+
+        return $message !== '' ? $message : 'Unknown error.';
     }
 
     private function resolveCredentials(): ?array

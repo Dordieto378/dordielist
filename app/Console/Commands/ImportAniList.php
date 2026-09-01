@@ -19,7 +19,13 @@ class ImportAniList extends Command
 
     public function handle(): int
     {
-        $token = $this->resolveToken();
+        try {
+            $token = $this->resolveToken();
+        } catch (\Throwable $e) {
+            $this->error('AniList sync failed: '.$this->formatExceptionMessage($e));
+
+            return self::FAILURE;
+        }
 
         if (!$token) {
             $this->error('No AniList access token found. Save one in API settings or set ANILIST_ACCESS_TOKEN.');
@@ -30,7 +36,7 @@ class ImportAniList extends Command
         try {
             $result = $this->anilistSyncService->sync($token);
         } catch (\Throwable $e) {
-            $this->error('AniList sync failed: '.$e->getMessage());
+            $this->error('AniList sync failed: '.$this->formatExceptionMessage($e));
 
             return self::FAILURE;
         }
@@ -43,6 +49,13 @@ class ImportAniList extends Command
         ));
 
         return self::SUCCESS;
+    }
+
+    private function formatExceptionMessage(\Throwable $e): string
+    {
+        $message = trim($e->getMessage());
+
+        return $message !== '' ? $message : 'Unknown error.';
     }
 
     private function resolveToken(): ?string

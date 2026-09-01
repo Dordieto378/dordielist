@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Chapter;
 use App\Models\ChapterPage;
 use App\Models\Media;
+use App\Models\ReadingBookmark;
 use App\Support\EpubVolumeExtractor;
 use App\Support\MediaStoragePath;
 use App\Support\UploadedArchive;
@@ -810,7 +811,7 @@ class ChapterController extends Controller
 
             $number = $this->parseVolumeNumber($name);
             if ($number !== null && $this->looksLikeVolumeDirectoryName($name)) {
-                return 'Vol.'.$this->displayChapterNumber($number);
+                return 'Volume '.$this->displayChapterNumber($number);
             }
         }
 
@@ -820,7 +821,7 @@ class ChapterController extends Controller
     private function defaultContentUnitTitle(float $number, string $mediaType): string
     {
         if ($this->usesVolumeUnits($mediaType)) {
-            return 'Vol.'.$this->displayChapterNumber($number);
+            return 'Volume '.$this->displayChapterNumber($number);
         }
 
         return $this->contentUnitLabel($mediaType).' '.$this->displayChapterNumber($number);
@@ -897,11 +898,12 @@ class ChapterController extends Controller
             $redirectView = strtolower((string) ($byTitle->item_type ?? '')) === 'light_novel'
                 ? 'double'
                 : $view;
+            $readerBookmark = $this->readerBookmarkFor($request, $mediaId);
 
             return redirect()->route('chapters.page', [
                 'media' => $mediaId,
                 'chapter' => $byTitle->chapter_number,
-                'page' => $pageNumber ?? 1,
+                'page' => $pageNumber ?? $this->bookmarkPageNumber($readerBookmark, $byTitle) ?? 1,
                 'view' => $redirectView,
             ]);
         }
@@ -913,8 +915,11 @@ class ChapterController extends Controller
             ->where('chapter_number', $chapterNumber)
             ->firstOrFail();
 
+        $readerBookmark = $this->readerBookmarkFor($request, $mediaId);
         if ($pageNumber === null) {
-            $pageNumber = optional($chapter->pages->first())->page_number ?? 1;
+            $pageNumber = $this->bookmarkPageNumber($readerBookmark, $chapter)
+                ?? optional($chapter->pages->first())->page_number
+                ?? 1;
         }
 
         $mediaRow = DB::table('media')
@@ -933,7 +938,7 @@ class ChapterController extends Controller
             $view = 'double';
         }
         $readerUnitLabel = $this->usesVolumeUnits(strtolower((string) ($mediaRow->type ?? '')))
-            ? 'Vol.'
+            ? 'Volume'
             : 'Chapter';
 
         if (strtolower($mediaRow->type ?? '') === 'doujin') {
@@ -1038,7 +1043,73 @@ class ChapterController extends Controller
             'isLightNovel' => $isLightNovel,
             'readerView' => $view,
             'readerUnitLabel' => $readerUnitLabel,
+            'isCurrentPageBookmarked' => $this->isCurrentPageBookmarked($readerBookmark, $chapter, $page),
         ]);
+    }
+
+    public function bookmarkPage(Request $request, Media $media, Chapter $chapter)
+    {
+        abort_unless($this->chapterBelongsToMedia($chapter, (int) $media->id), 404);
+
+        $validator = Validator::make($request->all(), [
+            'page_number' => ['required', 'integer', 'min:1'],
+            'view' => ['nullable', 'in:one,double,scroll'],
+        ]);
+
+        if ($validator->fails()) {
+            if ($request->expectsJson()) {
+                return response()->json(['message' => $validator->errors()->first()], 422);
+            }
+
+            return back()->with('status', $validator->errors()->first())->with('status_color', 'red');
+        }
+
+        $data = $validator->validated();
+        $page = ChapterPage::where('chapter_id', $chapter->id)
+            ->where('page_number', (int) $data['page_number'])
+            ->firstOrFail();
+
+        $bookmarkKey = [
+            'user_id' => $request->user()->getAuthIdentifier(),
+            'media_id' => $media->id,
+        ];
+        $existingBookmark = ReadingBookmark::where($bookmarkKey)->first();
+        $isUnmarkingCurrentPage = $existingBookmark
+            && (int) $existingBookmark->chapter_id === (int) $chapter->id
+            && (int) $existingBookmark->page_id === (int) $page->id;
+
+        if ($isUnmarkingCurrentPage) {
+            $existingBookmark->delete();
+        } else {
+            ReadingBookmark::updateOrCreate($bookmarkKey, [
+                'chapter_id' => $chapter->id,
+                'page_id' => $page->id,
+                'page_number' => $page->page_number,
+            ]);
+        }
+
+        $payload = [
+            'ok' => true,
+            'bookmarked' => !$isUnmarkingCurrentPage,
+            'chapter_id' => $chapter->id,
+            'page_number' => (int) $page->page_number,
+        ];
+
+        if ($request->expectsJson()) {
+            return response()->json($payload);
+        }
+
+        return redirect()
+            ->route('chapters.page', [
+                'media' => $media->id,
+                'chapter' => $chapter->chapter_number !== null
+                    ? $this->displayChapterNumber((float) $chapter->chapter_number)
+                    : $chapter->chapter_title,
+                'page' => $page->page_number,
+                'view' => $data['view'] ?? 'one',
+            ])
+            ->with('status', $isUnmarkingCurrentPage ? 'Bookmark removed.' : 'Bookmark saved.')
+            ->with('status_color', 'green');
     }
 
     public function readerPageImage(Request $request, ChapterPage $page)
@@ -1067,5 +1138,44 @@ class ChapterController extends Controller
             'Expires' => '0',
             'X-Robots-Tag' => 'noindex, nofollow, noarchive',
         ]);
+    }
+
+    private function readerBookmarkFor(Request $request, int $mediaId): ?ReadingBookmark
+    {
+        $userId = $request->user()?->getAuthIdentifier();
+        if (!$userId) {
+            return null;
+        }
+
+        return ReadingBookmark::with(['chapter', 'page'])
+            ->where('user_id', $userId)
+            ->where('media_id', $mediaId)
+            ->first();
+    }
+
+    private function bookmarkPageNumber(?ReadingBookmark $bookmark, Chapter $chapter): ?int
+    {
+        if (!$bookmark || (int) $bookmark->chapter_id !== (int) $chapter->id) {
+            return null;
+        }
+
+        if (!$bookmark->page || (int) $bookmark->page->chapter_id !== (int) $chapter->id) {
+            return null;
+        }
+
+        return (int) $bookmark->page->page_number;
+    }
+
+    private function isCurrentPageBookmarked(?ReadingBookmark $bookmark, Chapter $chapter, ChapterPage $page): bool
+    {
+        return $bookmark !== null
+            && (int) $bookmark->chapter_id === (int) $chapter->id
+            && (int) $bookmark->page_id === (int) $page->id;
+    }
+
+    private function chapterBelongsToMedia(Chapter $chapter, int $mediaId): bool
+    {
+        return (int) ($chapter->media_fk ?: $chapter->item_id) === $mediaId
+            || (int) $chapter->item_id === $mediaId;
     }
 }

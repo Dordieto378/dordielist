@@ -7,19 +7,21 @@
                 $title = $card['title'] ?? 'No Title';
             @endphp
 
-            <a href="{{ $url }}" class="block group">
-                <div class="thumb-wrapper thumb-portrait relative w-[242px] h-[339px] rounded-lg overflow-hidden shadow-lg">
-                    {{-- Cover --}}
-                    <img src="{{ $cover }}" alt="Cover"
-                         class="thumb-img w-full h-full">
-                </div>
+            <div class="block group">
+                <a href="{{ $url }}" class="block">
+                    <div class="thumb-wrapper thumb-portrait relative w-[242px] h-[339px] rounded-lg overflow-hidden shadow-lg">
+                        {{-- Cover --}}
+                        <img src="{{ $cover }}" alt="Cover"
+                             class="thumb-img w-full h-full">
+                    </div>
+                </a>
 
                 <div class="mt-2">
                     <p class="text-red-600 font-bold">
                         {{ \Illuminate\Support\Str::limit($title, 25) }}
                     </p>
                 </div>
-            </a>
+            </div>
         @endforeach
     </div>
 @else

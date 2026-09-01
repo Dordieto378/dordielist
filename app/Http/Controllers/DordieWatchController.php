@@ -11,6 +11,16 @@ use Illuminate\Support\Str;
 
 class DordieWatchController extends Controller
 {
+    public function config(Request $request): JsonResponse
+    {
+        abort_unless($this->isLocalRequest($request), 403);
+
+        return response()->json([
+            'version' => 1,
+            'library_url' => URL::signedRoute('dordiewatch.library'),
+        ]);
+    }
+
     public function show(Media $media): JsonResponse
     {
         abort_unless(in_array($this->dordieWatchMediaType($media), ['anime', 'hentai'], true), 404);
@@ -174,5 +184,10 @@ class DordieWatchController extends Controller
         $description = trim((string) preg_replace("/\n{3,}/", "\n\n", $description));
 
         return $description !== '' ? $description : null;
+    }
+
+    private function isLocalRequest(Request $request): bool
+    {
+        return in_array($request->ip(), ['127.0.0.1', '::1'], true);
     }
 }

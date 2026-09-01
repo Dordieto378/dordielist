@@ -25,9 +25,16 @@ class Kernel extends ConsoleKernel
     protected function schedule(Schedule $schedule)
     {
         $schedule->command('anilist:import')
-            ->everyThirtySeconds();
+            ->everyFiveMinutes()
+            ->withoutOverlapping(30)
+            ->runInBackground()
+            ->appendOutputTo(storage_path('logs/anilist-import.log'));
+
         $schedule->command('vndb:import')
-            ->everyThirtySeconds();
+            ->hourly()
+            ->withoutOverlapping(120)
+            ->runInBackground()
+            ->appendOutputTo(storage_path('logs/vndb-import.log'));
     }
 
     // …

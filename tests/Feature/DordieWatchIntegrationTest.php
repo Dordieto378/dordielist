@@ -59,6 +59,37 @@ class DordieWatchIntegrationTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_local_config_returns_a_working_signed_library_url(): void
+    {
+        $media = Media::create([
+            'type' => 'anime',
+            'title_english' => 'Config Signed Library Test',
+            'slug' => 'config-signed-library-test-'.Str::lower(Str::random(12)),
+        ]);
+
+        $libraryUrl = $this
+            ->getJson(route('dordiewatch.config'))
+            ->assertOk()
+            ->assertJsonPath('version', 1)
+            ->assertJson(fn ($json) => $json
+                ->whereType('library_url', 'string')
+                ->etc())
+            ->json('library_url');
+
+        $this
+            ->postJson($libraryUrl, ['ids' => [$media->id]])
+            ->assertOk()
+            ->assertJsonPath('media.0.id', $media->id);
+    }
+
+    public function test_config_is_only_available_to_local_requests(): void
+    {
+        $this
+            ->withServerVariables(['REMOTE_ADDR' => '203.0.113.10'])
+            ->getJson(route('dordiewatch.config'))
+            ->assertForbidden();
+    }
+
     public function test_signed_library_refresh_returns_requested_video_media_by_id(): void
     {
         $anime = Media::create([
@@ -143,6 +174,37 @@ class DordieWatchIntegrationTest extends TestCase
             ->actingAs($user)
             ->get(route('media.show', ['id' => $media->id]))
             ->assertOk()
+            ->assertSee('Play in DordieWatch')
+            ->assertSee('dordiewatch://open?manifest=', false);
+    }
+
+    public function test_anime_category_cards_show_play_link_when_available_locally(): void
+    {
+        $role = Role::where('role', 'Viewer')->first()
+            ?? Role::create(['role' => 'Viewer']);
+        $user = User::create([
+            'username' => 'dordiewatch-category-'.Str::lower(Str::random(10)),
+            'email' => Str::lower(Str::random(12)).'@example.test',
+            'password' => 'password',
+            'status' => 'active',
+            'role_id' => $role->role_id,
+        ]);
+        $media = Media::create([
+            'type' => 'anime',
+            'title_english' => '000 DordieWatch Category Link Test',
+            'slug' => 'category-link-test-'.Str::lower(Str::random(12)),
+        ]);
+
+        DB::table('dordiewatch_media')->insert([
+            'media_id' => $media->id,
+            'last_seen_at' => now(),
+        ]);
+
+        $this
+            ->actingAs($user)
+            ->get(route('category', ['category' => 'ANIMES']))
+            ->assertOk()
+            ->assertSee('000 DordieWatch Category')
             ->assertSee('Play in DordieWatch')
             ->assertSee('dordiewatch://open?manifest=', false);
     }

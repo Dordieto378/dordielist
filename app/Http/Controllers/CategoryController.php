@@ -18,9 +18,13 @@ use App\Models\VnTag;
 use App\Support\VndbLanguages;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\URL;
 
 class CategoryController extends Controller
 {
+    private ?array $dordieWatchMediaIds = null;
+
     private function displayCategoryTitle(string $category): string
     {
         return match (strtoupper($category)) {
@@ -72,6 +76,7 @@ class CategoryController extends Controller
                 'cover' => $row->cover_url ?: asset('images/no-image.jpg'),
                 'title' => $row->title_english ?: ($row->title_romaji ?: ($row->title_native ?: 'No Title')),
                 'nsfw' => (int) ($row->isNsfw ?? 0) === 1,
+                'dordieWatchLaunchUrl' => $this->dordieWatchLaunchUrl($row),
             ];
         }
 
@@ -81,7 +86,35 @@ class CategoryController extends Controller
             'cover' => asset('images/no-image.jpg'),
             'title' => 'No Title',
             'nsfw' => false,
+            'dordieWatchLaunchUrl' => null,
         ];
+    }
+
+    private function dordieWatchLaunchUrl(Media $media): ?string
+    {
+        if (! in_array(strtolower((string) $media->type), ['anime', 'hentai'], true)) {
+            return null;
+        }
+
+        if (! isset($this->dordieWatchMediaIdSet()[$media->id])) {
+            return null;
+        }
+
+        $manifestUrl = URL::temporarySignedRoute(
+            'dordiewatch.media',
+            now()->addMinutes(10),
+            ['media' => $media->id]
+        );
+
+        return 'dordiewatch://open?manifest='.rtrim(strtr(base64_encode($manifestUrl), '+/', '-_'), '=');
+    }
+
+    private function dordieWatchMediaIdSet(): array
+    {
+        return $this->dordieWatchMediaIds ??= DB::table('dordiewatch_media')
+            ->pluck('media_id')
+            ->mapWithKeys(fn (int $id): array => [$id => true])
+            ->all();
     }
 
     private function eraLabel(int $decade): string
@@ -128,15 +161,28 @@ class CategoryController extends Controller
             ]);
         }
 
-        $selected = (string) $request->query('collection', '');
-        if (! $options->contains(fn (array $option) => $option['value'] === $selected)) {
-            $selected = '';
-        }
+        $selected = $this->selectedCollectionValue($request, 'collection', $options);
+        $selectedBlacklist = $this->selectedCollectionValue($request, 'collection_blacklist', $options);
 
         return [
             'collectionOptions' => $options->all(),
             'selectedCollection' => $selected,
+            'selectedCollectionBlacklist' => $selectedBlacklist,
         ];
+    }
+
+    private function selectedCollectionValue(Request $request, string $key, \Illuminate\Support\Collection $options): string
+    {
+        $selected = $request->query($key, '');
+        if (is_array($selected)) {
+            return '';
+        }
+
+        $selected = (string) $selected;
+
+        return $options->contains(fn (array $option) => $option['value'] === $selected)
+            ? $selected
+            : '';
     }
 
     private function applyCollectionFilter(Builder $query, string $selected, string $itemType): void
@@ -157,6 +203,24 @@ class CategoryController extends Controller
         }
     }
 
+    private function applyCollectionBlacklistFilter(Builder $query, string $selected, string $itemType): void
+    {
+        if ($selected === 'favorites') {
+            $query->whereNotIn('id', Favorite::query()
+                ->select('favoritable_id')
+                ->where('favoritable_type', $itemType));
+
+            return;
+        }
+
+        if ($selected !== '') {
+            $query->whereNotIn('id', CollectionItem::query()
+                ->select('item_id')
+                ->where('item_type', $itemType)
+                ->where('collection_id', (int) $selected));
+        }
+    }
+
     public function show(Request $request, $category, $listFilter = 'all', $mediaStatus = 'all', $titleOrder = 'none', $scoreOrder = 'none', $dateOrder = 'none')
     {
         $normalized = strtoupper($category);
@@ -168,6 +232,7 @@ class CategoryController extends Controller
 
             $collectionFilter = $this->collectionFilterData($request, 'doujins', 'doujin');
             $this->applyCollectionFilter($q, $collectionFilter['selectedCollection'], 'doujins');
+            $this->applyCollectionBlacklistFilter($q, $collectionFilter['selectedCollectionBlacklist'], 'doujins');
 
             $nameOrder = $request->query('name_order', 'none');
             $selectedAuthors = $request->query('author', []);
@@ -228,6 +293,7 @@ class CategoryController extends Controller
 
             $collectionFilter = $this->collectionFilterData($request, 'visual-novel', 'vn');
             $this->applyCollectionFilter($q, $collectionFilter['selectedCollection'], 'visual-novel');
+            $this->applyCollectionBlacklistFilter($q, $collectionFilter['selectedCollectionBlacklist'], 'visual-novel');
 
             $listFilter = strtolower($request->query('list_filter', 'all'));
             if ($listFilter !== 'all') {
@@ -377,6 +443,7 @@ class CategoryController extends Controller
         $collectionItemType = strtolower($normalized);
         $collectionFilter = $this->collectionFilterData($request, $collectionItemType, $categoryTypes[0]);
         $this->applyCollectionFilter($q, $collectionFilter['selectedCollection'], $collectionItemType);
+        $this->applyCollectionBlacklistFilter($q, $collectionFilter['selectedCollectionBlacklist'], $collectionItemType);
 
         if (in_array($normalized, ['ANIMES', 'HENTAIS'], true)) {
             foreach ($selectedStudio as $studio) {

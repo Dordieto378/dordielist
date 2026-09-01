@@ -177,15 +177,15 @@ class SettingsController extends Controller
         $this->abortIfViewer();
 
         $authors = DoujinAuthor::query()
-            ->with([
-                'media' => fn ($query) => $query
-                    ->where('type', 'doujin')
-                    ->select('media.id', 'media.type', 'media.title_english', 'media.title_romaji', 'media.title_native', 'media.slug', 'media.cover_url')
-                    ->with('doujinAuthors:id,name')
-                    ->orderBy('title_english')
-                    ->orderBy('slug')
-                    ->orderBy('id'),
-            ])
+            ->where(function ($query) {
+                foreach (array_keys(DoujinAuthorLinks::PLATFORMS) as $column) {
+                    $query->where(function ($fieldQuery) use ($column) {
+                        $fieldQuery
+                            ->whereNull($column)
+                            ->orWhere($column, '');
+                    });
+                }
+            })
             ->withCount([
                 'media as doujin_count' => fn ($query) => $query->where('type', 'doujin'),
             ])
@@ -193,25 +193,8 @@ class SettingsController extends Controller
             ->get();
 
         $socialPlatforms = DoujinAuthorLinks::PLATFORMS;
-        $authorForms = $authors
-            ->mapWithKeys(function (DoujinAuthor $author) use ($socialPlatforms) {
-                $links = [];
 
-                foreach ($socialPlatforms as $column => $meta) {
-                    $links[$column] = (string) ($author->{$column} ?? '');
-                }
-
-                return [
-                    (string) $author->id => [
-                        'name' => $author->name,
-                        'update_url' => route('settings.doujin-authors.update', ['author' => $author->id]),
-                        'links' => $links,
-                    ],
-                ];
-            })
-            ->all();
-
-        return view('settings.doujin-authors', compact('authors', 'socialPlatforms', 'authorForms'));
+        return view('settings.doujin-authors', compact('authors', 'socialPlatforms'));
     }
 
     public function updateDoujinAuthor(Request $request, DoujinAuthor $author)

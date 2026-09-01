@@ -120,6 +120,12 @@
                                                 {{ shortTitle($fullTitle, 30) }}
                                             </a>
                                         </p>
+                                        @if(!empty($item['dordieWatchLaunchUrl']))
+                                            <a href="{{ $item['dordieWatchLaunchUrl'] }}"
+                                               class="mt-2 ml-2 inline-flex items-center justify-center px-3 py-1.5 flatGreen text-white rounded-sm text-sm font-bold shadow-sm">
+                                                Play in DordieWatch
+                                            </a>
+                                        @endif
                                     </div>
                                 @elseif($item['type'] === 'VN')
                                     <div class="w-[270px] flex-shrink-0 mt-7">
@@ -197,6 +203,12 @@
                                 <a href="{{ $href }}" class="text-red-600">
                                     {{ shortTitle($fullTitle, 30) }}
                                 </a>
+                                @if(!empty($item['dordieWatchLaunchUrl']))
+                                    <a href="{{ $item['dordieWatchLaunchUrl'] }}"
+                                       class="mt-2 inline-flex items-center justify-center px-3 py-1.5 flatGreen text-white rounded-sm text-sm font-bold shadow-sm">
+                                        Play in DordieWatch
+                                    </a>
+                                @endif
                             </div>
                         </div>
                     @elseif($item['type'] === 'VN')
@@ -313,6 +325,12 @@
                             <p class="text-gray-600 font-medium">
                                 {{ displayMediaType($item) }}
                             </p>
+                            @if(!empty($item['dordieWatchLaunchUrl']))
+                                <a href="{{ $item['dordieWatchLaunchUrl'] }}"
+                                   class="mt-2 inline-flex items-center justify-center px-3 py-1.5 flatGreen text-white rounded-sm text-sm font-bold shadow-sm">
+                                    Play in DordieWatch
+                                </a>
+                            @endif
                         </div>
                     </div>
                 @elseif($item['type'] === 'VN')
@@ -389,6 +407,12 @@
                             <a href="{{ $href }}" class="text-red-600 font-bold text-2xl">
                                 {{ $shortT }}
                             </a>
+                            @if(!empty($item['dordieWatchLaunchUrl']))
+                                <a href="{{ $item['dordieWatchLaunchUrl'] }}"
+                                   class="mt-3 inline-flex items-center justify-center px-4 py-2 flatGreen text-white rounded-sm text-sm font-bold shadow-sm">
+                                    Play in DordieWatch
+                                </a>
+                            @endif
 
                             @php
                                 $metaItems = $item['type'] === 'DOUJIN'

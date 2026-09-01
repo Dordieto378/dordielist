@@ -184,6 +184,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/media/{media}/chapters/upload/complete', [ChapterController::class, 'completeUpload'])->name('chapters.upload.complete');
     Route::post('/media/{media}/chapters/upload', [ChapterController::class, 'storeUploaded'])->name('chapters.upload');
     Route::delete('/media/{media}/chapters/reset', [ChapterController::class, 'resetUploaded'])->name('chapters.reset');
+    Route::post('/media/{media}/chapters/{chapter}/bookmark', [ChapterController::class, 'bookmarkPage'])->name('chapters.bookmark');
     Route::get('/reader/pages/{page}/image', [ChapterController::class, 'readerPageImage'])
         ->middleware('signed')
         ->name('reader.page.image');

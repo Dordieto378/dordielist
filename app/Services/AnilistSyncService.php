@@ -585,9 +585,10 @@ GQL;
 
     private function fetchList(string $token, int $userId, string $type): array
     {
-        $query = <<<'GQL'
-    query ($userId:Int, $type:MediaType) {
-      MediaListCollection(userId:$userId, type:$type) {
+        if ($type === 'ANIME') {
+            $query = <<<'GQL'
+    query ($userId:Int, $type:MediaType, $status:MediaListStatus) {
+      MediaListCollection(userId:$userId, type:$type, status:$status) {
         lists {
           entries {
             status
@@ -612,6 +613,42 @@ GQL;
               averageScore
               tags { id name }
               studios { edges { isMain node { id name } } }
+              episodes
+              chapters
+              volumes
+            }
+          }
+        }
+      }
+    }
+    GQL;
+        } else {
+            $query = <<<'GQL'
+    query ($userId:Int, $type:MediaType, $status:MediaListStatus) {
+      MediaListCollection(userId:$userId, type:$type, status:$status) {
+        lists {
+          entries {
+            status
+            score
+            progress
+            createdAt
+            updatedAt
+            startedAt { year month day }
+            completedAt { year month day }
+            media {
+              type
+              format
+              id
+              title { english romaji native }
+              coverImage { extraLarge }
+              bannerImage
+              description
+              genres
+              startDate { year month day }
+              countryOfOrigin
+              status
+              averageScore
+              tags { id name }
               staff { edges { node { id name { full } } role } }
               episodes
               chapters
@@ -622,24 +659,31 @@ GQL;
       }
     }
     GQL;
-
-        $response = Http::withHeaders([
-            'Authorization' => "Bearer {$token}",
-            'Content-Type' => 'application/json',
-        ])->post('https://graphql.anilist.co', [
-            'query' => $query,
-            'variables' => ['userId' => $userId, 'type' => $type],
-        ]);
-
-        if (!$response->successful()) {
-            return [];
         }
 
-        $lists = $response->json('data.MediaListCollection.lists') ?? [];
         $entries = [];
-        foreach ($lists as $list) {
-            foreach ($list['entries'] as $entry) {
-                $entries[] = $entry;
+        $statuses = ['CURRENT', 'PLANNING', 'COMPLETED', 'PAUSED', 'DROPPED', 'REPEATING'];
+
+        foreach ($statuses as $status) {
+            $response = Http::timeout(120)->withHeaders([
+                'Authorization' => "Bearer {$token}",
+                'Content-Type' => 'application/json',
+                'Accept' => 'application/json',
+            ])->post('https://graphql.anilist.co', [
+                'query' => $query,
+                'variables' => ['userId' => $userId, 'type' => $type, 'status' => $status],
+            ]);
+
+            $apiError = $response->json('errors.0.message');
+            if (!$response->successful() || $apiError) {
+                throw new \RuntimeException($apiError ?: "AniList {$type} {$status} list sync failed.");
+            }
+
+            $lists = $response->json('data.MediaListCollection.lists') ?? [];
+            foreach ($lists as $list) {
+                foreach ($list['entries'] as $entry) {
+                    $entries[] = $entry;
+                }
             }
         }
 

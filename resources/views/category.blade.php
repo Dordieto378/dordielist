@@ -922,6 +922,7 @@ function redirectWithFilters () {
     const year       = document.querySelector('select[name="year"]')?.value ?? '';
     const era        = document.querySelector('select[name="era"]')?.value ?? '';
     const collection = document.querySelector('select[name="collection"]')?.value ?? '';
+    const collectionBlacklist = document.querySelector('select[name="collection_blacklist"]')?.value ?? '';
     const qp = new URLSearchParams();
     if (tags)        qp.append('tags',        tags);
     if (languages)   qp.append('language',    languages);
@@ -932,6 +933,7 @@ function redirectWithFilters () {
     if (year)        qp.append('year',        year);
     if (era)         qp.append('era',         era);
     if (collection)  qp.append('collection',  collection);
+    if (collectionBlacklist) qp.append('collection_blacklist', collectionBlacklist);
     if (yearOrder  !== 'none') qp.append('year_order',  yearOrder);
     if (titleOrder !== 'none') qp.append('title_order', titleOrder);
     if (scoreOrder !== 'none') qp.append('score_order', scoreOrder);

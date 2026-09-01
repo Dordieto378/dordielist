@@ -4,6 +4,7 @@
 @php
     use App\Models\Chapter;
     use App\Models\MediaArchive;
+    use App\Models\ReadingBookmark;
     use App\Models\Collection;
     use App\Models\CollectionItem;
     use App\Models\Favorite;
@@ -48,6 +49,22 @@
                                ->orderBy('chapter_number')
                                ->first();
     }
+
+    $readingBookmark = null;
+    if (auth()->check() && $isChapterBased) {
+        $readingBookmark = ReadingBookmark::with(['chapter', 'page'])
+            ->where('user_id', auth()->id())
+            ->where('media_id', $item['id'])
+            ->first();
+
+        if (!$readingBookmark?->chapter || !$readingBookmark?->page) {
+            $readingBookmark = null;
+        }
+    }
+
+    $chapterRouteParam = fn ($chapter) => $chapter && $chapter->chapter_number !== null && $chapter->chapter_number !== ''
+        ? rtrim(rtrim((string) $chapter->chapter_number, '0'), '.')
+        : rawurlencode((string) ($chapter->chapter_title ?? ''));
 
     $localChapterCount = $isChapterBased
         ? Chapter::where('item_id', $item['id'])->count()
@@ -211,11 +228,13 @@
                     @elseif ($isChapterBased && $firstChapter)
                         @php
                             $defaultReaderView = $isLightNovel ? 'double' : 'one';
+                            $startReaderChapter = $readingBookmark?->chapter ?: $firstChapter;
+                            $startReaderPage = $readingBookmark?->page ? (int) $readingBookmark->page->page_number : 1;
                         @endphp
                         <a href="{{ route('chapters.page', [
                                 'media' => $item['id'],
-                                'chapter' => $firstChapter->chapter_number ?? 1,
-                                'page' => 1,
+                                'chapter' => $chapterRouteParam($startReaderChapter),
+                                'page' => $startReaderPage,
                                 'view' => $defaultReaderView,
                             ]) }}"
                            class="flex items-center justify-start w-full flatGreen text-white
@@ -597,10 +616,11 @@
                                     ? rtrim(rtrim((string) $chapter->chapter_number, '0'), '.')
                                     : ((preg_match('/\d+(?:\.\d+)?/', (string) $chapter->chapter_title, $m) === 1) ? $m[0] : '?');
 
-                                $chapterParam = $chapter->chapter_number !== null && $chapter->chapter_number !== ''
-                                    ? (string) $chapter->chapter_number
-                                    : rawurlencode((string) $chapter->chapter_title);
-                                $chapterRouteParams = ['media' => $chapter->item_id, 'chapter' => $chapterParam, 'page' => 1];
+                                $chapterParam = $chapterRouteParam($chapter);
+                                $bookmarkPage = $readingBookmark && (int) $readingBookmark->chapter_id === (int) $chapter->id && $readingBookmark->page
+                                    ? (int) $readingBookmark->page->page_number
+                                    : 1;
+                                $chapterRouteParams = ['media' => $chapter->item_id, 'chapter' => $chapterParam, 'page' => $bookmarkPage];
                                 if ($isLightNovel) {
                                     $chapterRouteParams['view'] = 'double';
                                 }

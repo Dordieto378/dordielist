@@ -20,6 +20,7 @@
         $isManhwa = $isManhwa ?? false; // passed from controller
         $isLightNovel = $isLightNovel ?? false;
         $readerUnitLabel = $readerUnitLabel ?? 'Chapter';
+        $isCurrentPageBookmarked = $isCurrentPageBookmarked ?? false;
         if ($isManhwa) {
             $view = 'scroll';
         }
@@ -38,6 +39,10 @@
 
         // View switcher base params
         $baseParams = ['media' => $chapter->item_id, 'chapter' => $chapter->chapter_number];
+        $bookmarkRoute = route('chapters.bookmark', [
+            'media' => $chapter->media_fk ?: $chapter->item_id,
+            'chapter' => $chapter->id,
+        ]);
 
         // Build spreads for double-page mode.
         $pageObjectsByNumber = $chapter->pages->sortBy('page_number')->keyBy('page_number');
@@ -199,15 +204,19 @@
             : ($nextChapterLink ?? null);
 
         $chapterTitleText = trim((string) ($chapter->chapter_title ?? ''));
+        $isVolumeReader = strcasecmp($readerUnitLabel, 'Volume') === 0 || strcasecmp($readerUnitLabel, 'Vol.') === 0;
         $usesTitleChapterDisplay = preg_match('/^\d+(?:\.\d+)?\s*&\s*\d+(?:\.\d+)?$/', $chapterTitleText) === 1
             || strcasecmp($chapterTitleText, 'Extra '.$readerUnitLabel) === 0
-            || ($readerUnitLabel === 'Vol.' && strcasecmp($chapterTitleText, 'Extra Volume') === 0)
+            || ($isVolumeReader && strcasecmp($chapterTitleText, 'Extra Volume') === 0)
             || ($readerUnitLabel !== 'Chapter' && strcasecmp($chapterTitleText, 'Extra Chapter') === 0);
         $chapterDisplay = $usesTitleChapterDisplay
             ? $chapterTitleText
             : rtrim(rtrim((string)$chapter->chapter_number, '0'), '.');
         if ($readerUnitLabel !== 'Chapter' && strcasecmp($chapterDisplay, 'Extra Chapter') === 0) {
             $chapterDisplay = 'Extra Volume';
+        }
+        if ($isVolumeReader && preg_match('/^Vol\.?\s*([0-9]+(?:\.\d+)?)$/i', $chapterDisplay, $matches)) {
+            $chapterDisplay = $matches[1];
         }
         $chapterDisplayAlreadyLabeled = preg_match('/^'.preg_quote($readerUnitLabel, '/').'\b/i', $chapterDisplay) === 1;
         $readerUnitSeparator = str_ends_with($readerUnitLabel, '.') ? '' : ' ';
@@ -313,16 +322,29 @@
             pointer-events: auto;
         }
         .reader-logo {
-            font-weight: 700;
-            letter-spacing: normal;
+            font-family: 'Fruity Kiwi', Roboto, Arial, sans-serif;
+            font-weight: 400;
+            letter-spacing: 0;
+            text-transform: none;
             color: #ffffff;
-            font-size: 1.5rem; /* text-2xl */
+            font-size: 1.875rem;
+            line-height: 1;
             padding-left: 0;
             padding-right: 0;
+        }
+        .reader-title-group,
+        .reader-title-copy {
+            display: flex;
+            align-items: center;
+        }
+        .reader-title-copy {
+            min-height: 1.875rem;
+            transform: translateY(-3px);
         }
         .reader-title {
             font-size: 1.125rem;
             font-weight: 700;
+            line-height: 1;
             color: #ffffff;
             text-decoration: none;
         }
@@ -332,6 +354,7 @@
         .reader-title-chapter {
             font-size: 1rem;
             font-weight: 400;
+            line-height: 1;
             color: rgba(255, 255, 255, 0.68);
             margin-left: 0.6rem;
         }
@@ -490,7 +513,18 @@
             opacity: 1;
         }
         .reader-fullscreen-btn {
-            margin-right: 1.75rem;
+            margin-right: 0;
+        }
+        .reader-bookmark-form {
+            display: flex;
+            margin: 0;
+        }
+        .reader-nav-inner .reader-bookmark-form {
+            margin-left: 1.35rem !important;
+        }
+        .reader-bookmark-btn.reader-bookmark-saved {
+            color: #ffffff;
+            opacity: 1;
         }
         .reader-fullscreen-btn [data-fullscreen-exit] {
             display: none;
@@ -763,6 +797,12 @@
             text-transform: uppercase;
             opacity: 0.9;
         }
+        .reader-info-icon {
+            width: 44px;
+            height: 44px;
+            color: #ffffff;
+            stroke-width: 2.35;
+        }
     </style>
 
     <script>
@@ -778,10 +818,9 @@
     <div class="reader-float-nav">
         <div class="reader-nav-panel">
             <div class="reader-nav-inner">
-                <div class="flex items-center space-x-2">
-                    <a href="{{ route('home') }}" class="reader-logo uppercase">DORDIELIST</a>
-                    <span class="h-5 w-px bg-white/40"></span>
-                    <div class="flex items-center">
+                <div class="reader-title-group space-x-2">
+                    <a href="{{ route('home') }}" class="reader-logo navbar-logo">DORDIELIST!</a>
+                    <div class="reader-title-copy">
                         <a href="{{ $itemUrl }}" class="reader-title" title="{{ $itemTitle }}">
                             {{ shortTitle($itemTitle, 40) }}
                         </a>
@@ -789,25 +828,6 @@
                     </div>
                 </div>
                 <div class="flex items-center space-x-2 text-white text-sm">
-                    <button type="button"
-                            class="control-btn reader-fullscreen-btn"
-                            data-fullscreen-toggle
-                            aria-label="Enter fullscreen"
-                            title="Fullscreen">
-                        <span class="sr-only">Fullscreen</span>
-                        <svg data-fullscreen-enter xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                            <path d="M8 3H3v5" />
-                            <path d="M16 3h5v5" />
-                            <path d="M21 16v5h-5" />
-                            <path d="M3 16v5h5" />
-                        </svg>
-                        <svg data-fullscreen-exit xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                            <path d="M9 3v6H3" />
-                            <path d="M15 3v6h6" />
-                            <path d="M15 21v-6h6" />
-                            <path d="M9 21v-6H3" />
-                        </svg>
-                    </button>
                     @if(!$isManhwa && !$isLightNovel)
                         <a href="{{ route('chapters.page', array_merge($baseParams, ['page' => $pageNumber, 'view' => 'scroll'])) }}"
                            class="control-btn {{ $view === 'scroll' ? 'active' : '' }}"
@@ -836,6 +856,49 @@
                             </svg>
                         </a>
                     @endif
+                    @if(!$isManhwa)
+                        <form
+                            method="POST"
+                            action="{{ $bookmarkRoute }}"
+                            class="reader-bookmark-form"
+                            data-reader-bookmark-form
+                        >
+                            @csrf
+                            <input type="hidden" name="page_number" value="{{ $pageNumber }}">
+                            <input type="hidden" name="view" value="{{ $view }}">
+                            <button
+                                type="submit"
+                                class="control-btn reader-bookmark-btn {{ $isCurrentPageBookmarked ? 'active reader-bookmark-saved' : '' }}"
+                                data-reader-bookmark-button
+                                aria-label="{{ $isCurrentPageBookmarked ? 'Remove bookmark' : 'Bookmark this page' }}"
+                                title="{{ $isCurrentPageBookmarked ? 'Remove bookmark' : 'Bookmark this page' }}"
+                            >
+                                <span class="sr-only">{{ $isCurrentPageBookmarked ? 'Remove bookmark' : 'Bookmark this page' }}</span>
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="{{ $isCurrentPageBookmarked ? 'currentColor' : 'none' }}" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <path d="M6 4.75A1.75 1.75 0 0 1 7.75 3h8.5A1.75 1.75 0 0 1 18 4.75V21l-6-3.5L6 21V4.75Z" />
+                                </svg>
+                            </button>
+                        </form>
+                    @endif
+                    <button type="button"
+                            class="control-btn reader-fullscreen-btn"
+                            data-fullscreen-toggle
+                            aria-label="Enter fullscreen"
+                            title="Fullscreen">
+                        <span class="sr-only">Fullscreen</span>
+                        <svg data-fullscreen-enter xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M8 3H3v5" />
+                            <path d="M16 3h5v5" />
+                            <path d="M21 16v5h-5" />
+                            <path d="M3 16v5h5" />
+                        </svg>
+                        <svg data-fullscreen-exit xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M9 3v6H3" />
+                            <path d="M15 3v6h6" />
+                            <path d="M15 21v-6h6" />
+                            <path d="M9 21v-6H3" />
+                        </svg>
+                    </button>
                 </div>
             </div>
         </div>
@@ -1141,7 +1204,7 @@
 
                 @if($view === 'scroll')
                     <a href="{{ $bottomInfoLink }}" class="reader-count-square" aria-label="View item info" title="View item info">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-[#2f4858]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="reader-info-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M12 8h.01M11 12h1v4h1m-1 5a9 9 0 100-18 9 9 0 000 18z" />
                         </svg>
                     </a>
@@ -1608,6 +1671,55 @@ a {
                 });
             };
 
+            const bindReaderBookmarkForms = () => {
+                document.querySelectorAll('[data-reader-bookmark-form]').forEach((form) => {
+                    if (form.dataset.readerBookmarkBound === '1') return;
+                    form.dataset.readerBookmarkBound = '1';
+
+                    form.addEventListener('submit', async (e) => {
+                        e.preventDefault();
+
+                        const button = form.querySelector('[data-reader-bookmark-button]');
+                        if (button) button.disabled = true;
+
+                        try {
+                            const response = await fetch(form.action, {
+                                method: 'POST',
+                                body: new FormData(form),
+                                credentials: 'same-origin',
+                                headers: {
+                                    'Accept': 'application/json',
+                                    'X-Requested-With': 'XMLHttpRequest',
+                                },
+                            });
+
+                            if (!response.ok) {
+                                throw new Error(`Bookmark failed: ${response.status}`);
+                            }
+
+                            const result = await response.json().catch(() => ({ bookmarked: true }));
+                            const isBookmarked = result.bookmarked !== false;
+
+                            if (button) {
+                                button.classList.toggle('active', isBookmarked);
+                                button.classList.toggle('reader-bookmark-saved', isBookmarked);
+                                button.setAttribute('aria-label', isBookmarked ? 'Remove bookmark' : 'Bookmark this page');
+                                button.setAttribute('title', isBookmarked ? 'Remove bookmark' : 'Bookmark this page');
+                                const label = button.querySelector('.sr-only');
+                                if (label) label.textContent = isBookmarked ? 'Remove bookmark' : 'Bookmark this page';
+                                const icon = button.querySelector('svg');
+                                if (icon) icon.setAttribute('fill', isBookmarked ? 'currentColor' : 'none');
+                            }
+                        } catch (error) {
+                            console.warn('Reader bookmark request fell back to a page submit', error);
+                            form.submit();
+                        } finally {
+                            if (button) button.disabled = false;
+                        }
+                    });
+                });
+            };
+
             const loadLazyReaderImage = (img) => {
                 if (!img || img.dataset.readerLazyLoaded === '1') return;
 
@@ -1670,6 +1782,7 @@ a {
                 bindHoverBars();
                 bindReaderCursorIdle();
                 bindProtectedReader();
+                bindReaderBookmarkForms();
                 syncFullscreenButtons();
                 initLazyReaderImages();
                 initReaderImageErrors();

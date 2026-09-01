@@ -19,14 +19,29 @@ class DoujinAuthorSettingsTest extends TestCase
     {
         $user = $this->manager();
         $author = $this->author('Settings Artist');
+        $hiddenAuthor = $this->author('Hidden Social Artist');
         $media = $this->doujin('Settings Doujin');
         $media->doujinAuthors()->attach($author->id);
+        $hiddenAuthor->forceFill([
+            'twitter_url' => 'https://twitter.example/current',
+        ])->save();
 
         $this
             ->actingAs($user)
             ->get(route('settings.doujin-authors'))
             ->assertOk()
-            ->assertSee('Settings Artist');
+            ->assertSee('Settings Artist')
+            ->assertSee('name="twitter_url"', false)
+            ->assertSee('name="patreon_url"', false)
+            ->assertSee('name="fanbox_url"', false)
+            ->assertSee('name="pixiv_url"', false)
+            ->assertSee('placeholder="Patreon URL"', false)
+            ->assertSee('Save')
+            ->assertDontSee('Hidden Social Artist')
+            ->assertDontSee('https://twitter.example/current')
+            ->assertDontSee('Edit Artist')
+            ->assertDontSee('Add Existing Artist')
+            ->assertDontSee('No social links');
 
         $this
             ->actingAs($user)
@@ -46,6 +61,12 @@ class DoujinAuthorSettingsTest extends TestCase
         $this->assertNull($author->patreon_url);
         $this->assertSame('https://fanbox.example/artist', $author->fanbox_url);
         $this->assertSame('https://pixiv.example/users/123', $author->pixiv_url);
+
+        $this
+            ->actingAs($user)
+            ->get(route('settings.doujin-authors'))
+            ->assertOk()
+            ->assertDontSee('Settings Artist Updated');
     }
 
     public function test_additional_author_can_be_attached_to_doujin_from_settings(): void

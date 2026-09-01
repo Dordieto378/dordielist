@@ -25,6 +25,8 @@ use Illuminate\Support\Str;
 
 class AnilistController extends Controller
 {
+    private ?array $dordieWatchMediaIds = null;
+
     public function __construct(private readonly MediaMetadataSyncer $metadataSyncer)
     {
     }
@@ -34,7 +36,7 @@ class AnilistController extends Controller
         $all = Media::query()
             ->with(Media::METADATA_RELATIONS)
             ->get()
-            ->map(fn (Media $media) => $this->mapMediaRow($media))
+            ->map(fn (Media $media) => $this->mapMediaRow($media, $this->dordieWatchMediaIdSet()))
             ->all();
 
         usort($all, fn ($a, $b) =>
@@ -181,23 +183,7 @@ class AnilistController extends Controller
             ->pluck('collection_id')
             ->toArray();
 
-        $dordieWatchLaunchUrl = null;
-        $isOnDordieWatch = in_array(
-            strtolower((string) $media->type),
-            ['anime', 'hentai'],
-            true
-        ) && DB::table('dordiewatch_media')
-            ->where('media_id', $media->id)
-            ->exists();
-        if ($isOnDordieWatch) {
-            $manifestUrl = URL::temporarySignedRoute(
-                'dordiewatch.media',
-                now()->addMinutes(10),
-                ['media' => $media->id]
-            );
-            $encodedManifest = rtrim(strtr(base64_encode($manifestUrl), '+/', '-_'), '=');
-            $dordieWatchLaunchUrl = 'dordiewatch://open?manifest='.$encodedManifest;
-        }
+        $dordieWatchLaunchUrl = $this->dordieWatchLaunchUrl($media);
 
         return view('media.anilist', [
             'item' => $item,
@@ -232,7 +218,7 @@ class AnilistController extends Controller
 
         $paginator->setCollection(
             $paginator->getCollection()
-                ->map(fn (Media $media) => $this->mapMediaRow($media))
+                ->map(fn (Media $media) => $this->mapMediaRow($media, $this->dordieWatchMediaIdSet()))
                 ->values()
         );
 
@@ -481,7 +467,7 @@ GQL;
         return null;
     }
 
-    private function mapMediaRow(Media $media): array
+    private function mapMediaRow(Media $media, ?array $dordieWatchMediaIds = null): array
     {
         $canonicalType = strtolower($this->canonicalType($media));
 
@@ -548,6 +534,7 @@ GQL;
             'status' => $media->media_status,
             'startDate' => ['year' => $year, 'month' => $month, 'day' => $day],
             'countryOfOrigin' => $media->origin,
+            'dordieWatchLaunchUrl' => $this->dordieWatchLaunchUrl($media, $dordieWatchMediaIds),
             'studios' => $studios,
             'authors' => $authors,
             'mediaListEntry' => [
@@ -564,6 +551,39 @@ GQL;
             'listEndDate' => $media->list_end_date,
             'languages' => $languages,
         ];
+    }
+
+    private function dordieWatchLaunchUrl(Media $media, ?array $dordieWatchMediaIds = null): ?string
+    {
+        if (! in_array(strtolower((string) $media->type), ['anime', 'hentai'], true)) {
+            return null;
+        }
+
+        if ($dordieWatchMediaIds !== null) {
+            $isOnDordieWatch = isset($dordieWatchMediaIds[$media->id]);
+        } else {
+            $isOnDordieWatch = DB::table('dordiewatch_media')->where('media_id', $media->id)->exists();
+        }
+
+        if (! $isOnDordieWatch) {
+            return null;
+        }
+
+        $manifestUrl = URL::temporarySignedRoute(
+            'dordiewatch.media',
+            now()->addMinutes(10),
+            ['media' => $media->id]
+        );
+
+        return 'dordiewatch://open?manifest='.rtrim(strtr(base64_encode($manifestUrl), '+/', '-_'), '=');
+    }
+
+    private function dordieWatchMediaIdSet(): array
+    {
+        return $this->dordieWatchMediaIds ??= DB::table('dordiewatch_media')
+            ->pluck('media_id')
+            ->mapWithKeys(fn (int $id): array => [$id => true])
+            ->all();
     }
 
     private function externalOrStorage(?string $path, bool $storagePath = false): string
@@ -896,9 +916,10 @@ GQL;
 
     private function fetchList(string $token, int $userId, string $type): array
     {
-        $query = <<<'GQL'
-    query ($userId:Int, $type:MediaType) {
-      MediaListCollection(userId:$userId, type:$type) {
+        if ($type === 'ANIME') {
+            $query = <<<'GQL'
+    query ($userId:Int, $type:MediaType, $status:MediaListStatus) {
+      MediaListCollection(userId:$userId, type:$type, status:$status) {
         lists {
           entries {
             status
@@ -923,6 +944,42 @@ GQL;
               averageScore
               tags { id name }
               studios { edges { isMain node { id name } } }
+              episodes
+              chapters
+              volumes
+            }
+          }
+        }
+      }
+    }
+    GQL;
+        } else {
+            $query = <<<'GQL'
+    query ($userId:Int, $type:MediaType, $status:MediaListStatus) {
+      MediaListCollection(userId:$userId, type:$type, status:$status) {
+        lists {
+          entries {
+            status
+            score
+            progress
+            createdAt
+            updatedAt
+            startedAt { year month day }
+            completedAt { year month day }
+            media {
+              type
+              format
+              id
+              title { english romaji native }
+              coverImage { extraLarge }
+              bannerImage
+              description
+              genres
+              startDate { year month day }
+              countryOfOrigin
+              status
+              averageScore
+              tags { id name }
               staff { edges { node { id name { full } } role } }
               episodes
               chapters
@@ -933,24 +990,31 @@ GQL;
       }
     }
     GQL;
-
-        $resp = Http::withHeaders([
-            'Authorization' => "Bearer {$token}",
-            'Content-Type' => 'application/json',
-        ])->post('https://graphql.anilist.co', [
-            'query' => $query,
-            'variables' => ['userId' => $userId, 'type' => $type],
-        ]);
-
-        if (!$resp->successful()) {
-            return [];
         }
 
-        $lists = $resp->json('data.MediaListCollection.lists') ?? [];
         $out = [];
-        foreach ($lists as $list) {
-            foreach ($list['entries'] as $entry) {
-                $out[] = $entry;
+        $statuses = ['CURRENT', 'PLANNING', 'COMPLETED', 'PAUSED', 'DROPPED', 'REPEATING'];
+
+        foreach ($statuses as $status) {
+            $resp = Http::timeout(120)->withHeaders([
+                'Authorization' => "Bearer {$token}",
+                'Content-Type' => 'application/json',
+                'Accept' => 'application/json',
+            ])->post('https://graphql.anilist.co', [
+                'query' => $query,
+                'variables' => ['userId' => $userId, 'type' => $type, 'status' => $status],
+            ]);
+
+            $apiError = $resp->json('errors.0.message');
+            if (!$resp->successful() || $apiError) {
+                throw new \RuntimeException($apiError ?: "AniList {$type} {$status} list sync failed.");
+            }
+
+            $lists = $resp->json('data.MediaListCollection.lists') ?? [];
+            foreach ($lists as $list) {
+                foreach ($list['entries'] as $entry) {
+                    $out[] = $entry;
+                }
             }
         }
 

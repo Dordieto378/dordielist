@@ -2,6 +2,6 @@
 set -e
 
 while true; do
-  php artisan schedule:run
-  sleep 1
+  php artisan schedule:run --no-interaction
+  sleep 60
 done

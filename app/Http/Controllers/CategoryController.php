@@ -161,8 +161,8 @@ class CategoryController extends Controller
             ]);
         }
 
-        $selected = $this->selectedCollectionValue($request, 'collection', $options);
-        $selectedBlacklist = $this->selectedCollectionValue($request, 'collection_blacklist', $options);
+        $selected = $this->selectedCollectionValues($request, 'collection', $options);
+        $selectedBlacklist = $this->selectedCollectionValues($request, 'collection_blacklist', $options);
 
         return [
             'collectionOptions' => $options->all(),
@@ -171,53 +171,56 @@ class CategoryController extends Controller
         ];
     }
 
-    private function selectedCollectionValue(Request $request, string $key, \Illuminate\Support\Collection $options): string
+    private function selectedCollectionValues(Request $request, string $key, \Illuminate\Support\Collection $options): array
     {
-        $selected = $request->query($key, '');
-        if (is_array($selected)) {
-            return '';
+        $validValues = $options->pluck('value')->all();
+
+        $selected = $request->query($key, []);
+        if (! is_array($selected)) {
+            $selected = explode(',', (string) $selected);
         }
 
-        $selected = (string) $selected;
-
-        return $options->contains(fn (array $option) => $option['value'] === $selected)
-            ? $selected
-            : '';
+        return collect($selected)
+            ->map(fn ($value) => trim((string) $value))
+            ->filter(fn (string $value) => $value !== '' && in_array($value, $validValues, true))
+            ->unique()
+            ->values()
+            ->all();
     }
 
-    private function applyCollectionFilter(Builder $query, string $selected, string $itemType): void
+    private function applyCollectionFilter(Builder $query, array $selected, string $itemType): void
     {
-        if ($selected === 'favorites') {
-            $query->whereIn('id', Favorite::query()
-                ->select('favoritable_id')
-                ->where('favoritable_type', $itemType));
+        foreach ($selected as $selectedValue) {
+            if ($selectedValue === 'favorites') {
+                $query->whereIn('id', Favorite::query()
+                    ->select('favoritable_id')
+                    ->where('favoritable_type', $itemType));
 
-            return;
-        }
+                continue;
+            }
 
-        if ($selected !== '') {
             $query->whereIn('id', CollectionItem::query()
                 ->select('item_id')
                 ->where('item_type', $itemType)
-                ->where('collection_id', (int) $selected));
+                ->where('collection_id', (int) $selectedValue));
         }
     }
 
-    private function applyCollectionBlacklistFilter(Builder $query, string $selected, string $itemType): void
+    private function applyCollectionBlacklistFilter(Builder $query, array $selected, string $itemType): void
     {
-        if ($selected === 'favorites') {
-            $query->whereNotIn('id', Favorite::query()
-                ->select('favoritable_id')
-                ->where('favoritable_type', $itemType));
+        foreach ($selected as $selectedValue) {
+            if ($selectedValue === 'favorites') {
+                $query->whereNotIn('id', Favorite::query()
+                    ->select('favoritable_id')
+                    ->where('favoritable_type', $itemType));
 
-            return;
-        }
+                continue;
+            }
 
-        if ($selected !== '') {
             $query->whereNotIn('id', CollectionItem::query()
                 ->select('item_id')
                 ->where('item_type', $itemType)
-                ->where('collection_id', (int) $selected));
+                ->where('collection_id', (int) $selectedValue));
         }
     }
 

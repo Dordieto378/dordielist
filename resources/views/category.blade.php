@@ -51,8 +51,6 @@ if (!function_exists('shortTitle')) {
                         </svg>
                     </div>
 
-                    @include('category._collection-filter')
-
                     <div class="relative mb-4">
                         <label class="block text-sm font-medium text-gray-900 mb-2">AUTHOR</label>
 
@@ -97,6 +95,8 @@ if (!function_exists('shortTitle')) {
                             </ul>
                             </div>
                         </div>
+
+                    @include('category._collection-filter')
                 </form>
 
                 <div class="mt-6">
@@ -150,8 +150,6 @@ if (!function_exists('shortTitle')) {
                             <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
                         </svg>
                     </div>
-
-                    @include('category._collection-filter')
 
                     <div class="relative mb-4">
                         <label class="block text-sm font-medium text-gray-900 mb-2">SCORE</label>
@@ -302,6 +300,8 @@ if (!function_exists('shortTitle')) {
                         </ul>
                     </div>
                     </div>
+
+                    @include('category._collection-filter')
                 </form>
             @else
                 <form method="GET"
@@ -372,8 +372,6 @@ if (!function_exists('shortTitle')) {
                             <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
                         </svg>
                     </div>
-
-                    @include('category._collection-filter')
 
                     <div class="relative mb-4">
                         <label class="block text-sm font-medium text-gray-900 mb-2">SCORE</label>
@@ -545,6 +543,8 @@ if (!function_exists('shortTitle')) {
                             </div>
                         </div>
                     @endif
+
+                    @include('category._collection-filter')
                 </form>
             @endif
         </aside>
@@ -762,27 +762,53 @@ const dropdowns = {
         button: document.getElementById("dropdownButtonTags"),
         menu: document.getElementById("dropdownMenuTags"),
         selectedContainer: document.getElementById("selectedTags"),
-        selectedItems: []
+        selectedItems: [],
+        placeholder: "Select Tags"
     },
     Studio: {
         button: document.getElementById("dropdownButtonStudio"),
         menu: document.getElementById("dropdownMenuStudio"),
         selectedContainer: document.getElementById("selectedStudio"),
-        selectedItems: []
+        selectedItems: [],
+        placeholder: "Select Studio"
     },
     Author: {
         button: document.getElementById("dropdownButtonAuthor"),
         menu: document.getElementById("dropdownMenuAuthor"),
         selectedContainer: document.getElementById("selectedAuthor"),
-        selectedItems: []
+        selectedItems: [],
+        placeholder: "Select Author"
     },
     Developers: {
         button: document.getElementById("dropdownButtonDevs"),
         menu:   document.getElementById("dropdownMenuDevs"),
         selectedContainer: document.getElementById("selectedDevelopers"),
-        selectedItems: []
+        selectedItems: [],
+        placeholder: "Select Developers"
+    },
+    Collection: {
+        button: document.getElementById("dropdownButtonCollection"),
+        menu: document.getElementById("dropdownMenuCollection"),
+        selectedContainer: document.getElementById("selectedCollection"),
+        selectedItems: [],
+        placeholder: "Select Collection"
+    },
+    CollectionBlacklist: {
+        button: document.getElementById("dropdownButtonCollectionBlacklist"),
+        menu: document.getElementById("dropdownMenuCollectionBlacklist"),
+        selectedContainer: document.getElementById("selectedCollectionBlacklist"),
+        selectedItems: [],
+        placeholder: "Select Collection Blacklist"
     }
 };
+
+Object.keys(dropdowns).forEach(type => {
+    dropdowns[type].labelByName = {};
+    dropdowns[type].menu?.querySelectorAll("[data-dropdown-name]").forEach(item => {
+        dropdowns[type].labelByName[item.dataset.dropdownName] =
+            item.querySelector("span")?.textContent.trim() || item.dataset.dropdownName;
+    });
+});
 
 // Attach a click event listener to each dropdown button (for both Tags and Studio)
 Object.keys(dropdowns).forEach(type => {
@@ -797,10 +823,13 @@ Object.keys(dropdowns).forEach(type => {
 // Update selected display (generic)
 function updateSelectedDropdown(type) {
     const dropdown = dropdowns[type];
-    if(!dropdown) return;
+    if(!dropdown || !dropdown.selectedContainer) return;
     dropdown.selectedContainer.innerHTML = "";
     if (dropdown.selectedItems.length === 0) {
-        dropdown.selectedContainer.innerHTML = `<span class="text-gray-900 font-medium text-sm">Select ${type}</span>`;
+        const placeholder = document.createElement("span");
+        placeholder.className = "text-gray-900 font-medium text-sm";
+        placeholder.textContent = dropdown.placeholder || `Select ${type}`;
+        dropdown.selectedContainer.appendChild(placeholder);
         return;
     }
     dropdown.selectedItems.forEach(name => {
@@ -808,7 +837,7 @@ function updateSelectedDropdown(type) {
         tagElement.className = "px-3 py-2 rounded-[0.2rem] bg-gray-200 text-gray-900 text-sm flex items-center transition-all duration-200 ease-in-out";
 
         const label = document.createElement("span");
-        label.textContent = name;
+        label.textContent = dropdown.labelByName?.[name] || name;
 
         const removeButton = document.createElement("span");
         removeButton.setAttribute("role", "button");
@@ -828,16 +857,17 @@ function updateSelectedDropdown(type) {
 // Update dropdown menu styling (generic)
 function updateDropdownMenu(type) {
     const dropdown = dropdowns[type];
-    if(!dropdown) return;
-    const listItems = dropdown.menu.querySelectorAll("li span");
+    if(!dropdown || !dropdown.menu) return;
+    const listItems = dropdown.menu.querySelectorAll("[data-dropdown-name]");
     listItems.forEach(item => {
-        if (dropdown.selectedItems.includes(item.textContent.trim())) {
-            item.classList.add("bg-gray-300", "text-gray-700");
-            item.classList.remove("hover:bg-red-600", "hover:text-white");
-            item.classList.add("hover:bg-red-600", "hover:text-white");
+        const label = item.querySelector("span") || item;
+        if (dropdown.selectedItems.includes(item.dataset.dropdownName)) {
+            label.classList.add("bg-gray-300", "text-gray-700");
+            label.classList.remove("hover:bg-red-600", "hover:text-white");
+            label.classList.add("hover:bg-red-600", "hover:text-white");
         } else {
-            item.classList.remove("bg-gray-300", "text-gray-700");
-            item.classList.add("hover:bg-red-600", "hover:text-white");
+            label.classList.remove("bg-gray-300", "text-gray-700");
+            label.classList.add("hover:bg-red-600", "hover:text-white");
         }
     });
 }
@@ -921,8 +951,8 @@ function redirectWithFilters () {
 
     const year       = document.querySelector('select[name="year"]')?.value ?? '';
     const era        = document.querySelector('select[name="era"]')?.value ?? '';
-    const collection = document.querySelector('select[name="collection"]')?.value ?? '';
-    const collectionBlacklist = document.querySelector('select[name="collection_blacklist"]')?.value ?? '';
+    const collection = dropdowns.Collection?.selectedItems.join(',') ?? '';
+    const collectionBlacklist = dropdowns.CollectionBlacklist?.selectedItems.join(',') ?? '';
     const qp = new URLSearchParams();
     if (tags)        qp.append('tags',        tags);
     if (languages)   qp.append('language',    languages);
@@ -1017,6 +1047,18 @@ window.addEventListener('load', function(){
         dropdowns.Developers.selectedItems = devsParam.split(',').filter(t=>t);
         updateSelectedDropdown('Developers');
         updateDropdownMenu('Developers');
+    }
+    const collectionParam = urlParams.get('collection');
+    if (collectionParam) {
+        dropdowns.Collection.selectedItems = collectionParam.split(',').filter(t=>t);
+        updateSelectedDropdown('Collection');
+        updateDropdownMenu('Collection');
+    }
+    const collectionBlacklistParam = urlParams.get('collection_blacklist');
+    if (collectionBlacklistParam) {
+        dropdowns.CollectionBlacklist.selectedItems = collectionBlacklistParam.split(',').filter(t=>t);
+        updateSelectedDropdown('CollectionBlacklist');
+        updateDropdownMenu('CollectionBlacklist');
     }
 });
 

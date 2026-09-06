@@ -42,11 +42,29 @@ class ImportAniList extends Command
         }
 
         $this->info(sprintf(
-            'AniList sync complete. Created: %d, updated: %d, deleted: %d.',
+            'AniList sync %s. Created: %d, updated: %d, deleted: %d.',
+            !empty($result['partial']) ? 'partial' : 'complete',
             $result['created'],
             $result['updated'],
             $result['deleted']
         ));
+
+        foreach ($result['list_failures'] ?? [] as $failure) {
+            $this->warn(sprintf(
+                'Skipped %s %s: %s',
+                $failure['type'] ?? 'UNKNOWN',
+                $failure['status'] ?? 'UNKNOWN',
+                $failure['message'] ?? 'Unknown error.'
+            ));
+        }
+
+        if (!empty($result['list_failures'])) {
+            $this->warn('Stale local AniList deletion was skipped because the remote list snapshot was incomplete.');
+        }
+
+        if (!empty($result['notification_error'])) {
+            $this->warn('AniList notification sync failed: '.$result['notification_error']);
+        }
 
         return self::SUCCESS;
     }

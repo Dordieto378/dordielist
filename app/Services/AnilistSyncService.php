@@ -6,6 +6,7 @@ use App\Models\AnilistNotification;
 use App\Models\Media;
 use App\Support\MediaMetadataSyncer;
 use Carbon\Carbon;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
@@ -13,6 +14,10 @@ use Illuminate\Support\Str;
 
 class AnilistSyncService
 {
+    private const ANILIST_ENDPOINT = 'https://graphql.anilist.co';
+
+    private const RETRY_DELAYS_MS = [1000, 2500, 5000];
+
     public function __construct(private readonly MediaMetadataSyncer $metadataSyncer)
     {
     }
@@ -25,8 +30,15 @@ class AnilistSyncService
         }
 
         $allEntries = [];
+        $listFailures = [];
         foreach (['ANIME', 'MANGA'] as $type) {
-            $allEntries = array_merge($allEntries, $this->fetchList($token, $viewerId, $type));
+            $result = $this->fetchList($token, $viewerId, $type);
+            $allEntries = array_merge($allEntries, $result['entries']);
+            $listFailures = array_merge($listFailures, $result['failures']);
+        }
+
+        if ($allEntries === [] && $listFailures !== []) {
+            throw new \RuntimeException($listFailures[0]['message']);
         }
 
         $seenIds = [];
@@ -205,7 +217,7 @@ class AnilistSyncService
             }
 
             $seenIds = array_values(array_unique($seenIds));
-            if ($seenIds !== []) {
+            if ($seenIds !== [] && $listFailures === []) {
                 $deleted = Media::where('source', 'anilist')
                     ->whereNotIn('source_id', $seenIds)
                     ->whereNotIn('id', DB::table('media_archives')->select('media_id'))
@@ -219,7 +231,13 @@ class AnilistSyncService
             throw $e;
         }
 
-        $notifications = $this->syncNotifications($token);
+        $notificationError = null;
+        try {
+            $notifications = $this->syncNotifications($token);
+        } catch (\Throwable $e) {
+            $notifications = ['created' => 0, 'updated' => 0];
+            $notificationError = $this->exceptionMessage($e);
+        }
 
         return [
             'viewer_id' => $viewerId,
@@ -228,6 +246,9 @@ class AnilistSyncService
             'deleted' => $deleted,
             'total' => count($seenIds),
             'notifications' => $notifications,
+            'list_failures' => $listFailures,
+            'notification_error' => $notificationError,
+            'partial' => $listFailures !== [] || $notificationError !== null,
         ];
     }
 
@@ -432,17 +453,10 @@ query ($page: Int, $perPage: Int) {
 }
 GQL;
 
-        $response = Http::withHeaders([
-            'Authorization' => "Bearer {$token}",
-            'Content-Type' => 'application/json',
-            'Accept' => 'application/json',
-        ])->post('https://graphql.anilist.co', [
-            'query' => $query,
-            'variables' => ['page' => $page, 'perPage' => $perPage],
-        ]);
+        $response = $this->postAniList($token, $query, ['page' => $page, 'perPage' => $perPage]);
 
         if (!$response->successful() || $response->json('errors')) {
-            throw new \RuntimeException($response->json('errors.0.message') ?: 'AniList notification sync failed.');
+            throw new \RuntimeException($this->apiErrorMessage($response, 'AniList notification sync failed.'));
         }
 
         return [
@@ -571,13 +585,10 @@ GQL;
     private function getViewerId(string $token): ?int
     {
         $query = '{ Viewer { id } }';
-        $response = Http::withHeaders([
-            'Authorization' => "Bearer {$token}",
-            'Content-Type' => 'application/json',
-        ])->post('https://graphql.anilist.co', ['query' => $query]);
+        $response = $this->postAniList($token, $query, [], 30);
 
         if (!$response->successful()) {
-            return null;
+            throw new \RuntimeException($this->apiErrorMessage($response, 'Unable to get AniList Viewer ID.'));
         }
 
         return $response->json('data.Viewer.id');
@@ -662,32 +673,79 @@ GQL;
         }
 
         $entries = [];
+        $failures = [];
         $statuses = ['CURRENT', 'PLANNING', 'COMPLETED', 'PAUSED', 'DROPPED', 'REPEATING'];
 
         foreach ($statuses as $status) {
-            $response = Http::timeout(120)->withHeaders([
-                'Authorization' => "Bearer {$token}",
-                'Content-Type' => 'application/json',
-                'Accept' => 'application/json',
-            ])->post('https://graphql.anilist.co', [
-                'query' => $query,
-                'variables' => ['userId' => $userId, 'type' => $type, 'status' => $status],
-            ]);
+            try {
+                $response = $this->postAniList($token, $query, [
+                    'userId' => $userId,
+                    'type' => $type,
+                    'status' => $status,
+                ]);
 
-            $apiError = $response->json('errors.0.message');
-            if (!$response->successful() || $apiError) {
-                throw new \RuntimeException($apiError ?: "AniList {$type} {$status} list sync failed.");
-            }
-
-            $lists = $response->json('data.MediaListCollection.lists') ?? [];
-            foreach ($lists as $list) {
-                foreach ($list['entries'] as $entry) {
-                    $entries[] = $entry;
+                $apiError = $response->json('errors.0.message');
+                if (!$response->successful() || $apiError) {
+                    throw new \RuntimeException($apiError ?: $this->apiErrorMessage($response, "AniList {$type} {$status} list sync failed."));
                 }
+
+                $lists = $response->json('data.MediaListCollection.lists') ?? [];
+                foreach ($lists as $list) {
+                    foreach ($list['entries'] as $entry) {
+                        $entries[] = $entry;
+                    }
+                }
+            } catch (\Throwable $e) {
+                $failures[] = [
+                    'type' => $type,
+                    'status' => $status,
+                    'message' => $this->exceptionMessage($e),
+                ];
             }
         }
 
-        return $entries;
+        return [
+            'entries' => $entries,
+            'failures' => $failures,
+        ];
+    }
+
+    private function postAniList(string $token, string $query, array $variables = [], int $timeout = 120): Response
+    {
+        $payload = ['query' => $query];
+        if ($variables !== []) {
+            $payload['variables'] = $variables;
+        }
+
+        return Http::acceptJson()
+            ->withToken($token)
+            ->timeout($timeout)
+            ->connectTimeout(15)
+            ->retry(self::RETRY_DELAYS_MS, 0, null, false)
+            ->post(self::ANILIST_ENDPOINT, $payload);
+    }
+
+    private function apiErrorMessage(Response $response, string $fallback): string
+    {
+        $apiError = trim((string) $response->json('errors.0.message'));
+        if ($apiError !== '') {
+            return $apiError;
+        }
+
+        $body = trim(strip_tags((string) $response->body()));
+        $body = preg_replace('/\s+/', ' ', $body);
+        $body = Str::limit((string) $body, 180);
+
+        return $body !== ''
+            ? "{$fallback} HTTP {$response->status()}: {$body}"
+            : "{$fallback} HTTP {$response->status()}.";
+    }
+
+    private function exceptionMessage(\Throwable $e): string
+    {
+        $message = trim($e->getMessage());
+
+        return $message !== '' ? $message : 'Unknown error.';
     }
 
     private function guessRemoteType(array $media): string

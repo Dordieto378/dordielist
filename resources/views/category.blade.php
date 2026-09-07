@@ -6,6 +6,9 @@ use Illuminate\Support\Str;
 use App\Support\DoujinAuthorLinks;
 $isViewer = optional(auth()->user()?->role)->role === 'Viewer';
 $doujinAuthorLinkValues = fn (string $field, mixed $default = null) => DoujinAuthorLinks::urls(old($field, $default)) ?: [''];
+$doujinNewAuthorValues = old('new_author', ['']);
+$doujinNewAuthorValues = is_array($doujinNewAuthorValues) ? array_values($doujinNewAuthorValues) : [$doujinNewAuthorValues];
+$doujinNewAuthorValues = $doujinNewAuthorValues === [] ? [''] : $doujinNewAuthorValues;
 
 if (!function_exists('shortTitle')) {
     function shortTitle($title, $maxLen = 25) {
@@ -654,15 +657,33 @@ if (!function_exists('shortTitle')) {
                         </div>
 
                         <div class="block space-y-4 self-start">
-                            <label class="block">
+                            <div class="block" data-new-author-group>
                                 <span class="block mb-2 text-red-600 font-medium">New Author</span>
-                                <input
-                                  type="text"
-                                  name="new_author"
-                                  value="{{ old('new_author') }}"
-                                  class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
-                                />
-                            </label>
+                                <div class="space-y-2" data-new-author-list>
+                                    @foreach($doujinNewAuthorValues as $newAuthor)
+                                        <div class="flex items-center gap-2" data-new-author-row>
+                                            <input
+                                              type="text"
+                                              name="new_author[]"
+                                              value="{{ $newAuthor }}"
+                                              class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
+                                            />
+                                            <button type="button"
+                                                    data-add-new-author
+                                                    aria-label="Add new author"
+                                                    class="shrink-0 rounded-md border border-gray-200 bg-gray-100 px-3 py-2 text-base font-bold text-red-600 hover:bg-red-600 hover:text-white">
+                                                +
+                                            </button>
+                                            <button type="button"
+                                                    data-remove-new-author
+                                                    aria-label="Remove new author"
+                                                    class="hidden shrink-0 rounded-md border border-gray-200 bg-gray-100 px-3 py-2 text-base font-bold text-gray-500 hover:bg-gray-200">
+                                                &times;
+                                            </button>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
 
                             <div class="block">
                                 <span class="block mb-2 text-red-600 font-medium">ZIP File</span>
@@ -1084,6 +1105,7 @@ let isUploadingDoujin = false;
 const addDoujinAuthorLinks = @json($allAuthorLinks ?? []);
 const addDoujinExistingAuthor = document.getElementById('addDoujinExistingAuthor');
 const addDoujinAuthorLinkGroups = document.querySelectorAll('#addDoujinForm [data-author-link-group]');
+const addDoujinNewAuthorGroup = document.querySelector('#addDoujinForm [data-new-author-group]');
 
 function normalizeAuthorLinkValues(values) {
     if (Array.isArray(values)) {
@@ -1145,6 +1167,30 @@ function setAuthorLinkGroupValues(group, values) {
 
 function initAuthorLinkGroups(groups) {
     groups.forEach((group) => refreshAuthorLinkGroupButtons(group));
+}
+
+function refreshNewAuthorGroupButtons(group) {
+    const rows = group.querySelectorAll('[data-new-author-row]');
+    rows.forEach((row, index) => {
+        row.querySelector('[data-add-new-author]')?.classList.toggle('hidden', index !== rows.length - 1);
+        row.querySelector('[data-remove-new-author]')?.classList.toggle('hidden', rows.length <= 1);
+    });
+}
+
+function appendNewAuthorRow(group, value = '') {
+    const list = group.querySelector('[data-new-author-list]');
+    const template = list?.querySelector('[data-new-author-row]');
+    if (!list || !template) return;
+
+    const row = template.cloneNode(true);
+    const input = row.querySelector('input');
+    if (input) {
+        input.value = value;
+        input.name = 'new_author[]';
+    }
+
+    list.appendChild(row);
+    refreshNewAuthorGroupButtons(group);
 }
 
 function fillAddDoujinAuthorLinkFields(authorName) {
@@ -1291,9 +1337,14 @@ openAddDoujinModalButton?.addEventListener('click', () => setAddDoujinModal(true
 closeAddDoujinModalButton?.addEventListener('click', () => setAddDoujinModal(false));
 cancelAddDoujinModalButton?.addEventListener('click', () => setAddDoujinModal(false));
 initAuthorLinkGroups(addDoujinAuthorLinkGroups);
+if (addDoujinNewAuthorGroup) {
+    refreshNewAuthorGroupButtons(addDoujinNewAuthorGroup);
+}
 addDoujinForm?.addEventListener('click', (event) => {
     const addButton = event.target.closest('[data-add-author-link]');
     const removeButton = event.target.closest('[data-remove-author-link]');
+    const addNewAuthorButton = event.target.closest('[data-add-new-author]');
+    const removeNewAuthorButton = event.target.closest('[data-remove-new-author]');
 
     if (addButton) {
         const group = addButton.closest('[data-author-link-group]');
@@ -1306,6 +1357,20 @@ addDoujinForm?.addEventListener('click', (event) => {
         if (group && row && group.querySelectorAll('[data-author-link-row]').length > 1) {
             row.remove();
             refreshAuthorLinkGroupButtons(group);
+        }
+    }
+
+    if (addNewAuthorButton) {
+        const group = addNewAuthorButton.closest('[data-new-author-group]');
+        if (group) appendNewAuthorRow(group);
+    }
+
+    if (removeNewAuthorButton) {
+        const group = removeNewAuthorButton.closest('[data-new-author-group]');
+        const row = removeNewAuthorButton.closest('[data-new-author-row]');
+        if (group && row && group.querySelectorAll('[data-new-author-row]').length > 1) {
+            row.remove();
+            refreshNewAuthorGroupButtons(group);
         }
     }
 });

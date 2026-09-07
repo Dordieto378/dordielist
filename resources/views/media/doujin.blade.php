@@ -66,6 +66,7 @@
         $currentAuthor = old('author', $authors->first());
         $currentAuthorRecord = $media->doujinAuthors->firstWhere('name', $currentAuthor)
             ?: $media->doujinAuthors->first();
+        $currentAuthorName = old('author_name', $currentAuthorRecord?->name ?? $currentAuthor ?? '');
         $doujinAuthorLinkValues = fn (string $field, mixed $default = null) => DoujinAuthorLinks::urls(old($field, $default)) ?: [''];
         $currentTwitterUrls = $doujinAuthorLinkValues('author_twitter_url', $currentAuthorRecord?->twitter_url);
         $currentPatreonUrls = $doujinAuthorLinkValues('author_patreon_url', $currentAuthorRecord?->patreon_url);
@@ -418,21 +419,34 @@
                                 />
                             </label>
 
-                            <label class="block">
-                                <span class="block mb-2 text-red-600 font-medium">Author</span>
-                                <select
-                                  id="doujinAuthorSelect"
-                                  name="author"
-                                  class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
-                                >
-                                    <option value="">No author</option>
-                                    @foreach($authorOptions as $authorName)
-                                        <option value="{{ $authorName }}" {{ ($currentAuthor ?? '') === $authorName ? 'selected' : '' }}>
-                                            {{ $authorName }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </label>
+                            <div class="block space-y-4">
+                                <label class="block">
+                                    <span class="block mb-2 text-red-600 font-medium">Author</span>
+                                    <select
+                                      id="doujinAuthorSelect"
+                                      name="author"
+                                      class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
+                                    >
+                                        <option value="">No author</option>
+                                        @foreach($authorOptions as $authorName)
+                                            <option value="{{ $authorName }}" {{ ($currentAuthor ?? '') === $authorName ? 'selected' : '' }}>
+                                                {{ $authorName }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </label>
+
+                                <label class="block">
+                                    <span class="block mb-2 text-red-600 font-medium">Author Name</span>
+                                    <input
+                                      id="doujinAuthorName"
+                                      type="text"
+                                      name="author_name"
+                                      value="{{ $currentAuthorName }}"
+                                      class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
+                                    />
+                                </label>
+                            </div>
 
                             <div class="block space-y-4">
                                 @foreach([
@@ -731,6 +745,7 @@
                 let currentUploadSession = null;
                 const doujinAuthorLinks = @json($allAuthorLinks ?? []);
                 const doujinAuthorSelect = document.getElementById('doujinAuthorSelect');
+                const doujinAuthorNameInput = document.getElementById('doujinAuthorName');
                 const doujinAuthorLinkGroups = document.querySelectorAll('#editEntryForm [data-author-link-group]');
                 const shouldOpenEditModal = @json(session('open_edit_doujin_modal', false));
                 const shouldOpenUploadModal = @json(session('open_media_content_upload_modal', false));
@@ -860,6 +875,9 @@
                 };
                 doujinAuthorSelect?.addEventListener('change', () => {
                     fillAuthorLinkFields(doujinAuthorSelect.value);
+                    if (doujinAuthorNameInput) {
+                        doujinAuthorNameInput.value = doujinAuthorSelect.value || '';
+                    }
                 });
                 editForm?.addEventListener('click', (event) => {
                     const addButton = event.target.closest('[data-add-author-link]');

@@ -101,6 +101,7 @@ class DoujinController extends Controller
         $validator = Validator::make($request->all(), [
             'title_english' => ['nullable', 'string', 'max:255'],
             'author' => ['nullable', 'string', 'max:255'],
+            'author_name' => ['nullable', 'string', 'max:255'],
             'author_twitter_url' => ['nullable', 'array'],
             'author_twitter_url.*' => ['nullable', 'string', 'max:2048'],
             'author_patreon_url' => ['nullable', 'array'],
@@ -120,13 +121,27 @@ class DoujinController extends Controller
 
         $data = $validator->validated();
         $titleEnglish = $this->trimToNull($data['title_english'] ?? null);
-        $authors = $this->parseAuthorNames($data['author'] ?? null);
+        $selectedAuthorName = $this->trimToNull($data['author'] ?? null);
+        $editedAuthorName = $this->trimToNull($data['author_name'] ?? null);
+        $authors = $this->parseAuthorNames($selectedAuthorName);
 
         if (!$titleEnglish) {
             return back()
                 ->withInput()
                 ->with('open_edit_doujin_modal', true)
                 ->with('doujin_update_error', 'Add a title.');
+        }
+
+        if ($editedAuthorName !== null) {
+            $renameError = $this->renameDoujinAuthorForEdit($selectedAuthorName, $editedAuthorName);
+            if ($renameError !== null) {
+                return back()
+                    ->withInput()
+                    ->with('open_edit_doujin_modal', true)
+                    ->with('doujin_update_error', $renameError);
+            }
+
+            $authors = [$editedAuthorName];
         }
 
         $media->title_english = $titleEnglish;
@@ -240,7 +255,8 @@ class DoujinController extends Controller
         $validator = Validator::make($request->all(), [
             'title_english' => ['nullable', 'string', 'max:255'],
             'existing_author' => ['nullable', 'string', 'max:255'],
-            'new_author' => ['nullable', 'string', 'max:255'],
+            'new_author' => ['nullable', 'array'],
+            'new_author.*' => ['nullable', 'string', 'max:255'],
             'archive' => ['required', 'file', 'max:1048576'],
         ]);
 
@@ -363,7 +379,8 @@ class DoujinController extends Controller
         $validator = Validator::make($request->all(), [
             'title_english' => ['nullable', 'string', 'max:255'],
             'existing_author' => ['nullable', 'string', 'max:255'],
-            'new_author' => ['nullable', 'string', 'max:255'],
+            'new_author' => ['nullable', 'array'],
+            'new_author.*' => ['nullable', 'string', 'max:255'],
             'author_twitter_url' => ['nullable', 'array'],
             'author_twitter_url.*' => ['nullable', 'string', 'max:2048'],
             'author_patreon_url' => ['nullable', 'array'],
@@ -380,15 +397,18 @@ class DoujinController extends Controller
 
         $data = $validator->validated();
         $titleEnglish = $this->trimToNull($data['title_english'] ?? null);
-        $author = $this->trimToNull($data['new_author'] ?? null)
-            ?: $this->trimToNull($data['existing_author'] ?? null);
+        $newAuthors = $data['new_author'] ?? [];
+        $authors = $this->parseAuthorNames(array_merge(
+            [$data['existing_author'] ?? null],
+            is_array($newAuthors) ? $newAuthors : [$newAuthors]
+        ));
 
         if (!$titleEnglish) {
             return $this->redirectUploadFailure('Add a title.', $request);
         }
 
-        if (!$author) {
-            return $this->redirectUploadFailure('Select an author or add a new author.', $request);
+        if ($authors === []) {
+            return $this->redirectUploadFailure('Select an author or add at least one new author.', $request);
         }
 
         if (strtolower((string) $archive->getClientOriginalExtension()) !== 'zip') {
@@ -420,8 +440,8 @@ class DoujinController extends Controller
             $media->chapters_cnt = 0;
             $media->save();
 
-            $this->metadataSyncer->syncDoujin($media, [$author]);
-            $this->syncDoujinAuthorLinks([$author], $data, false);
+            $this->metadataSyncer->syncDoujin($media, $authors);
+            $this->syncDoujinAuthorLinks($authors, $data, false);
 
             $disk = Storage::disk('public');
             $targetRel = 'doujin/'.$media->id;
@@ -1080,6 +1100,37 @@ class DoujinController extends Controller
         return $value === '' ? null : $value;
     }
 
+    private function renameDoujinAuthorForEdit(?string $selectedAuthorName, string $editedAuthorName): ?string
+    {
+        if ($selectedAuthorName === null) {
+            return null;
+        }
+
+        $author = DoujinAuthor::query()
+            ->where('name', $selectedAuthorName)
+            ->first();
+
+        if (!$author || $author->name === $editedAuthorName) {
+            return null;
+        }
+
+        $nameExists = DoujinAuthor::query()
+            ->where('name', $editedAuthorName)
+            ->whereKeyNot($author->getKey())
+            ->exists();
+
+        if ($nameExists) {
+            return 'That author name already exists.';
+        }
+
+        $author->forceFill([
+            'name' => $editedAuthorName,
+            'slug' => $this->makeUniqueDoujinAuthorSlug($author, $editedAuthorName),
+        ])->save();
+
+        return null;
+    }
+
     private function syncDoujinAuthorLinks(array $authorNames, array $data, bool $clearMissing = true): void
     {
         $links = [
@@ -1104,14 +1155,18 @@ class DoujinController extends Controller
         }
     }
 
-    private function parseAuthorNames(?string $value): array
+    private function parseAuthorNames(mixed $value): array
     {
         return $this->parseNames($value);
     }
 
-    private function parseNames(?string $value): array
+    private function parseNames(mixed $value): array
     {
-        return collect(explode(',', (string) $value))
+        $values = is_array($value) ? $value : [$value];
+
+        return collect($values)
+            ->flatten()
+            ->flatMap(fn ($name) => explode(',', (string) $name))
             ->map(fn ($name) => trim((string) $name))
             ->filter()
             ->unique(fn ($name) => mb_strtolower($name))
@@ -1133,6 +1188,28 @@ class DoujinController extends Controller
             Media::query()
                 ->where('slug', $slug)
                 ->whereKeyNot($media->getKey())
+                ->exists()
+        ) {
+            $slug = $base.'-'.$index++;
+        }
+
+        return $slug;
+    }
+
+    private function makeUniqueDoujinAuthorSlug(DoujinAuthor $author, string $name): ?string
+    {
+        $base = Str::slug($name);
+        if ($base === '') {
+            return null;
+        }
+
+        $slug = $base;
+        $index = 2;
+
+        while (
+            DoujinAuthor::query()
+                ->where('slug', $slug)
+                ->whereKeyNot($author->getKey())
                 ->exists()
         ) {
             $slug = $base.'-'.$index++;

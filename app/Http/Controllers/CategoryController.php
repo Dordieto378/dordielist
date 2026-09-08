@@ -486,6 +486,24 @@ class CategoryController extends Controller
             $q->whereHas('anilistGenres', fn ($query) => $query->where('name', $genre));
         }
 
+        $dordieWatchFilterParam = $request->query('dordiewatch_filter', '');
+        $selectedDordieWatchFilter = is_array($dordieWatchFilterParam)
+            ? (string) reset($dordieWatchFilterParam)
+            : (string) $dordieWatchFilterParam;
+        if (! in_array($selectedDordieWatchFilter, ['exclude', 'only'], true)) {
+            $selectedDordieWatchFilter = '';
+        }
+
+        if (in_array($normalized, ['ANIMES', 'HENTAIS'], true)) {
+            if ($selectedDordieWatchFilter === 'exclude') {
+                $q->whereNotIn('id', DB::table('dordiewatch_media')->select('media_id'));
+            } elseif ($selectedDordieWatchFilter === 'only') {
+                $q->whereIn('id', DB::table('dordiewatch_media')->select('media_id'));
+            }
+        } else {
+            $selectedDordieWatchFilter = '';
+        }
+
         if ($tagsCsv = $request->query('tags')) {
             foreach (explode(',', $tagsCsv) as $tag) {
                 $tag = trim($tag);
@@ -618,6 +636,7 @@ class CategoryController extends Controller
             'selectedStudio' => $selectedStudio,
             'allAuthors' => $allAuthors,
             'selectedAuthor' => $selectedAuthor,
+            'selectedDordieWatchFilter' => $selectedDordieWatchFilter,
             ...$collectionFilter,
         ]);
     }

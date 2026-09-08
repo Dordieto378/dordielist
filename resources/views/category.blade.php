@@ -548,6 +548,34 @@ if (!function_exists('shortTitle')) {
                     @endif
 
                     @include('category._collection-filter')
+
+                    @if(in_array(strtoupper($category), ['ANIME', 'HENTAI']))
+                        <div class="mt-4">
+                            <ul class="space-y-2">
+                                @foreach([
+                                    'exclude' => 'Ignore DordieWatch item',
+                                    'only' => 'Only show DordieWatch item',
+                                ] as $dordieWatchValue => $dordieWatchLabel)
+                                    <li class="group">
+                                        <label class="flex items-center px-3 font-boldness py-2 text-sm font cursor-pointer">
+                                            <input type="checkbox" name="dordiewatch_filter" value="{{ $dordieWatchValue }}" class="sr-only peer"
+                                                {{ (($selectedDordieWatchFilter ?? '') === $dordieWatchValue) ? 'checked' : '' }}>
+                                            <span class="mr-1 inline-block h-4 w-4 rounded border border-gray-300 bg-gray-50 transition
+                                                peer-checked:bg-red-600 peer-checked:border-red-600 group-hover:bg-gray-100 flex items-center justify-center">
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-white hidden peer-checked:block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                                </svg>
+                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="size-6">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                                                </svg>
+                                            </span>
+                                            <span class="text-gray-900 ml-3">{{ $dordieWatchLabel }}</span>
+                                        </label>
+                                    </li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    @endif
                 </form>
             @endif
         </aside>
@@ -974,6 +1002,7 @@ function redirectWithFilters () {
     const era        = document.querySelector('select[name="era"]')?.value ?? '';
     const collection = dropdowns.Collection?.selectedItems.join(',') ?? '';
     const collectionBlacklist = dropdowns.CollectionBlacklist?.selectedItems.join(',') ?? '';
+    const dordieWatchFilter = document.querySelector('input[name="dordiewatch_filter"]:checked')?.value ?? '';
     const qp = new URLSearchParams();
     if (tags)        qp.append('tags',        tags);
     if (languages)   qp.append('language',    languages);
@@ -985,6 +1014,7 @@ function redirectWithFilters () {
     if (era)         qp.append('era',         era);
     if (collection)  qp.append('collection',  collection);
     if (collectionBlacklist) qp.append('collection_blacklist', collectionBlacklist);
+    if (dordieWatchFilter) qp.append('dordiewatch_filter', dordieWatchFilter);
     if (yearOrder  !== 'none') qp.append('year_order',  yearOrder);
     if (titleOrder !== 'none') qp.append('title_order', titleOrder);
     if (scoreOrder !== 'none') qp.append('score_order', scoreOrder);
@@ -1086,6 +1116,22 @@ window.addEventListener('load', function(){
 // Also add event listeners on genre checkboxes:
 document.querySelectorAll('input[name="genre[]"]').forEach(cb => {
     cb.addEventListener('change', debouncedRedirectWithFilters);
+});
+
+document.querySelectorAll('input[name="dordiewatch_filter"]').forEach(cb => {
+    cb.addEventListener('change', event => {
+        const selectedFilter = event.currentTarget;
+
+        if (selectedFilter.checked) {
+            document.querySelectorAll('input[name="dordiewatch_filter"]').forEach(otherFilter => {
+                if (otherFilter !== selectedFilter) {
+                    otherFilter.checked = false;
+                }
+            });
+        }
+
+        debouncedRedirectWithFilters();
+    });
 });
 
 const addDoujinModal = document.getElementById('addDoujinModal');

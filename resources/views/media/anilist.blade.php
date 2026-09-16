@@ -211,7 +211,7 @@
                   22.721 17.022 28.26 10.471 5.539 23.147 4.834 32.94-1.832l290.981-198.087
                   c8.746-5.954 13.98-15.848 13.98-26.428 0-10.58-5.234-20.475-13.981-26.428z"/>
                         </svg>
-                        <span class="ml-3">Play in DordieWatch</span>
+                        <span class="ml-3">Watch in DordieWatch</span>
                     </a>
                     @endif
                     @unless($isViewer)

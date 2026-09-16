@@ -141,7 +141,7 @@ class DordieWatchIntegrationTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_anime_detail_page_only_contains_play_link_when_available_locally(): void
+    public function test_anime_detail_page_only_contains_watch_link_when_available_locally(): void
     {
         $role = Role::where('role', 'Viewer')->first()
             ?? Role::create(['role' => 'Viewer']);
@@ -162,7 +162,7 @@ class DordieWatchIntegrationTest extends TestCase
             ->actingAs($user)
             ->get(route('media.show', ['id' => $media->id]))
             ->assertOk()
-            ->assertDontSee('Play in DordieWatch')
+            ->assertDontSee('Watch in DordieWatch')
             ->assertDontSee('dordiewatch://open?manifest=', false);
 
         DB::table('dordiewatch_media')->insert([
@@ -174,7 +174,7 @@ class DordieWatchIntegrationTest extends TestCase
             ->actingAs($user)
             ->get(route('media.show', ['id' => $media->id]))
             ->assertOk()
-            ->assertSee('Play in DordieWatch')
+            ->assertSee('Watch in DordieWatch')
             ->assertSee('dordiewatch://open?manifest=', false);
     }
 

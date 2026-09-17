@@ -188,4 +188,5 @@
         });
     });
 </script>
+@include('collection.partials.preserve-scroll')
 @endsection

@@ -42,6 +42,7 @@ class CollectionPageTest extends TestCase
             ->get(route('collection.show', $collection))
             ->assertOk()
             ->assertSee($media->title_english)
+            ->assertSee('data-collection-scroll-position', false)
             ->assertDontSee('Old Romaji Title');
     }
 
@@ -71,6 +72,22 @@ class CollectionPageTest extends TestCase
             ->assertOk()
             ->assertSee($media->title_english)
             ->assertDontSee('Favorite Romaji Title');
+    }
+
+    public function test_collection_index_includes_scroll_position_restoration(): void
+    {
+        $user = $this->manager();
+
+        Collection::firstOrCreate(
+            ['name' => 'Favorites'],
+            ['is_system' => true],
+        );
+
+        $this
+            ->actingAs($user)
+            ->get(route('collection.index'))
+            ->assertOk()
+            ->assertSee('data-collection-scroll-position', false);
     }
 
     private function manager(): User

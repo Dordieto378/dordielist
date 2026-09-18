@@ -15,7 +15,7 @@ class VisualNovelCategoryTest extends TestCase
 {
     use DatabaseTransactions;
 
-    public function test_visual_novel_language_filter_shows_language_flags_and_names_instead_of_codes(): void
+    public function test_visual_novel_language_filter_shows_country_flags_and_names_instead_of_codes(): void
     {
         $user = $this->manager();
         $media = Media::create([
@@ -33,8 +33,8 @@ class VisualNovelCategoryTest extends TestCase
             ->actingAs($user)
             ->get(route('category', ['category' => 'visual-novel', 'language' => 'en,ja']))
             ->assertOk()
-            ->assertSee('🇬🇧')
-            ->assertSee('🇯🇵')
+            ->assertSee('class="fi fi-gb shrink-0"', false)
+            ->assertSee('class="fi fi-jp shrink-0"', false)
             ->assertSee('title="English"', false)
             ->assertSee('title="Japanese"', false)
             ->assertSee('value="en"', false)
@@ -71,7 +71,7 @@ class VisualNovelCategoryTest extends TestCase
             ->assertSee($publisherName)
             ->assertSee('title="English"', false)
             ->assertSee('aria-label="English"', false)
-            ->assertSee('🇬🇧');
+            ->assertSee('class="fi fi-gb shrink-0"', false);
     }
 
     private function manager(): User

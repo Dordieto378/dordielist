@@ -115,6 +115,7 @@ class VndbPublisherData
                 'language_code' => $language !== '' ? strtoupper($language) : '',
                 'language_label' => $language !== '' ? VndbLanguages::label($language) : '',
                 'language_flag' => $language !== '' ? VndbLanguages::flag($language) : '',
+                'language_country_code' => $language !== '' ? VndbLanguages::countryCode($language) : null,
             ];
         }
 

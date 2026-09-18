@@ -64,64 +64,63 @@ class VndbLanguages
         'vi' => 'Vietnamese',
     ];
 
-    private const FLAGS = [
-        'ar' => '🇸🇦',
-        'eu' => '🇪🇸',
-        'be' => '🇧🇾',
-        'bg' => '🇧🇬',
-        'bs' => '🇧🇦',
-        'ca' => '🇪🇸',
-        'ck' => '🇺🇸',
-        'zh' => '🇨🇳',
-        'zh-Hans' => '🇨🇳',
-        'zh-Hant' => '🇹🇼',
-        'hr' => '🇭🇷',
-        'cs' => '🇨🇿',
-        'da' => '🇩🇰',
-        'nl' => '🇳🇱',
-        'en' => '🇬🇧',
-        'eo' => '🌐',
-        'et' => '🇪🇪',
-        'fi' => '🇫🇮',
-        'fr' => '🇫🇷',
-        'gl' => '🇪🇸',
-        'de' => '🇩🇪',
-        'el' => '🇬🇷',
-        'he' => '🇮🇱',
-        'hi' => '🇮🇳',
-        'hu' => '🇭🇺',
-        'ga' => '🇮🇪',
-        'id' => '🇮🇩',
-        'it' => '🇮🇹',
-        'iu' => '🇨🇦',
-        'ja' => '🇯🇵',
-        'kk' => '🇰🇿',
-        'ko' => '🇰🇷',
-        'la' => '🇻🇦',
-        'lv' => '🇱🇻',
-        'lt' => '🇱🇹',
-        'mk' => '🇲🇰',
-        'ms' => '🇲🇾',
-        'ne' => '🇳🇵',
-        'no' => '🇳🇴',
-        'fa' => '🇮🇷',
-        'pl' => '🇵🇱',
-        'pt-br' => '🇧🇷',
-        'pt-pt' => '🇵🇹',
-        'ro' => '🇷🇴',
-        'ru' => '🇷🇺',
-        'gd' => '🇬🇧',
-        'sr' => '🇷🇸',
-        'sk' => '🇸🇰',
-        'sl' => '🇸🇮',
-        'es' => '🇪🇸',
-        'sv' => '🇸🇪',
-        'ta' => '🇵🇭',
-        'th' => '🇹🇭',
-        'tr' => '🇹🇷',
-        'uk' => '🇺🇦',
-        'ur' => '🇵🇰',
-        'vi' => '🇻🇳',
+    private const FLAG_COUNTRIES = [
+        'ar' => 'sa',
+        'eu' => 'es-pv',
+        'be' => 'by',
+        'bg' => 'bg',
+        'bs' => 'ba',
+        'ca' => 'es-ct',
+        'ck' => 'us',
+        'zh' => 'cn',
+        'zh-Hans' => 'cn',
+        'zh-Hant' => 'tw',
+        'hr' => 'hr',
+        'cs' => 'cz',
+        'da' => 'dk',
+        'nl' => 'nl',
+        'en' => 'gb',
+        'et' => 'ee',
+        'fi' => 'fi',
+        'fr' => 'fr',
+        'gl' => 'es-ga',
+        'de' => 'de',
+        'el' => 'gr',
+        'he' => 'il',
+        'hi' => 'in',
+        'hu' => 'hu',
+        'ga' => 'ie',
+        'id' => 'id',
+        'it' => 'it',
+        'iu' => 'ca',
+        'ja' => 'jp',
+        'kk' => 'kz',
+        'ko' => 'kr',
+        'la' => 'va',
+        'lv' => 'lv',
+        'lt' => 'lt',
+        'mk' => 'mk',
+        'ms' => 'my',
+        'ne' => 'np',
+        'no' => 'no',
+        'fa' => 'ir',
+        'pl' => 'pl',
+        'pt-br' => 'br',
+        'pt-pt' => 'pt',
+        'ro' => 'ro',
+        'ru' => 'ru',
+        'gd' => 'gb-sct',
+        'sr' => 'rs',
+        'sk' => 'sk',
+        'sl' => 'si',
+        'es' => 'es',
+        'sv' => 'se',
+        'ta' => 'ph',
+        'th' => 'th',
+        'tr' => 'tr',
+        'uk' => 'ua',
+        'ur' => 'pk',
+        'vi' => 'vn',
     ];
 
     public static function label(string $code): string
@@ -141,8 +140,26 @@ class VndbLanguages
     public static function flag(string $code): string
     {
         $code = trim($code);
+        if (self::normalizeCode($code) === 'eo') {
+            return '🌐';
+        }
 
-        return self::FLAGS[self::normalizeCode($code)] ?? self::codeLabel($code);
+        $countryCode = self::countryCode($code);
+        $emojiCountryCode = $countryCode !== null ? substr($countryCode, 0, 2) : null;
+
+        return $emojiCountryCode !== null
+            ? implode('', array_map(
+                fn (string $letter) => mb_chr(127397 + ord($letter), 'UTF-8'),
+                str_split(strtoupper($emojiCountryCode))
+            ))
+            : self::codeLabel($code);
+    }
+
+    public static function countryCode(string $code): ?string
+    {
+        $code = trim($code);
+
+        return self::FLAG_COUNTRIES[self::normalizeCode($code)] ?? null;
     }
 
     public static function options(iterable $codes): array
@@ -159,6 +176,7 @@ class VndbLanguages
                 'value' => $code,
                 'label' => self::label($code),
                 'flag' => self::flag($code),
+                'country_code' => self::countryCode($code),
             ];
         }
 

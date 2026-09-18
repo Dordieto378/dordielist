@@ -234,6 +234,7 @@ if (!function_exists('shortTitle')) {
                             $lang = $language['value'];
                             $languageLabel = $language['label'];
                             $languageFlag = $language['flag'];
+                            $languageCountryCode = $language['country_code'];
                         @endphp
                         <li class="group">
                             <label class="flex items-center bg-white border rounded-sm px-3 py-2 text-sm cursor-pointer">
@@ -258,7 +259,11 @@ if (!function_exists('shortTitle')) {
                                 title="{{ $languageLabel }}"
                                 aria-label="{{ $languageLabel }}"
                                 class="text-gray-900 ml-3 font-medium inline-flex items-center gap-2">
-                                <span aria-hidden="true">{{ $languageFlag }}</span>
+                                @if($languageCountryCode)
+                                    <span aria-hidden="true" class="fi fi-{{ $languageCountryCode }} shrink-0"></span>
+                                @else
+                                    <span aria-hidden="true">{{ $languageFlag }}</span>
+                                @endif
                                 <span>{{ $languageLabel }}</span>
                             </span>
                             </label>

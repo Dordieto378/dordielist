@@ -164,10 +164,13 @@
                     <div class="space-y-1">
                       @forelse ($item['publishers'] ?? [] as $publisher)
                           <div class="flex items-center gap-2">
-                              @if($publisher['language_flag'] !== '')
+                              @if($publisher['language_country_code'])
                                   <span
                                       title="{{ $publisher['language_label'] }}"
-                                      aria-label="{{ $publisher['language_label'] }}">
+                                      aria-label="{{ $publisher['language_label'] }}"
+                                      class="fi fi-{{ $publisher['language_country_code'] }} shrink-0"></span>
+                              @elseif($publisher['language_flag'] !== '')
+                                  <span title="{{ $publisher['language_label'] }}" aria-label="{{ $publisher['language_label'] }}">
                                       {{ $publisher['language_flag'] }}
                                   </span>
                               @endif

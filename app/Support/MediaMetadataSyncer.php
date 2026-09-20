@@ -8,6 +8,9 @@ use App\Models\AnilistStudio;
 use App\Models\AnilistTag;
 use App\Models\DoujinAuthor;
 use App\Models\Media;
+use App\Models\TmdbGenre;
+use App\Models\TmdbKeyword;
+use App\Models\TmdbProductionCompany;
 use App\Models\VnDeveloper;
 use App\Models\VnLanguage;
 use App\Models\VnPublisher;
@@ -47,6 +50,17 @@ class MediaMetadataSyncer
         $this->syncRelation($media, 'vnLanguages', VnLanguage::class, $languages);
         $this->syncRelation($media, 'vnDevelopers', VnDeveloper::class, $developers);
         $this->syncRelation($media, 'vnPublishers', VnPublisher::class, $publishers);
+    }
+
+    public function syncTmdb(
+        Media $media,
+        ?array $genres = null,
+        ?array $keywords = null,
+        ?array $productionCompanies = null
+    ): void {
+        $this->syncRelation($media, 'tmdbGenres', TmdbGenre::class, $genres);
+        $this->syncRelation($media, 'tmdbKeywords', TmdbKeyword::class, $keywords);
+        $this->syncRelation($media, 'tmdbProductionCompanies', TmdbProductionCompany::class, $productionCompanies);
     }
 
     public function normalizedNames(?array $values): ?array
@@ -253,7 +267,14 @@ class MediaMetadataSyncer
 
     private function sourceIdColumn(string $modelClass): ?string
     {
-        return in_array($modelClass, [AnilistTag::class, AnilistStudio::class, AnilistAuthor::class], true)
+        return in_array($modelClass, [
+            AnilistTag::class,
+            AnilistStudio::class,
+            AnilistAuthor::class,
+            TmdbGenre::class,
+            TmdbKeyword::class,
+            TmdbProductionCompany::class,
+        ], true)
             ? 'source_id'
             : null;
     }

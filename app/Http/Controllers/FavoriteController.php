@@ -13,7 +13,7 @@ class FavoriteController extends Controller
         $cleanId = (int) ltrim($rawId, 'v');
 
         $data = $request->validate([
-            'favoritable_type' => 'required|in:animes,mangas,manhwas,light-novels,hentais,doujins,visual-novel',
+            'favoritable_type' => 'required|in:animes,mangas,manhwas,light-novels,hentais,doujins,visual-novel,movies',
             'favoritable_id'   => 'required',
         ]);
 

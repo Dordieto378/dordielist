@@ -11,6 +11,9 @@ use App\Models\CollectionItem;
 use App\Models\DoujinAuthor;
 use App\Models\Favorite;
 use App\Models\Media;
+use App\Models\TmdbGenre;
+use App\Models\TmdbKeyword;
+use App\Models\TmdbProductionCompany;
 use App\Support\DoujinAuthorLinks;
 use App\Models\VnDeveloper;
 use App\Models\VnLanguage;
@@ -35,6 +38,7 @@ class CategoryController extends Controller
             'LIGHT-NOVELS' => 'LIGHT NOVELS',
             'VISUAL-NOVEL' => 'VISUAL-NOVEL',
             'DOUJINS' => 'DOUJINS',
+            'MOVIES' => 'MOVIES',
             default => strtoupper(str_replace('-', ' ', $category)),
         };
     }
@@ -67,12 +71,15 @@ class CategoryController extends Controller
 
         if ($row instanceof Media) {
             $isVN = $row->type === 'vn';
+            $isMovie = $row->type === 'movie';
 
             return [
                 'id' => $row->id,
                 'url' => $isVN
                     ? route('vn.show', ['id' => $row->id])
-                    : route('media.show', ['id' => $row->id]),
+                    : ($isMovie
+                        ? route('movies.show', ['media' => $row->id])
+                        : route('media.show', ['id' => $row->id])),
                 'cover' => $row->cover_url ?: asset('images/no-image.jpg'),
                 'title' => $row->title_english ?: ($row->title_romaji ?: ($row->title_native ?: 'No Title')),
                 'nsfw' => (int) ($row->isNsfw ?? 0) === 1,
@@ -92,7 +99,7 @@ class CategoryController extends Controller
 
     private function dordieWatchLaunchUrl(Media $media): ?string
     {
-        if (! in_array(strtolower((string) $media->type), ['anime', 'hentai'], true)) {
+        if (! in_array(strtolower((string) $media->type), ['anime', 'hentai', 'movie'], true)) {
             return null;
         }
 
@@ -420,6 +427,9 @@ class CategoryController extends Controller
             'anilistTags:id,name',
             'anilistStudios:id,name',
             'anilistAuthors:id,name',
+            'tmdbGenres:id,name',
+            'tmdbKeywords:id,name',
+            'tmdbProductionCompanies:id,name',
         ]);
 
         $studioParam = $request->query('studio', '');
@@ -438,6 +448,7 @@ class CategoryController extends Controller
             'MANGAS' => ['manga'],
             'MANHWAS' => ['manhwa'],
             'LIGHT-NOVELS' => ['light_novel'],
+            'MOVIES' => ['movie'],
             default => ['anime', 'hentai', 'manga', 'manhwa', 'light_novel'],
         };
 
@@ -452,6 +463,14 @@ class CategoryController extends Controller
             foreach ($selectedStudio as $studio) {
                 if ($studio !== '') {
                     $q->whereHas('anilistStudios', fn ($query) => $query->where('name', $studio));
+                }
+            }
+        }
+
+        if ($normalized === 'MOVIES') {
+            foreach ($selectedStudio as $production) {
+                if ($production !== '') {
+                    $q->whereHas('tmdbProductionCompanies', fn ($query) => $query->where('name', $production));
                 }
             }
         }
@@ -483,7 +502,8 @@ class CategoryController extends Controller
         $genreParams = array_values(array_filter($genreParams, fn ($genre) => $genre !== ''));
 
         foreach ($genreParams as $genre) {
-            $q->whereHas('anilistGenres', fn ($query) => $query->where('name', $genre));
+            $relation = $normalized === 'MOVIES' ? 'tmdbGenres' : 'anilistGenres';
+            $q->whereHas($relation, fn ($query) => $query->where('name', $genre));
         }
 
         $dordieWatchFilterParam = $request->query('dordiewatch_filter', '');
@@ -508,7 +528,8 @@ class CategoryController extends Controller
             foreach (explode(',', $tagsCsv) as $tag) {
                 $tag = trim($tag);
                 if ($tag !== '') {
-                    $q->whereHas('anilistTags', fn ($query) => $query->where('name', $tag));
+                    $relation = $normalized === 'MOVIES' ? 'tmdbKeywords' : 'anilistTags';
+                    $q->whereHas($relation, fn ($query) => $query->where('name', $tag));
                 }
             }
         }
@@ -523,8 +544,11 @@ class CategoryController extends Controller
         $titleExpr = 'COALESCE(NULLIF(title_english,""), NULLIF(title_romaji,""), NULLIF(title_native,""))';
 
         if ($scoreOrder !== 'none') {
+            $scoreColumn = str_contains($scoreOrder, 'avg')
+                ? ($normalized === 'MOVIES' ? 'tmdb_vote_average' : 'avg_score')
+                : 'user_score';
             $q->orderBy(
-                str_contains($scoreOrder, 'avg') ? 'avg_score' : 'user_score',
+                $scoreColumn,
                 str_contains($scoreOrder, 'desc') ? 'desc' : 'asc'
             )->orderBy('id', 'asc');
         } elseif ($dateOrder !== 'none') {
@@ -544,14 +568,18 @@ class CategoryController extends Controller
         $perPage = 40;
         $p = $q->paginate($perPage)->appends($request->query());
 
-        $allGenres = AnilistGenre::query()
-            ->whereHas('media', fn ($query) => $query->whereIn('type', ['anime', 'hentai', 'manga', 'manhwa', 'light_novel']))
+        $allGenres = ($normalized === 'MOVIES' ? TmdbGenre::query() : AnilistGenre::query())
+            ->whereHas('media', fn ($query) => $query->whereIn('type', $normalized === 'MOVIES'
+                ? ['movie']
+                : ['anime', 'hentai', 'manga', 'manhwa', 'light_novel']))
             ->orderBy('name')
             ->pluck('name')
             ->all();
 
-        $allTags = AnilistTag::query()
-            ->whereHas('media', fn ($query) => $query->whereIn('type', ['anime', 'hentai', 'manga', 'manhwa', 'light_novel']))
+        $allTags = ($normalized === 'MOVIES' ? TmdbKeyword::query() : AnilistTag::query())
+            ->whereHas('media', fn ($query) => $query->whereIn('type', $normalized === 'MOVIES'
+                ? ['movie']
+                : ['anime', 'hentai', 'manga', 'manhwa', 'light_novel']))
             ->orderBy('name')
             ->pluck('name')
             ->all();
@@ -586,6 +614,12 @@ class CategoryController extends Controller
         } elseif ($normalized === 'HENTAIS') {
             $allStudios = AnilistStudio::query()
                 ->whereHas('media', fn ($query) => $query->where('type', 'hentai'))
+                ->orderBy('name')
+                ->pluck('name')
+                ->all();
+        } elseif ($normalized === 'MOVIES') {
+            $allStudios = TmdbProductionCompany::query()
+                ->whereHas('media', fn ($query) => $query->where('type', 'movie'))
                 ->orderBy('name')
                 ->pluck('name')
                 ->all();

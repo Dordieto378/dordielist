@@ -27,6 +27,7 @@
     $isEpisodeBased = in_array($type, ['ANIME', 'HENTAI']);
     $isChapterBased = in_array($type, ['MANGA', 'MANHWA', 'LIGHT_NOVEL']);
     $isLightNovel = $type === 'LIGHT_NOVEL';
+    $isMovie = $type === 'MOVIE';
     $isVolumeBased = in_array($type, ['MANGA', 'LIGHT_NOVEL'], true);
     $isManga = $type === 'MANGA';
     $isAniListSource = ($item['source'] ?? null) === 'anilist';
@@ -80,7 +81,9 @@
         $releaseDate = $day . ' ' . $dt->format('M') . ' ' . $year;
     }
 
-    $averageScore = isset($item['averageScore']) ? $item['averageScore'] . '%' : 'N/A';
+    $averageScore = isset($item['averageScore'])
+        ? ($isMovie ? (int) ceil((float) $item['averageScore'] * 10).'%' : $item['averageScore'].'%')
+        : 'N/A';
     $myScore = 'N/A';
     if (isset($item['mediaListEntry']) && !empty($item['mediaListEntry']['score']) && $item['mediaListEntry']['score'] > 0) {
         $myScore = $item['mediaListEntry']['score'] . '%';
@@ -101,6 +104,7 @@
         'MANGA'  => 'mangas',
         'MANHWA' => 'manhwas',
         'LIGHT_NOVEL' => 'light-novels',
+        'MOVIE' => 'movies',
         default  => 'animes',
     };
 
@@ -126,14 +130,15 @@
     $currentListStatus = old('list_status', $item['listStatus'] ?? 'PLANNING');
     $currentListStartDate = old('list_start_date', $item['listStartDate'] ?? null);
     $currentListEndDate = old('list_end_date', $item['listEndDate'] ?? null);
+    $currentWatchedDate = old('watched_date', $item['watchedDate'] ?? null);
 
     $listOptions = [
-        'CURRENT' => $isEpisodeBased ? 'Watching' : 'Reading',
+        'CURRENT' => $isMovie ? 'Watching' : ($isEpisodeBased ? 'Watching' : 'Reading'),
         'PLANNING' => 'Planning',
         'COMPLETED' => 'Completed',
         'PAUSED' => 'Paused',
         'DROPPED' => 'Dropped',
-        'REPEATING' => $isEpisodeBased ? 'Rewatching' : 'Rereading',
+        'REPEATING' => ($isEpisodeBased || $isMovie) ? 'Rewatching' : 'Rereading',
     ];
 
     if (!array_key_exists($currentListStatus, $listOptions)) {
@@ -198,9 +203,9 @@
                         class="thumb-img w-full h-full">
                 </div>
                 @auth
-                @if (($isEpisodeBased && $dordieWatchLaunchUrl) || ! $isViewer)
+                @if ((($isEpisodeBased || $isMovie) && $dordieWatchLaunchUrl) || ! $isViewer)
                 <div class="mt-4 flex flex-col space-y-3 w-[325px] font-bold">
-                    @if ($isEpisodeBased && $dordieWatchLaunchUrl)
+                    @if (($isEpisodeBased || $isMovie) && $dordieWatchLaunchUrl)
                     <a href="{{ $dordieWatchLaunchUrl }}"
                        class="flex items-center justify-start w-full flatGreen text-white
                               py-2 rounded-sm shadow-sm h-[50px] transition-200">
@@ -311,7 +316,7 @@
                         </svg>
                         <span class="ml-1">Edit</span>
                     </button>
-                    @if($isAdmin)
+                    @if($isAdmin && !$isMovie)
                     <button id="openMediaContentUploadModal" type="button" class="flex items-center justify-start w-full text-blue-950 py-2 rounded-sm hover:text-[#08875b]">
                         <svg xmlns="http://www.w3.org/2000/svg"
                              class="ml-[1.4rem] h-[1.1rem] w-[1.1rem] mr-[0.5rem] mb-[0.1rem]"
@@ -322,10 +327,14 @@
                     </button>
                     @endif
 
-                    <form action="{{ route('media.destroy', ['media' => $item['id']]) }}"
+                    <form action="{{ $isMovie
+                                    ? route('movies.destroy', ['media' => $item['id']])
+                                    : route('media.destroy', ['media' => $item['id']]) }}"
                           method="POST"
                           class="w-full"
-                          onsubmit="return confirm('Delete this entry? This will remove it locally and from your AniList list.');">
+                          onsubmit="return confirm('{{ $isMovie
+                              ? 'Delete this movie from Dordielist?'
+                              : 'Delete this entry? This will remove it locally and from your AniList list.' }}');">
                         @csrf
                         @method('DELETE')
                         <button type="submit" class="flex items-center justify-start w-full text-blue-950 py-2 rounded-sm hover:text-red-600">
@@ -407,6 +416,17 @@
                     <div>Release Date</div>
                     <div>{{ $releaseDate }}</div>
 
+                    @if($isMovie)
+                        <div>Runtime</div>
+                        <div>
+                            @if(!empty($item['runtimeMinutes']))
+                                {{ intdiv((int) $item['runtimeMinutes'], 60) }}h {{ (int) $item['runtimeMinutes'] % 60 }}m
+                            @else
+                                N/A
+                            @endif
+                        </div>
+                    @endif
+
                     <div>Average Score</div>
                     <div>{{ $averageScore }}</div>
 
@@ -459,6 +479,23 @@
                                     <a href="{{ category_filter_url('light-novels', 'author', $name) }}"
                                        class="text-blue-600 hover:underline cursor-pointer">
                                         {{ $name }}
+                                    </a>@if(!$loop->last), @endif
+                                @endforeach
+                            @endif
+                        </div>
+                    @elseif($isMovie)
+                        <div>Production</div>
+                        @php
+                            $studios = collect($item['studios'] ?? [])->filter()->unique()->values();
+                        @endphp
+                        <div>
+                            @if($studios->isEmpty())
+                                N/A
+                            @else
+                                @foreach($studios as $studio)
+                                    <a href="{{ category_filter_url('movies', 'studio', $studio) }}"
+                                       class="text-blue-600 hover:underline cursor-pointer">
+                                        {{ $studio }}
                                     </a>@if(!$loop->last), @endif
                                 @endforeach
                             @endif
@@ -703,7 +740,12 @@
     </div>
 
     <div class="border-b border-gray-200 mr-4 ml-4">
-      <form method="POST" action="{{ route('media.entry.update', ['media' => $item['id']]) }}" class="space-y-4 py-4" id="editEntryForm">
+      <form method="POST"
+            action="{{ $isMovie
+                ? route('movies.entry.update', ['media' => $item['id']])
+                : route('media.entry.update', ['media' => $item['id']]) }}"
+            class="space-y-4 py-4"
+            id="editEntryForm">
         @csrf
         @method('PATCH')
 
@@ -713,6 +755,46 @@
           </div>
         @endif
 
+        @if($isMovie)
+        <div class="grid grid-cols-2 gap-4">
+          <label class="block">
+            <span class="block mb-2 text-red-600 font-medium">Score</span>
+            <input
+              type="number"
+              min="0"
+              max="100"
+              name="user_score"
+              value="{{ $currentScore === null || $currentScore === '' ? 0 : $currentScore }}"
+              class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
+              placeholder="0"
+            />
+          </label>
+
+          <label class="block">
+            <span class="block mb-2 text-red-600 font-medium">Date Watched</span>
+            <input
+              type="date"
+              name="watched_date"
+              value="{{ $currentWatchedDate ?? '' }}"
+              class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
+            />
+          </label>
+
+          <label class="block col-span-2">
+            <span class="block mb-2 text-red-600 font-medium">List</span>
+            <select
+              name="list_status"
+              class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
+            >
+              @foreach($listOptions as $value => $label)
+                <option value="{{ $value }}" {{ $currentListStatus === $value ? 'selected' : '' }}>
+                  {{ $label }}
+                </option>
+              @endforeach
+            </select>
+          </label>
+        </div>
+        @else
         <div class="grid grid-cols-2 gap-4">
           <label class="block">
             <span class="block mb-2 text-red-600 font-medium">{{ $progressFieldLabel }}</span>
@@ -776,6 +858,7 @@
             </select>
           </label>
         </div>
+        @endif
       </form>
     </div>
 
@@ -792,7 +875,7 @@
   </div>
 </div>
 
-@if($isAdmin)
+@if($isAdmin && !$isMovie)
 <div
   id="mediaContentUploadModal"
   class="fixed inset-0 flex items-start pt-[130px] justify-center bg-black bg-opacity-50 hidden z-50"

@@ -22,6 +22,7 @@ use App\Http\Controllers\MediaArchiveController;
 use App\Http\Controllers\ChapterController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\TmdbController;
 use App\Http\Controllers\ConfirmTwoFactorAuthenticationController;
 
 // -----------------------------
@@ -87,8 +88,12 @@ Route::prefix('vndb')->middleware('auth')->group(function () {
 Route::get('/category/{category}/{listFilter?}/{mediaStatus?}/{titleOrder?}/{scoreOrder?}/{dateOrder?}',
     [CategoryController::class, 'show'])
     ->middleware('auth')
-    ->where('category', '(?i)(ANIMES|MANGAS|MANHWAS|LIGHT-NOVELS|HENTAIS|DOUJINS|VISUAL-NOVEL)')
+    ->where('category', '(?i)(ANIMES|MANGAS|MANHWAS|LIGHT-NOVELS|HENTAIS|DOUJINS|VISUAL-NOVEL|MOVIES)')
     ->name('category');
+
+Route::get('/movie/{media}', [TmdbController::class, 'show'])
+    ->middleware('auth')
+    ->name('movies.show');
 
 // Doujin pages
 Route::get('/doujin/{media}', [DoujinController::class, 'show'])->middleware('auth')->name('doujins.show');
@@ -197,4 +202,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/anilist/sync', [AnilistController::class, 'syncFromAnilist'])->name('anilist.sync');
     Route::post('/vndb/sync',    [VndbController::class,    'syncFromVndb'])->name('vndb.sync');
     Route::post('/doujin/sync', [DoujinController::class, 'syncAll'])->name('doujin.sync');
+    Route::post('/tmdb/movies', [TmdbController::class, 'import'])->name('tmdb.movies.import');
+    Route::post('/tmdb/movies/{media}/refresh', [TmdbController::class, 'refresh'])->name('tmdb.movies.refresh');
+    Route::patch('/movie/{media}/entry', [TmdbController::class, 'updateEntry'])->name('movies.entry.update');
+    Route::delete('/movie/{media}', [TmdbController::class, 'destroy'])->name('movies.destroy');
 });

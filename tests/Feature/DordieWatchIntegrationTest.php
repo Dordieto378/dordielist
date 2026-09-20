@@ -46,6 +46,33 @@ class DordieWatchIntegrationTest extends TestCase
                 ->etc());
     }
 
+    public function test_signed_manifest_exposes_movie_metadata(): void
+    {
+        $movie = Media::create([
+            'type' => 'movie',
+            'source' => 'tmdb',
+            'source_id' => 999001,
+            'title_english' => 'DordieWatch Movie Test',
+            'cover_url' => 'https://example.test/movie.jpg',
+            'slug' => 'dordiewatch-movie-test-'.Str::lower(Str::random(12)),
+        ]);
+
+        $url = URL::temporarySignedRoute(
+            'dordiewatch.media',
+            now()->addMinute(),
+            ['media' => $movie->id]
+        );
+
+        $this
+            ->getJson($url)
+            ->assertOk()
+            ->assertJsonPath('id', $movie->id)
+            ->assertJsonPath('type', 'movie')
+            ->assertJsonPath('display_title', 'DordieWatch Movie Test')
+            ->assertJsonPath('cover_url', 'https://example.test/movie.jpg')
+            ->assertJsonPath('website_url', route('movies.show', ['media' => $movie->id]));
+    }
+
     public function test_unsigned_manifest_is_rejected(): void
     {
         $media = Media::create([
@@ -90,7 +117,7 @@ class DordieWatchIntegrationTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_signed_library_refresh_returns_requested_video_media_by_id(): void
+    public function test_signed_library_refresh_returns_requested_watchable_media_by_id(): void
     {
         $anime = Media::create([
             'type' => 'anime',
@@ -102,6 +129,11 @@ class DordieWatchIntegrationTest extends TestCase
             'type' => 'hentai',
             'title_english' => 'Refresh Hentai',
             'slug' => 'refresh-hentai-'.Str::lower(Str::random(12)),
+        ]);
+        $movie = Media::create([
+            'type' => 'movie',
+            'title_english' => 'Refresh Movie',
+            'slug' => 'refresh-movie-'.Str::lower(Str::random(12)),
         ]);
         $manga = Media::create([
             'type' => 'manga',
@@ -122,17 +154,20 @@ class DordieWatchIntegrationTest extends TestCase
 
         $this
             ->postJson($url, [
-                'ids' => [$hentai->id, $manga->id, $anime->id, $anime->id],
+                'ids' => [$hentai->id, $manga->id, $movie->id, $anime->id, $anime->id],
             ])
             ->assertOk()
-            ->assertJsonCount(2, 'media')
-            ->assertJsonPath('available_ids', [$hentai->id, $anime->id])
+            ->assertJsonCount(3, 'media')
+            ->assertJsonPath('available_ids', [$hentai->id, $movie->id, $anime->id])
             ->assertJsonPath('media.0.id', $hentai->id)
-            ->assertJsonPath('media.1.id', $anime->id)
-            ->assertJsonPath('media.1.cover_url', 'https://example.test/anime.jpg');
+            ->assertJsonPath('media.1.id', $movie->id)
+            ->assertJsonPath('media.1.type', 'movie')
+            ->assertJsonPath('media.2.id', $anime->id)
+            ->assertJsonPath('media.2.cover_url', 'https://example.test/anime.jpg');
 
         $this->assertDatabaseHas('dordiewatch_media', ['media_id' => $anime->id]);
         $this->assertDatabaseHas('dordiewatch_media', ['media_id' => $hentai->id]);
+        $this->assertDatabaseHas('dordiewatch_media', ['media_id' => $movie->id]);
         $this->assertDatabaseMissing('dordiewatch_media', ['media_id' => $manga->id]);
         $this->assertDatabaseMissing('dordiewatch_media', ['media_id' => $stale->id]);
 
@@ -178,7 +213,7 @@ class DordieWatchIntegrationTest extends TestCase
             ->assertSee('dordiewatch://open?manifest=', false);
     }
 
-    public function test_anime_category_cards_show_play_link_when_available_locally(): void
+    public function test_category_cards_do_not_show_play_link_when_available_locally(): void
     {
         $role = Role::where('role', 'Viewer')->first()
             ?? Role::create(['role' => 'Viewer']);
@@ -205,7 +240,39 @@ class DordieWatchIntegrationTest extends TestCase
             ->get(route('category', ['category' => 'ANIMES']))
             ->assertOk()
             ->assertSee('000 DordieWatch Category')
-            ->assertSee('Play in DordieWatch')
+            ->assertDontSee('Play in DordieWatch')
+            ->assertDontSee('dordiewatch://open?manifest=', false);
+    }
+
+    public function test_movie_detail_page_contains_watch_link_when_available_locally(): void
+    {
+        $role = Role::where('role', 'Viewer')->first()
+            ?? Role::create(['role' => 'Viewer']);
+        $user = User::create([
+            'username' => 'dordiewatch-movie-'.Str::lower(Str::random(10)),
+            'email' => Str::lower(Str::random(12)).'@example.test',
+            'password' => 'password',
+            'status' => 'active',
+            'role_id' => $role->role_id,
+        ]);
+        $movie = Media::create([
+            'type' => 'movie',
+            'source' => 'tmdb',
+            'source_id' => 999002,
+            'title_english' => 'DordieWatch Movie Link Test',
+            'slug' => 'movie-link-test-'.Str::lower(Str::random(12)),
+        ]);
+
+        DB::table('dordiewatch_media')->insert([
+            'media_id' => $movie->id,
+            'last_seen_at' => now(),
+        ]);
+
+        $this
+            ->actingAs($user)
+            ->get(route('movies.show', ['media' => $movie->id]))
+            ->assertOk()
+            ->assertSee('Watch in DordieWatch')
             ->assertSee('dordiewatch://open?manifest=', false);
     }
 }

@@ -18,6 +18,9 @@ class Media extends Model
         'vnLanguages:id,name',
         'vnDevelopers:id,name',
         'vnPublishers:id,name,language',
+        'tmdbGenres:id,name',
+        'tmdbKeywords:id,name',
+        'tmdbProductionCompanies:id,name',
     ];
 
     protected $guarded = [];
@@ -67,6 +70,26 @@ class Media extends Model
     public function vnPublishers(): BelongsToMany
     {
         return $this->belongsToMany(VnPublisher::class, 'vn_item_publisher', 'media_id', 'publisher_id');
+    }
+
+    public function tmdbGenres(): BelongsToMany
+    {
+        return $this->belongsToMany(TmdbGenre::class, 'tmdb_item_genre', 'media_id', 'genre_id');
+    }
+
+    public function tmdbKeywords(): BelongsToMany
+    {
+        return $this->belongsToMany(TmdbKeyword::class, 'tmdb_item_keyword', 'media_id', 'keyword_id');
+    }
+
+    public function tmdbProductionCompanies(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            TmdbProductionCompany::class,
+            'tmdb_item_production_company',
+            'media_id',
+            'production_company_id'
+        );
     }
 
     public function archive(): HasOne

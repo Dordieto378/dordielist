@@ -40,6 +40,9 @@
                         case 'doujins':
                             $link = route('doujins.show', ['media' => $ci->item_id]);
                             break;
+                        case 'movies':
+                            $link = route('movies.show', ['media' => $ci->item_id]);
+                            break;
                         default:
                             $link = route('media.show', $ci->item_id);
                             break;
@@ -61,6 +64,7 @@
                         'manhwas'      => 'Manhwa',
                         'light-novels' => 'Light Novel',
                         'hentais'      => 'Hentai',
+                        'movies'       => 'Movie',
                     ];
                     $typeLabel = $typeMap[$ci->item_type] ?? ucfirst($ci->item_type);
                 @endphp

@@ -38,6 +38,12 @@
             return ucfirst(strtolower($type));
         }
         $isOnFirstPage = ($paginatedMedia->currentPage() === 1);
+        $mediaHref = fn (array $item) => match ($item['type'] ?? '') {
+            'DOUJIN' => "/doujin/{$item['id']}",
+            'VN' => "/vn/{$item['id']}",
+            'MOVIE' => "/movie/{$item['id']}",
+            default => "/media/{$item['id']}",
+        };
 
         if (!function_exists('shortTitle')) {
             function shortTitle($title, $maxLen = 25) {
@@ -89,11 +95,7 @@
                                                 ?? 'No Title';
 
                                     // Click target per type
-                                    $href = $item['type'] === 'DOUJIN'
-                                        ? "/doujin/{$item['id']}"
-                                        : ($item['type'] === 'VN'
-                                            ? "/vn/{$item['id']}"
-                                            : "/media/{$item['id']}");
+                                    $href = $mediaHref($item);
                                 @endphp
 
                                 @if(
@@ -102,7 +104,8 @@
                                     $item['type'] === 'MANHWA'||
                                     $item['type'] === 'LIGHT_NOVEL'||
                                     $item['type'] === 'HENTAI'||
-                                    $item['type'] === 'DOUJIN'
+                                    $item['type'] === 'DOUJIN' ||
+                                    $item['type'] === 'MOVIE'
                                 )
                                     <div class="w-[270px] flex-shrink-0 mt-7">
                                         <a href="{{ $href }}" class="block">
@@ -173,11 +176,7 @@
                                   ?? $item['title']['native']
                                   ?? 'No Title';
 
-                        $href = $item['type'] === 'DOUJIN'
-                            ? "/doujin/{$item['id']}"
-                            : ($item['type'] === 'VN'
-                                ? "/vn/{$item['id']}"
-                                : "/media/{$item['id']}");
+                        $href = $mediaHref($item);
                     @endphp
 
                     @if(
@@ -186,7 +185,8 @@
                         $item['type'] === 'MANHWA'||
                         $item['type'] === 'LIGHT_NOVEL'||
                         $item['type'] === 'HENTAI'||
-                        $item['type'] === 'DOUJIN'
+                        $item['type'] === 'DOUJIN' ||
+                        $item['type'] === 'MOVIE'
                     )
                         <div class="flex-shrink-0 overflow-hidden">
                             <a href="{{ $href }}" class="block">
@@ -289,11 +289,7 @@
                                 ?? 'No Title';
 
                     // Click target per type
-                    $href = $item['type'] === 'DOUJIN'
-                        ? "/doujin/{$item['id']}"
-                        : ($item['type'] === 'VN'
-                            ? "/vn/{$item['id']}"
-                            : "/media/{$item['id']}");
+                    $href = $mediaHref($item);
                 @endphp
 
                     <!-- Grid version -->
@@ -303,7 +299,8 @@
                     $item['type'] === 'MANHWA'||
                     $item['type'] === 'LIGHT_NOVEL'||
                     $item['type'] === 'HENTAI'||
-                    $item['type'] === 'DOUJIN'
+                    $item['type'] === 'DOUJIN' ||
+                    $item['type'] === 'MOVIE'
                 )
                     <div class="card grid-view
                            w-[305px] flex-shrink-0 overflow-hidden
@@ -369,7 +366,8 @@
                         $item['type'] === 'MANHWA'||
                         $item['type'] === 'LIGHT_NOVEL'||
                         $item['type'] === 'HENTAI'||
-                        $item['type'] === 'DOUJIN'
+                        $item['type'] === 'DOUJIN' ||
+                        $item['type'] === 'MOVIE'
                     )
                         <a href="{{ $href }}" class="flex">
                             <img src="{{ $item['coverImage']['extraLarge'] ?? asset('images/no-image.jpg') }}"
@@ -427,6 +425,7 @@
                                     'MANGA' => 'mangas',
                                     'LIGHT_NOVEL' => 'light-novels',
                                     'DOUJIN' => 'doujins',
+                                    'MOVIE' => 'movies',
                                     default => null,
                                 };
                             @endphp
@@ -485,6 +484,10 @@
                                     </a>
                                     @elseif($item['type']  === 'VN')
                                         <a href="{{ category_filter_url('visual-novel', 'tags', $tag) }}">
+                                        {{ $tag }}
+                                    </a>
+                                    @elseif($item['type']  === 'MOVIE')
+                                        <a href="{{ category_filter_url('movies', 'tags', $tag) }}">
                                         {{ $tag }}
                                     </a>
                                     @endif

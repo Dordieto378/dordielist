@@ -94,6 +94,7 @@ class SettingsController extends Controller
 
         $validator = Validator::make($request->all(), [
             'anilist_access_token' => ['nullable', 'string'],
+            'tmdb_api_token' => ['nullable', 'string'],
             'vndb_api_token' => ['nullable', 'string'],
             'vndb_username' => ['nullable', 'string', 'max:255'],
             'vndb_password' => ['nullable', 'string'],
@@ -109,6 +110,7 @@ class SettingsController extends Controller
         $data = $validator->validated();
 
         $user->anilist_access_token = $data['anilist_access_token'] ?: null;
+        $user->tmdb_api_token = $data['tmdb_api_token'] ?: null;
         $user->vndb_api_token = $data['vndb_api_token'] ?: null;
         $user->vndb_username = $data['vndb_username'] ?: null;
         $user->vndb_password = $data['vndb_password'] ?: null;

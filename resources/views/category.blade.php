@@ -356,10 +356,18 @@ if (!function_exists('shortTitle')) {
                         <select name="media_status" onchange="redirectWithFilters()"
                                 class="appearance-none w-full px-3 py-2 border rounded-sm focus:border-red-600 focus:outline-none focus:ring-2 focus:ring-red-600 h-[2.5rem] text-gray-900 font-medium">
                             <option value="all" {{ (isset($mediaStatus) && $mediaStatus=='all') ? 'selected' : '' }}>All</option>
-                            <option value="FINISHED" {{ (isset($mediaStatus) && $mediaStatus=='FINISHED') ? 'selected' : '' }}>Finished</option>
-                            <option value="RELEASING" {{ (isset($mediaStatus) && $mediaStatus=='RELEASING') ? 'selected' : '' }}>Releasing</option>
-                            <option value="NOT_YET_RELEASED" {{ (isset($mediaStatus) && $mediaStatus=='NOT_YET_RELEASED') ? 'selected' : '' }}>Not Yet Released</option>
-                            <option value="CANCELLED" {{ (isset($mediaStatus) && $mediaStatus=='CANCELLED') ? 'selected' : '' }}>Cancelled</option>
+                            @if(strtoupper($category) === 'MOVIES')
+                                <option value="RELEASED" {{ (isset($mediaStatus) && $mediaStatus=='RELEASED') ? 'selected' : '' }}>Released</option>
+                                <option value="IN_PRODUCTION" {{ (isset($mediaStatus) && $mediaStatus=='IN_PRODUCTION') ? 'selected' : '' }}>In Production</option>
+                                <option value="POST_PRODUCTION" {{ (isset($mediaStatus) && $mediaStatus=='POST_PRODUCTION') ? 'selected' : '' }}>Post Production</option>
+                                <option value="PLANNED" {{ (isset($mediaStatus) && $mediaStatus=='PLANNED') ? 'selected' : '' }}>Planned</option>
+                                <option value="CANCELED" {{ (isset($mediaStatus) && $mediaStatus=='CANCELED') ? 'selected' : '' }}>Canceled</option>
+                            @else
+                                <option value="FINISHED" {{ (isset($mediaStatus) && $mediaStatus=='FINISHED') ? 'selected' : '' }}>Finished</option>
+                                <option value="RELEASING" {{ (isset($mediaStatus) && $mediaStatus=='RELEASING') ? 'selected' : '' }}>Releasing</option>
+                                <option value="NOT_YET_RELEASED" {{ (isset($mediaStatus) && $mediaStatus=='NOT_YET_RELEASED') ? 'selected' : '' }}>Not Yet Released</option>
+                                <option value="CANCELLED" {{ (isset($mediaStatus) && $mediaStatus=='CANCELLED') ? 'selected' : '' }}>Cancelled</option>
+                            @endif
                         </select>
                         <svg class="pointer-events-none absolute right-3 top-1/2 transform -translate-y-1/2 h-3 w-3 text-gray-400 mt-3.5"
                             xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="4" stroke="currentColor">
@@ -443,11 +451,11 @@ if (!function_exists('shortTitle')) {
                     </div>
 
                     <div class="relative mb-4">
-                        <label class="block text-sm font-medium text-gray-900 mb-2">TAGS</label>
+                        <label class="block text-sm font-medium text-gray-900 mb-2">{{ strtoupper($category) === 'MOVIES' ? 'KEYWORDS' : 'TAGS' }}</label>
                         <button id="dropdownButtonTags" type="button"
                             class="w-full min-h-[2.5rem] px-3 py-2 border rounded-sm bg-white text-left flex flex-wrap items-center gap-2">
                             <div id="selectedTags" class="flex flex-wrap gap-2 flex-1">
-                                <span class="text-gray-900 font-medium text-sm">Select Tags</span>
+                                <span class="text-gray-900 font-medium text-sm">{{ strtoupper($category) === 'MOVIES' ? 'Select Keywords' : 'Select Tags' }}</span>
                             </div>
                             <svg class="pointer-events-none h-3 w-3 text-gray-400" xmlns="http://www.w3.org/2000/svg"
                                     fill="none" viewBox="0 0 24 24" stroke-width="4" stroke="currentColor">
@@ -492,14 +500,14 @@ if (!function_exists('shortTitle')) {
                             @endforeach
                         </ul>
                     </div>
-                    @if(in_array(strtoupper($category), ['ANIME', 'HENTAI']))
+                    @if(in_array(strtoupper($category), ['ANIME', 'HENTAI', 'MOVIES']))
                         <div class="relative mt-4">
-                            <label class="block text-sm font-medium text-gray-900 mb-2">STUDIO</label>
+                            <label class="block text-sm font-medium text-gray-900 mb-2">{{ strtoupper($category) === 'MOVIES' ? 'PRODUCTION' : 'STUDIO' }}</label>
                             <!-- Expanding Studio Container -->
                             <button id="dropdownButtonStudio" type="button"
                                 class="w-full min-h-[2.5rem] px-3 py-2 border rounded-sm bg-white text-left flex flex-wrap items-center gap-2">
                                 <div id="selectedStudio" class="flex flex-wrap gap-2 flex-1">
-                                    <span class="text-gray-900 font-medium text-sm">Select Studio</span>
+                                    <span class="text-gray-900 font-medium text-sm">{{ strtoupper($category) === 'MOVIES' ? 'Select Production' : 'Select Studio' }}</span>
                                 </div>
                                 <svg class="pointer-events-none h-3 w-3 text-gray-400" xmlns="http://www.w3.org/2000/svg"
                                     fill="none" viewBox="0 0 24 24" stroke-width="4" stroke="currentColor">
@@ -522,7 +530,7 @@ if (!function_exists('shortTitle')) {
                             </div>
                         </div>
                     @endif
-                    @if(!in_array(strtoupper($category), ['ANIME', 'HENTAI']))
+                    @if(!in_array(strtoupper($category), ['ANIME', 'HENTAI', 'MOVIES']))
                         <div class="relative mt-4">
                             <label class="block text-sm font-medium text-gray-900 mb-2">AUTHOR</label>
                             <!-- Expanding Author Container -->
@@ -817,14 +825,14 @@ const dropdowns = {
         menu: document.getElementById("dropdownMenuTags"),
         selectedContainer: document.getElementById("selectedTags"),
         selectedItems: [],
-        placeholder: "Select Tags"
+        placeholder: categorySlug === "movies" ? "Select Keywords" : "Select Tags"
     },
     Studio: {
         button: document.getElementById("dropdownButtonStudio"),
         menu: document.getElementById("dropdownMenuStudio"),
         selectedContainer: document.getElementById("selectedStudio"),
         selectedItems: [],
-        placeholder: "Select Studio"
+        placeholder: categorySlug === "movies" ? "Select Production" : "Select Studio"
     },
     Author: {
         button: document.getElementById("dropdownButtonAuthor"),

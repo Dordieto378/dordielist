@@ -112,6 +112,36 @@ class SearchController extends Controller
                 $metadataLimit,
                 ['vn']
             ))
+            ->merge($this->searchMetadata(
+                $q,
+                'tmdb_keywords',
+                'tmdb_item_keyword',
+                'keyword_id',
+                'tags',
+                'Keyword',
+                $metadataLimit,
+                ['movie']
+            ))
+            ->merge($this->searchMetadata(
+                $q,
+                'tmdb_genres',
+                'tmdb_item_genre',
+                'genre_id',
+                'genre',
+                'Genre',
+                $metadataLimit,
+                ['movie']
+            ))
+            ->merge($this->searchMetadata(
+                $q,
+                'tmdb_production_companies',
+                'tmdb_item_production_company',
+                'production_company_id',
+                'studio',
+                'Production',
+                $metadataLimit,
+                ['movie']
+            ))
             ->sortBy([
                 ['sort_rank', 'asc'],
                 ['label', 'asc'],
@@ -236,6 +266,7 @@ class SearchController extends Controller
         return match ($type) {
             'visual-novel' => url("/vn/{$media->id}"),
             'doujin' => url("/doujin/{$media->id}"),
+            'movie' => url("/movie/{$media->id}"),
             default => url("/media/{$media->id}"),
         };
     }
@@ -250,6 +281,7 @@ class SearchController extends Controller
             'light_novel' => ['type' => 'light-novel', 'label' => 'Light Novel', 'category' => 'light-novels'],
             'vn' => ['type' => 'visual-novel', 'label' => 'Visual Novel', 'category' => 'visual-novel'],
             'doujin' => ['type' => 'doujin', 'label' => 'Doujin', 'category' => 'doujins'],
+            'movie' => ['type' => 'movie', 'label' => 'Movie', 'category' => 'movies'],
             default => ['type' => strtolower((string) $type), 'label' => ucfirst((string) $type), 'category' => strtolower((string) $type)],
         };
     }

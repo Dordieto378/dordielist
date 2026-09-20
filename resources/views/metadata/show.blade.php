@@ -78,7 +78,9 @@
                         ? "/doujin/{$item['id']}"
                         : ($item['type'] === 'VN'
                             ? "/vn/{$item['id']}"
-                            : "/media/{$item['id']}");
+                            : ($item['type'] === 'MOVIE'
+                                ? "/movie/{$item['id']}"
+                                : "/media/{$item['id']}"));
                 @endphp
 
                 <div class="card grid-view w-[305px] flex-shrink-0 overflow-hidden {{ $isGrid ? '' : 'hidden' }}">
@@ -131,6 +133,7 @@
                                     'MANGA' => 'mangas',
                                     'LIGHT_NOVEL' => 'light-novels',
                                     'DOUJIN' => 'doujins',
+                                    'MOVIE' => 'movies',
                                     default => null,
                                 };
                             @endphp
@@ -168,6 +171,7 @@
                                         'MANGA' => 'mangas',
                                         'MANHWA' => 'manhwas',
                                         'LIGHT_NOVEL' => 'light-novels',
+                                        'MOVIE' => 'movies',
                                         'HENTAI' => 'hentais',
                                         'VN' => 'visual-novel',
                                         default => null,

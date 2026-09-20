@@ -23,7 +23,7 @@ class DordieWatchController extends Controller
 
     public function show(Media $media): JsonResponse
     {
-        abort_unless(in_array($this->dordieWatchMediaType($media), ['anime', 'hentai'], true), 404);
+        abort_unless(in_array($this->dordieWatchMediaType($media), ['anime', 'hentai', 'movie'], true), 404);
 
         return response()->json([
             ...$this->mediaPayload($media),
@@ -48,11 +48,13 @@ class DordieWatchController extends Controller
             ->with([
                 'anilistGenres:id,name',
                 'anilistStudios:id,name',
+                'tmdbGenres:id,name',
+                'tmdbProductionCompanies:id,name',
             ])
             ->get()
             ->filter(fn (Media $media): bool => in_array(
                 $this->dordieWatchMediaType($media),
-                ['anime', 'hentai'],
+                ['anime', 'hentai', 'movie'],
                 true
             ))
             ->keyBy('id');
@@ -101,6 +103,8 @@ class DordieWatchController extends Controller
         $media->loadMissing([
             'anilistGenres:id,name',
             'anilistStudios:id,name',
+            'tmdbGenres:id,name',
+            'tmdbProductionCompanies:id,name',
         ]);
 
         $titles = [
@@ -108,7 +112,8 @@ class DordieWatchController extends Controller
             'romaji' => $this->cleanString($media->title_romaji),
             'native' => $this->cleanString($media->title_native),
         ];
-        $genres = $media->metadataNamesFrom('anilistGenres');
+        $isMovie = strtolower((string) $media->type) === 'movie';
+        $genres = $media->metadataNamesFrom($isMovie ? 'tmdbGenres' : 'anilistGenres');
 
         return [
             'version' => 1,
@@ -124,14 +129,21 @@ class DordieWatchController extends Controller
             'episodes' => $media->episodes_cnt ? (int) $media->episodes_cnt : null,
             'year' => $media->year ? (int) $media->year : null,
             'genres' => $genres,
-            'studios' => $media->metadataNamesFrom('anilistStudios'),
-            'website_url' => route('media.show', ['id' => $media->id]),
+            'studios' => $media->metadataNamesFrom($isMovie ? 'tmdbProductionCompanies' : 'anilistStudios'),
+            'website_url' => $isMovie
+                ? route('movies.show', ['media' => $media->id])
+                : route('media.show', ['id' => $media->id]),
         ];
     }
 
     private function dordieWatchMediaType(Media $media, ?array $genres = null): string
     {
         $type = strtolower((string) $media->type);
+
+        if ($type === 'movie') {
+            return 'movie';
+        }
+
         $genres ??= $media->metadataNamesFrom('anilistGenres');
 
         if ($type === 'hentai') {

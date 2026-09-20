@@ -98,6 +98,8 @@
                         <a href="{{ route('category', ['category' => 'DOUJINS']) }}" class="text-white text-sm px-2 py-1 rounded hover:bg-red-600">Doujins</a>
                         <div class="h-4 w-0.5 bg-gray-300 bg-opacity-25 rounded mx-1"></div>
                         <a href="{{ route('category', ['category' => 'VISUAL-NOVEL']) }}" class="text-white text-sm px-2 py-1 rounded hover:bg-red-600">Visual Novels</a>
+                        <div class="h-4 w-0.5 bg-gray-300 bg-opacity-25 rounded mx-1"></div>
+                        <a href="{{ route('category', ['category' => 'MOVIES']) }}" class="text-white text-sm px-2 py-1 rounded hover:bg-red-600">Movies</a>
                     </div>
                 </div>
                 <div class="flex items-center space-x-4 mr-[7.3rem]">

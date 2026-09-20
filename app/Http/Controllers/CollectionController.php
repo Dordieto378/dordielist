@@ -55,6 +55,7 @@ class CollectionController extends Controller
                 case 'manhwas':
                 case 'light-novels':
                 case 'hentais':
+                case 'movies':
                     $m = Media::find($id);
                     $favoritesThumbnail = $m
                         ? (Str::startsWith($m->cover_url, ['http://','https://','/'])
@@ -124,7 +125,7 @@ class CollectionController extends Controller
     {
         $request->validate([
         'name' => 'required|string|max:50|unique:collections,name',
-        'attach_item_type' => 'nullable|in:animes,mangas,manhwas,light-novels,hentais,doujins,visual-novel',
+        'attach_item_type' => 'nullable|in:animes,mangas,manhwas,light-novels,hentais,doujins,visual-novel,movies',
         'attach_item_id' => 'nullable',
         ]);
 
@@ -163,6 +164,7 @@ class CollectionController extends Controller
                     'manhwas'      => 'Manhwa',
                     'light-novels' => 'Light Novel',
                     'hentais'      => 'Hentai',
+                    'movies'       => 'Movie',
                     default        => ucfirst($f->favoritable_type),
                 },
             ]);
@@ -247,6 +249,8 @@ class CollectionController extends Controller
             'doujin',
             'visual-novel',
             'vn',
+            'movies',
+            'movie',
         ], true);
     }
 
@@ -308,7 +312,7 @@ class CollectionController extends Controller
         $clean = (int) ltrim($raw, 'v');
 
         $data = $request->validate([
-            'item_type'        => 'required|in:animes,mangas,manhwas,light-novels,hentais,doujins,visual-novel',
+            'item_type'        => 'required|in:animes,mangas,manhwas,light-novels,hentais,doujins,visual-novel,movies',
             'item_id'          => 'required',
             'add_to_favorites' => 'nullable|in:1',
             'collection_ids'   => 'nullable|array',
@@ -428,7 +432,7 @@ class CollectionController extends Controller
 
     public function fetchMedia(string $type, int $id)
     {
-        if (in_array($type, ['animes','mangas','manhwas','light-novels','hentais'], true)) {
+        if (in_array($type, ['animes','mangas','manhwas','light-novels','hentais','movies'], true)) {
             $m = Media::find($id);
             if (! $m) return null;
 
@@ -541,6 +545,9 @@ class CollectionController extends Controller
                 break;
             case 'doujins':
                 $link = route('doujins.show', ['media' => $id]);
+                break;
+            case 'movies':
+                $link = route('movies.show', ['media' => $id]);
                 break;
             default:
                 $link = route('media.show', $id);

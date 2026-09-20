@@ -131,9 +131,11 @@ class AnilistController extends Controller
                     'title' => ['english' => $media->title_english, 'romaji' => $media->title_romaji, 'native' => $media->title_native],
                     'coverImage' => ['extraLarge' => $this->externalOrStorage($media->cover_url, $canonicalType === 'doujin')],
                     'listPreviewImage' => $doujinListPreviewImage,
-                    'genres' => in_array($canonicalType, ['anime', 'hentai', 'manga', 'manhwa', 'light_novel'], true)
-                        ? $media->metadataNamesFrom('anilistGenres')
-                        : [],
+                    'genres' => match (true) {
+                        $canonicalType === 'movie' => $media->metadataNamesFrom('tmdbGenres'),
+                        in_array($canonicalType, ['anime', 'hentai', 'manga', 'manhwa', 'light_novel'], true) => $media->metadataNamesFrom('anilistGenres'),
+                        default => [],
+                    },
                     'countryOfOrigin' => $media->origin,
                     'studios' => in_array($canonicalType, ['anime', 'hentai'], true)
                         ? $media->metadataNamesFrom('anilistStudios')
@@ -154,6 +156,9 @@ class AnilistController extends Controller
     public function show($id)
     {
         $media = Media::with(Media::METADATA_RELATIONS)->findOrFail($id);
+        if ($media->type === 'movie') {
+            return redirect()->route('movies.show', ['media' => $media->id]);
+        }
         $item = $this->mapMediaRow($media);
 
         $genres = $item['genres'] ?? [];
@@ -414,6 +419,7 @@ GQL;
             'manga' => 'mangas',
             'manhwa' => 'manhwas',
             'light_novel' => 'light-novels',
+            'movie' => 'movies',
             default => 'animes',
         };
     }
@@ -425,6 +431,14 @@ GQL;
                 'type' => $category === 'hentais' ? 'hentai' : 'anime',
                 'relation' => 'anilistStudios',
                 'label' => 'Studio',
+            ];
+        }
+
+        if (in_array($filter, ['studio', 'production'], true) && $category === 'movies') {
+            return [
+                'type' => 'movie',
+                'relation' => 'tmdbProductionCompanies',
+                'label' => 'Production',
             ];
         }
 
@@ -471,11 +485,14 @@ GQL;
     {
         $canonicalType = strtolower($this->canonicalType($media));
 
-        $genres = in_array($canonicalType, ['anime', 'hentai', 'manga', 'manhwa', 'light_novel'], true)
-            ? $media->metadataNamesFrom('anilistGenres')
-            : [];
+        $genres = match (true) {
+            $canonicalType === 'movie' => $media->metadataNamesFrom('tmdbGenres'),
+            in_array($canonicalType, ['anime', 'hentai', 'manga', 'manhwa', 'light_novel'], true) => $media->metadataNamesFrom('anilistGenres'),
+            default => [],
+        };
         $tags = match (true) {
             $canonicalType === 'vn' => $media->metadataNamesFrom('vnTags'),
+            $canonicalType === 'movie' => $media->metadataNamesFrom('tmdbKeywords'),
             in_array($canonicalType, ['anime', 'hentai', 'manga', 'manhwa', 'light_novel'], true) => $media->metadataNamesFrom('anilistTags'),
             default => [],
         };
@@ -555,7 +572,7 @@ GQL;
 
     private function dordieWatchLaunchUrl(Media $media, ?array $dordieWatchMediaIds = null): ?string
     {
-        if (! in_array(strtolower((string) $media->type), ['anime', 'hentai'], true)) {
+        if (! in_array(strtolower((string) $media->type), ['anime', 'hentai', 'movie'], true)) {
             return null;
         }
 

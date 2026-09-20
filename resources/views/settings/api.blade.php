@@ -42,6 +42,27 @@
               </div>
 
               <div class="mt-6">
+                <label for="tmdb_api_token" class="block font-medium text-[17px] text-red-600">
+                  TMDb API Read Access Token
+                </label>
+                <div class="relative mt-1">
+                  <input
+                    type="password"
+                    id="tmdb_api_token"
+                    name="tmdb_api_token"
+                    value="{{ old('tmdb_api_token', $user->tmdb_api_token) }}"
+                    autocomplete="off"
+                    class="w-full rounded-md border border-gray-200 py-2 pl-3 pr-3 text-base
+                           bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600
+                           text-gray-800 font-medium"
+                  />
+                </div>
+                <p class="mt-2 text-sm font-medium text-gray-500 normal-case">
+                  Used to import and refresh movies from TMDb.
+                </p>
+              </div>
+
+              <div class="mt-6">
                 <label for="vndb_api_token" class="block font-medium text-[17px] text-red-600">
                   VNDB API Token
                 </label>

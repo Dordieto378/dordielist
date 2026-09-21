@@ -6,7 +6,9 @@ use App\Models\Collection;
 use App\Models\CollectionItem;
 use App\Models\Favorite;
 use App\Models\Media;
+use App\Services\TmdbListService;
 use App\Services\TmdbMovieService;
+use App\Services\TmdbSyncService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -15,9 +17,11 @@ use Illuminate\Support\Facades\Validator;
 
 class TmdbController extends Controller
 {
-    public function __construct(private readonly TmdbMovieService $tmdb)
-    {
-    }
+    public function __construct(
+        private readonly TmdbMovieService $tmdb,
+        private readonly TmdbListService $tmdbLists,
+        private readonly TmdbSyncService $tmdbSync,
+    ) {}
 
     public function show(Media $media)
     {
@@ -134,6 +138,47 @@ class TmdbController extends Controller
 
         $data = $validator->validated();
 
+        if ($media->list_status !== $data['list_status']) {
+            $token = $request->user()?->tmdb_api_token ?: config('services.tmdb.token');
+            $sessionId = $request->user()?->tmdb_session_id;
+
+            if (! $token) {
+                return back()
+                    ->withInput()
+                    ->with('open_edit_entry_modal', true)
+                    ->with('entry_update_error', 'Add your TMDb API Read Access Token in API settings first.');
+            }
+
+            if (! $sessionId) {
+                return back()
+                    ->withInput()
+                    ->with('open_edit_entry_modal', true)
+                    ->with('entry_update_error', 'Connect your TMDb account in API settings before changing movie lists.');
+            }
+
+            if ($media->source !== 'tmdb' || ! $media->source_id) {
+                return back()
+                    ->withInput()
+                    ->with('open_edit_entry_modal', true)
+                    ->with('entry_update_error', 'This movie is not linked to a TMDb record.');
+            }
+
+            try {
+                $this->tmdbLists->moveMovie(
+                    (int) $media->source_id,
+                    $media->list_status,
+                    $data['list_status'],
+                    $token,
+                    $sessionId,
+                );
+            } catch (\Throwable $exception) {
+                return back()
+                    ->withInput()
+                    ->with('open_edit_entry_modal', true)
+                    ->with('entry_update_error', 'TMDb list update failed: '.$exception->getMessage());
+            }
+        }
+
         $media->update([
             'user_score' => $data['user_score'] ?? null,
             'list_status' => $data['list_status'],
@@ -142,6 +187,116 @@ class TmdbController extends Controller
         ]);
 
         return back();
+    }
+
+    public function connect(Request $request)
+    {
+        abort_if(optional($request->user()?->role)->role === 'Viewer', 403);
+        $token = $request->user()?->tmdb_api_token ?: config('services.tmdb.token');
+
+        if (! $token) {
+            return redirect()->route('settings.api')->with([
+                'status' => 'Save your TMDb API Read Access Token before connecting your account.',
+                'status_color' => 'red',
+            ]);
+        }
+
+        try {
+            $requestToken = $this->tmdbLists->createRequestToken($token);
+            $request->session()->put('tmdb_auth_request_token', $requestToken);
+
+            return redirect()->away($this->tmdbLists->authorizationUrl(
+                $requestToken,
+                route('settings.api.tmdb.callback'),
+            ));
+        } catch (\Throwable $exception) {
+            return redirect()->route('settings.api')->with([
+                'status' => 'TMDb connection failed: '.$exception->getMessage(),
+                'status_color' => 'red',
+            ]);
+        }
+    }
+
+    public function callback(Request $request)
+    {
+        abort_if(optional($request->user()?->role)->role === 'Viewer', 403);
+        $token = $request->user()?->tmdb_api_token ?: config('services.tmdb.token');
+        $requestToken = $request->session()->pull('tmdb_auth_request_token');
+
+        if (! $token || ! is_string($requestToken) || $requestToken === '') {
+            return redirect()->route('settings.api')->with([
+                'status' => 'The TMDb connection expired. Start the connection again.',
+                'status_color' => 'red',
+            ]);
+        }
+
+        try {
+            $request->user()->forceFill([
+                'tmdb_session_id' => $this->tmdbLists->createSession($token, $requestToken),
+            ])->save();
+        } catch (\Throwable $exception) {
+            return redirect()->route('settings.api')->with([
+                'status' => 'TMDb authorization failed: '.$exception->getMessage(),
+                'status_color' => 'red',
+            ]);
+        }
+
+        return redirect()->route('settings.api')->with([
+            'status' => 'TMDb account connected.',
+            'status_color' => 'green',
+        ]);
+    }
+
+    public function disconnect(Request $request)
+    {
+        abort_if(optional($request->user()?->role)->role === 'Viewer', 403);
+        $user = $request->user();
+        $token = $user?->tmdb_api_token ?: config('services.tmdb.token');
+        $sessionId = $user?->tmdb_session_id;
+
+        try {
+            if ($token && $sessionId) {
+                $this->tmdbLists->deleteSession($token, $sessionId);
+            }
+        } catch (\Throwable $exception) {
+            return redirect()->route('settings.api')->with([
+                'status' => 'TMDb disconnect failed: '.$exception->getMessage(),
+                'status_color' => 'red',
+            ]);
+        }
+
+        $user->forceFill(['tmdb_session_id' => null])->save();
+
+        return redirect()->route('settings.api')->with([
+            'status' => 'TMDb account disconnected.',
+            'status_color' => 'green',
+        ]);
+    }
+
+    public function sync(Request $request)
+    {
+        abort_if(optional($request->user()?->role)->role === 'Viewer', 403);
+        $token = $request->user()?->tmdb_api_token ?: config('services.tmdb.token');
+
+        if (! $token) {
+            return back()->with('error', 'Add your TMDb API Read Access Token in API settings first.');
+        }
+
+        try {
+            $result = $this->tmdbSync->sync(
+                $token,
+                $request->user()?->tmdb_session_id,
+            );
+        } catch (\Throwable $exception) {
+            return back()->with('error', 'TMDb sync failed: '.$exception->getMessage());
+        }
+
+        $message = "TMDb sync complete - created: {$result['created']}, updated: {$result['updated']}";
+        if ($result['failed'] > 0) {
+            return back()->with('error', $message.", failed: {$result['failed']}");
+        }
+
+        return back()->with('success', $message.'.');
     }
 
     public function destroy(Request $request, Media $media)

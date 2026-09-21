@@ -2,11 +2,14 @@
 
 namespace Tests\Feature;
 
+use App\Models\Collection;
+use App\Models\CollectionItem;
 use App\Models\Media;
 use App\Models\Role;
 use App\Models\User;
 use App\Services\TmdbMovieService;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -74,6 +77,55 @@ class MovieCategoryTest extends TestCase
             ->assertDontSee('Interstellar');
     }
 
+    public function test_movies_category_supports_collection_and_dordiewatch_filters(): void
+    {
+        $user = $this->manager();
+        $includedMovie = Media::create([
+            'type' => 'movie',
+            'title_english' => 'Included Movie '.Str::random(8),
+            'slug' => 'included-movie-'.Str::lower(Str::random(10)),
+        ]);
+        $excludedMovie = Media::create([
+            'type' => 'movie',
+            'title_english' => 'Excluded Movie '.Str::random(8),
+            'slug' => 'excluded-movie-'.Str::lower(Str::random(10)),
+        ]);
+        $collection = Collection::create([
+            'name' => 'Movie Collection '.Str::random(8),
+            'is_system' => false,
+        ]);
+
+        CollectionItem::create([
+            'collection_id' => $collection->id,
+            'item_type' => 'movies',
+            'item_id' => $includedMovie->id,
+            'title' => $includedMovie->title_english,
+        ]);
+
+        DB::table('dordiewatch_media')->insert([
+            'media_id' => $includedMovie->id,
+            'last_seen_at' => now(),
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('category', ['category' => 'movies']))
+            ->assertOk()
+            ->assertSee('COLLECTION')
+            ->assertSee($collection->name)
+            ->assertSee('Ignore DordieWatch item')
+            ->assertSee('Only show DordieWatch item');
+
+        $this->actingAs($user)
+            ->get(route('category', [
+                'category' => 'movies',
+                'collection' => (string) $collection->id,
+                'dordiewatch_filter' => 'only',
+            ]))
+            ->assertOk()
+            ->assertSee($includedMovie->title_english)
+            ->assertDontSee($excludedMovie->title_english);
+    }
+
     public function test_tmdb_service_imports_movie_details_and_metadata(): void
     {
         Http::fake([
@@ -108,11 +160,26 @@ class MovieCategoryTest extends TestCase
         Http::assertSent(fn ($request) => $request->hasHeader('Authorization', 'Bearer test-token'));
     }
 
-    public function test_movie_entry_edits_are_local_and_use_one_watched_date(): void
+    public function test_movie_entry_status_change_moves_the_movie_between_tmdb_lists(): void
     {
         $user = $this->manager();
         $movie = Media::where('source', 'tmdb')->where('source_id', 157336)->firstOrFail();
-        Http::fake();
+        $user->forceFill([
+            'tmdb_api_token' => 'test-token',
+            'tmdb_session_id' => 'test-session',
+        ])->save();
+        $movie->update(['list_status' => 'CURRENT']);
+
+        Http::fake([
+            'api.themoviedb.org/3/list/8697654/add_item*' => Http::response([
+                'success' => true,
+                'status_code' => 12,
+            ]),
+            'api.themoviedb.org/3/list/8697811/remove_item*' => Http::response([
+                'success' => true,
+                'status_code' => 13,
+            ]),
+        ]);
 
         $this->actingAs($user)
             ->patch(route('movies.entry.update', $movie), [
@@ -127,7 +194,127 @@ class MovieCategoryTest extends TestCase
         $this->assertSame('COMPLETED', $movie->list_status);
         $this->assertSame('2026-09-20', (string) $movie->list_end_date);
         $this->assertNull($movie->list_start_date);
-        Http::assertNothingSent();
+
+        Http::assertSent(fn ($request) => str_contains($request->url(), '/list/8697654/add_item')
+            && str_contains($request->url(), 'session_id=test-session')
+            && (int) $request['media_id'] === 157336);
+        Http::assertSent(fn ($request) => str_contains($request->url(), '/list/8697811/remove_item')
+            && str_contains($request->url(), 'session_id=test-session')
+            && (int) $request['media_id'] === 157336);
+        Http::assertSentCount(2);
+    }
+
+    public function test_tmdb_sync_imports_movies_from_the_configured_lists(): void
+    {
+        $user = $this->manager();
+        $user->forceFill([
+            'tmdb_api_token' => 'test-token',
+            'tmdb_session_id' => 'test-session',
+        ])->save();
+
+        Http::fake(function ($request) {
+            $url = $request->url();
+
+            if (str_contains($url, '/list/8697654')) {
+                return Http::response([
+                    'items' => [['id' => 999002]],
+                    'total_pages' => 1,
+                ]);
+            }
+
+            if (str_contains($url, '/list/')) {
+                return Http::response(['items' => [], 'total_pages' => 1]);
+            }
+
+            if (str_contains($url, '/movie/999002')) {
+                return Http::response([
+                    'id' => 999002,
+                    'title' => 'Synced List Movie',
+                    'original_title' => 'Synced List Movie',
+                    'overview' => 'Imported from a configured TMDb list.',
+                    'release_date' => '2026-09-21',
+                    'runtime' => 95,
+                    'vote_average' => 7.1,
+                    'status' => 'Released',
+                    'poster_path' => null,
+                    'backdrop_path' => null,
+                    'production_countries' => [],
+                    'genres' => [],
+                    'production_companies' => [],
+                    'keywords' => ['keywords' => []],
+                ]);
+            }
+
+            return Http::response([], 404);
+        });
+
+        $this->actingAs($user)
+            ->post(route('tmdb.sync'))
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $this->assertDatabaseHas('media', [
+            'source' => 'tmdb',
+            'source_id' => 999002,
+            'title_english' => 'Synced List Movie',
+            'list_status' => 'COMPLETED',
+        ]);
+    }
+
+    public function test_tmdb_account_can_be_connected_for_list_writes(): void
+    {
+        $user = $this->manager();
+        $user->forceFill(['tmdb_api_token' => 'test-token'])->save();
+
+        Http::fake([
+            'api.themoviedb.org/3/authentication/token/new' => Http::response([
+                'success' => true,
+                'request_token' => 'request-token',
+            ]),
+            'api.themoviedb.org/3/authentication/session/new' => Http::response([
+                'success' => true,
+                'session_id' => 'account-session',
+            ]),
+        ]);
+
+        $connectResponse = $this->actingAs($user)
+            ->post(route('settings.api.tmdb.connect'));
+
+        $connectResponse->assertRedirect();
+        $this->assertStringContainsString(
+            'https://www.themoviedb.org/authenticate/request-token',
+            (string) $connectResponse->headers->get('Location'),
+        );
+
+        $this->get(route('settings.api.tmdb.callback'))
+            ->assertRedirect(route('settings.api'))
+            ->assertSessionHas('status', 'TMDb account connected.');
+
+        $this->assertSame('account-session', $user->fresh()->tmdb_session_id);
+    }
+
+    public function test_scheduled_tmdb_import_command_uses_saved_credentials(): void
+    {
+        $user = $this->manager();
+        $user->forceFill([
+            'tmdb_api_token' => 'scheduled-token',
+            'tmdb_session_id' => 'scheduled-session',
+        ])->save();
+
+        Http::fake([
+            'api.themoviedb.org/3/list/*' => Http::response([
+                'items' => [],
+                'total_pages' => 1,
+            ]),
+        ]);
+
+        $this->artisan('tmdb:import')
+            ->expectsOutputToContain('TMDb sync complete')
+            ->assertSuccessful();
+
+        Http::assertSentCount(6);
+        Http::assertSent(fn ($request) => $request->hasHeader('Authorization', 'Bearer scheduled-token')
+            && str_contains($request->url(), 'session_id=scheduled-session'));
     }
 
     public function test_movie_can_be_deleted_locally(): void

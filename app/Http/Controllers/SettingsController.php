@@ -110,14 +110,21 @@ class SettingsController extends Controller
         $data = $validator->validated();
 
         $user->anilist_access_token = $data['anilist_access_token'] ?: null;
-        $user->tmdb_api_token = $data['tmdb_api_token'] ?: null;
+
+        $tmdbApiToken = $data['tmdb_api_token'] ?: null;
+        if ($user->tmdb_api_token !== $tmdbApiToken) {
+            $user->tmdb_session_id = null;
+        }
+        $user->tmdb_api_token = $tmdbApiToken;
         $user->vndb_api_token = $data['vndb_api_token'] ?: null;
         $user->vndb_username = $data['vndb_username'] ?: null;
         $user->vndb_password = $data['vndb_password'] ?: null;
         $user->save();
 
         return redirect()
-            ->route('settings.api');
+            ->route('settings.api')
+            ->with('status', 'API settings saved.')
+            ->with('status_color', 'green');
     }
 
     public function users()

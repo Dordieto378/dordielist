@@ -48,6 +48,7 @@ class User extends Authenticatable
         'email_verified_at',
         'anilist_access_token',
         'tmdb_api_token',
+        'tmdb_session_id',
         'vndb_api_token',
         'vndb_username',
         'vndb_password',
@@ -64,6 +65,7 @@ class User extends Authenticatable
         'two_factor_recovery_codes',
         'anilist_access_token',
         'tmdb_api_token',
+        'tmdb_session_id',
         'vndb_api_token',
         'vndb_password',
     ];
@@ -78,6 +80,7 @@ class User extends Authenticatable
         'two_factor_confirmed' => 'boolean',
         'anilist_access_token' => 'encrypted',
         'tmdb_api_token'       => 'encrypted',
+        'tmdb_session_id'      => 'encrypted',
         'vndb_api_token'       => 'encrypted',
         'vndb_password'        => 'encrypted',
     ];

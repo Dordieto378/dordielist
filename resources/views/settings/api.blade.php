@@ -14,9 +14,21 @@
               <h1 class="text-2xl font-bold text-red-600">API</h1>
             </div>
 
-            @if(session('status') && session('status_color') === 'red')
-              <div class="app-alert app-alert-error mt-4">
+            @if(session('status'))
+              <div class="app-alert {{ session('status_color') === 'red' ? 'app-alert-error' : 'app-alert-success' }} mt-4">
                 {{ session('status') }}
+              </div>
+            @endif
+
+            @if(session('error'))
+              <div class="app-alert app-alert-error mt-4">
+                {{ session('error') }}
+              </div>
+            @endif
+
+            @if(session('success'))
+              <div class="app-alert app-alert-success mt-4">
+                {{ session('success') }}
               </div>
             @endif
 
@@ -30,10 +42,11 @@
                 </label>
                 <div class="relative mt-1">
                   <input
-                    type="text"
+                    type="password"
                     id="anilist_access_token"
                     name="anilist_access_token"
                     value="{{ old('anilist_access_token', $user->anilist_access_token) }}"
+                    autocomplete="off"
                     class="w-full rounded-md border border-gray-200 py-2 pl-3 pr-3 text-base
                            bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600
                            text-gray-800 font-medium"
@@ -57,9 +70,6 @@
                            text-gray-800 font-medium"
                   />
                 </div>
-                <p class="mt-2 text-sm font-medium text-gray-500 normal-case">
-                  Used to import and refresh movies from TMDb.
-                </p>
               </div>
 
               <div class="mt-6">
@@ -68,10 +78,11 @@
                 </label>
                 <div class="relative mt-1">
                   <input
-                    type="text"
+                    type="password"
                     id="vndb_api_token"
                     name="vndb_api_token"
                     value="{{ old('vndb_api_token', $user->vndb_api_token) }}"
+                    autocomplete="off"
                     class="w-full rounded-md border border-gray-200 py-2 pl-3 pr-3 text-base
                            bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600
                            text-gray-800 font-medium"
@@ -102,10 +113,11 @@
                 </label>
                 <div class="relative mt-1">
                   <input
-                    type="text"
+                    type="password"
                     id="vndb_password"
                     name="vndb_password"
                     value="{{ old('vndb_password', $user->vndb_password) }}"
+                    autocomplete="off"
                     class="w-full rounded-md border border-gray-200 py-2 pl-3 pr-3 text-base
                            bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600
                            text-gray-800 font-medium"
@@ -123,6 +135,43 @@
                 </button>
               </div>
             </form>
+
+            <div class="mt-8 border-t border-gray-200 pt-6">
+              <div class="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <h2 class="text-[17px] font-medium text-red-600">TMDb List Sync</h2>
+                  <p class="mt-1 text-sm font-medium normal-case text-gray-600">
+                    {{ $user->tmdb_session_id ? 'TMDb account connected.' : 'Connect your TMDb account to update its movie lists.' }}
+                  </p>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-3">
+                  @if($user->tmdb_session_id)
+                    <form method="POST" action="{{ route('tmdb.sync') }}">
+                      @csrf
+                      <button type="submit" class="h-11 rounded-md bg-[#08875b] px-5 text-white hover:bg-emerald-700 focus:outline-none">
+                        Sync TMDb Lists
+                      </button>
+                    </form>
+
+                    <form method="POST" action="{{ route('settings.api.tmdb.disconnect') }}">
+                      @csrf
+                      @method('DELETE')
+                      <button type="submit" class="h-11 rounded-md border border-gray-300 px-5 text-gray-700 hover:bg-gray-100 focus:outline-none">
+                        Disconnect
+                      </button>
+                    </form>
+                  @else
+                    <form method="POST" action="{{ route('settings.api.tmdb.connect') }}">
+                      @csrf
+                      <button type="submit" class="h-11 rounded-md bg-[#08875b] px-5 text-white hover:bg-emerald-700 focus:outline-none">
+                        Connect TMDb Account
+                      </button>
+                    </form>
+                  @endif
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </main>

@@ -514,7 +514,7 @@ class CategoryController extends Controller
             $selectedDordieWatchFilter = '';
         }
 
-        if (in_array($normalized, ['ANIMES', 'HENTAIS'], true)) {
+        if (in_array($normalized, ['ANIMES', 'HENTAIS', 'MOVIES'], true)) {
             if ($selectedDordieWatchFilter === 'exclude') {
                 $q->whereNotIn('id', DB::table('dordiewatch_media')->select('media_id'));
             } elseif ($selectedDordieWatchFilter === 'only') {

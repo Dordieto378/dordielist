@@ -562,7 +562,7 @@ if (!function_exists('shortTitle')) {
 
                     @include('category._collection-filter')
 
-                    @if(in_array(strtoupper($category), ['ANIME', 'HENTAI']))
+                    @if(in_array(strtoupper($category), ['ANIME', 'HENTAI', 'MOVIES']))
                         <div class="mt-4">
                             <ul class="space-y-2">
                                 @foreach([
@@ -570,7 +570,7 @@ if (!function_exists('shortTitle')) {
                                     'only' => 'Only show DordieWatch item',
                                 ] as $dordieWatchValue => $dordieWatchLabel)
                                     <li class="group">
-                                        <label class="flex items-center px-3 font-boldness py-2 text-sm font cursor-pointer">
+                                        <label class="flex items-center font-boldness py-2 text-sm font cursor-pointer">
                                             <input type="checkbox" name="dordiewatch_filter" value="{{ $dordieWatchValue }}" class="sr-only peer"
                                                 {{ (($selectedDordieWatchFilter ?? '') === $dordieWatchValue) ? 'checked' : '' }}>
                                             <span class="mr-1 inline-block h-4 w-4 rounded border border-gray-300 bg-gray-50 transition
@@ -591,6 +591,7 @@ if (!function_exists('shortTitle')) {
                     @endif
                 </form>
             @endif
+
         </aside>
 
         <!-- Main Content -->

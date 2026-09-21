@@ -14,6 +14,7 @@ class Kernel extends ConsoleKernel
     protected $commands = [
         \App\Console\Commands\ImportVndb::class,
         \App\Console\Commands\ImportAniList::class,
+        \App\Console\Commands\ImportTmdb::class,
         \App\Console\Commands\ImportDoujin::class,
         \App\Console\Commands\ImportDoujinArchives::class,
         \App\Console\Commands\StabilizeChapterStorage::class,
@@ -29,6 +30,12 @@ class Kernel extends ConsoleKernel
             ->withoutOverlapping(30)
             ->runInBackground()
             ->appendOutputTo(storage_path('logs/anilist-import.log'));
+
+        $schedule->command('tmdb:import')
+            ->everyFiveMinutes()
+            ->withoutOverlapping(60)
+            ->runInBackground()
+            ->appendOutputTo(storage_path('logs/tmdb-import.log'));
 
         $schedule->command('vndb:import')
             ->hourly()

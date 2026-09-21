@@ -129,6 +129,9 @@ Route::middleware('auth')->group(function () {
         // API credentials
         Route::get('/api', [SettingsController::class, 'api'])->name('api');
         Route::put('/api', [SettingsController::class, 'updateApi'])->name('api.update');
+        Route::post('/api/tmdb/connect', [TmdbController::class, 'connect'])->name('api.tmdb.connect');
+        Route::get('/api/tmdb/callback', [TmdbController::class, 'callback'])->name('api.tmdb.callback');
+        Route::delete('/api/tmdb/disconnect', [TmdbController::class, 'disconnect'])->name('api.tmdb.disconnect');
 
         // Doujin artist management
         Route::get('/doujin-authors', [SettingsController::class, 'doujinAuthors'])->name('doujin-authors');
@@ -202,6 +205,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/anilist/sync', [AnilistController::class, 'syncFromAnilist'])->name('anilist.sync');
     Route::post('/vndb/sync',    [VndbController::class,    'syncFromVndb'])->name('vndb.sync');
     Route::post('/doujin/sync', [DoujinController::class, 'syncAll'])->name('doujin.sync');
+    Route::post('/tmdb/sync', [TmdbController::class, 'sync'])->name('tmdb.sync');
     Route::post('/tmdb/movies', [TmdbController::class, 'import'])->name('tmdb.movies.import');
     Route::post('/tmdb/movies/{media}/refresh', [TmdbController::class, 'refresh'])->name('tmdb.movies.refresh');
     Route::patch('/movie/{media}/entry', [TmdbController::class, 'updateEntry'])->name('movies.entry.update');

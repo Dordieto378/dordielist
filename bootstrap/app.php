@@ -61,6 +61,12 @@ return Application::configure(basePath: dirname(__DIR__))
             ->runInBackground()
             ->appendOutputTo(storage_path('logs/anilist-import.log'));
 
+        $schedule->command('tmdb:import')
+            ->everyFiveMinutes()
+            ->withoutOverlapping(60)
+            ->runInBackground()
+            ->appendOutputTo(storage_path('logs/tmdb-import.log'));
+
         $schedule->command('vndb:import')
             ->hourly()
             ->withoutOverlapping(120)

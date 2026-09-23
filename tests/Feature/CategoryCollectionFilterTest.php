@@ -86,6 +86,41 @@ class CategoryCollectionFilterTest extends TestCase
             ->assertDontSee($hiddenBySecond->title_english);
     }
 
+    public function test_anilist_categories_can_filter_rewatching_and_rereading_entries(): void
+    {
+        $user = $this->manager();
+        $rewatching = $this->anime('Rewatching '.Str::lower(Str::random(8)));
+        $otherAnime = $this->anime('Planning '.Str::lower(Str::random(8)));
+        $rewatching->update(['list_status' => 'REPEATING']);
+        $otherAnime->update(['list_status' => 'PLANNING']);
+
+        $rereading = Media::create([
+            'type' => 'manga',
+            'title_english' => 'Rereading '.Str::lower(Str::random(8)),
+            'slug' => 'rereading-'.Str::lower(Str::random(12)),
+            'list_status' => 'REPEATING',
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('category', [
+                'category' => 'animes',
+                'listFilter' => 'REPEATING',
+            ]))
+            ->assertOk()
+            ->assertSee('Rewatching')
+            ->assertSee($rewatching->title_english)
+            ->assertDontSee($otherAnime->title_english);
+
+        $this->actingAs($user)
+            ->get(route('category', [
+                'category' => 'mangas',
+                'listFilter' => 'REPEATING',
+            ]))
+            ->assertOk()
+            ->assertSee('Rereading')
+            ->assertSee($rereading->title_english);
+    }
+
     private function anime(string $title): Media
     {
         return Media::create([

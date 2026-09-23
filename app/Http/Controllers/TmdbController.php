@@ -8,7 +8,6 @@ use App\Models\Favorite;
 use App\Models\Media;
 use App\Services\TmdbListService;
 use App\Services\TmdbMovieService;
-use App\Services\TmdbSyncService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -20,7 +19,6 @@ class TmdbController extends Controller
     public function __construct(
         private readonly TmdbMovieService $tmdb,
         private readonly TmdbListService $tmdbLists,
-        private readonly TmdbSyncService $tmdbSync,
     ) {}
 
     public function show(Media $media)
@@ -271,32 +269,6 @@ class TmdbController extends Controller
             'status' => 'TMDb account disconnected.',
             'status_color' => 'green',
         ]);
-    }
-
-    public function sync(Request $request)
-    {
-        abort_if(optional($request->user()?->role)->role === 'Viewer', 403);
-        $token = $request->user()?->tmdb_api_token ?: config('services.tmdb.token');
-
-        if (! $token) {
-            return back()->with('error', 'Add your TMDb API Read Access Token in API settings first.');
-        }
-
-        try {
-            $result = $this->tmdbSync->sync(
-                $token,
-                $request->user()?->tmdb_session_id,
-            );
-        } catch (\Throwable $exception) {
-            return back()->with('error', 'TMDb sync failed: '.$exception->getMessage());
-        }
-
-        $message = "TMDb sync complete - created: {$result['created']}, updated: {$result['updated']}";
-        if ($result['failed'] > 0) {
-            return back()->with('error', $message.", failed: {$result['failed']}");
-        }
-
-        return back()->with('success', $message.'.');
     }
 
     public function destroy(Request $request, Media $media)

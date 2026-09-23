@@ -340,6 +340,9 @@ if (!function_exists('shortTitle')) {
                             @else
                                 <option value="CURRENT" {{ (isset($listFilter) && $listFilter=='CURRENT') ? 'selected' : '' }}>Watching</option>
                             @endif
+                            <option value="REPEATING" {{ (isset($listFilter) && $listFilter=='REPEATING') ? 'selected' : '' }}>
+                                {{ $isReadingCategory ? 'Rereading' : 'Rewatching' }}
+                            </option>
                             <option value="PAUSED" {{ (isset($listFilter) && $listFilter=='PAUSED') ? 'selected' : '' }}>Paused</option>
                             <option value="COMPLETED" {{ (isset($listFilter) && $listFilter=='COMPLETED') ? 'selected' : '' }}>Completed</option>
                             <option value="DROPPED" {{ (isset($listFilter) && $listFilter=='DROPPED') ? 'selected' : '' }}>Dropped</option>

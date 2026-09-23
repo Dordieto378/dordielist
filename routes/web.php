@@ -205,7 +205,6 @@ Route::middleware('auth')->group(function () {
     Route::post('/anilist/sync', [AnilistController::class, 'syncFromAnilist'])->name('anilist.sync');
     Route::post('/vndb/sync',    [VndbController::class,    'syncFromVndb'])->name('vndb.sync');
     Route::post('/doujin/sync', [DoujinController::class, 'syncAll'])->name('doujin.sync');
-    Route::post('/tmdb/sync', [TmdbController::class, 'sync'])->name('tmdb.sync');
     Route::post('/tmdb/movies', [TmdbController::class, 'import'])->name('tmdb.movies.import');
     Route::post('/tmdb/movies/{media}/refresh', [TmdbController::class, 'refresh'])->name('tmdb.movies.refresh');
     Route::patch('/movie/{media}/entry', [TmdbController::class, 'updateEntry'])->name('movies.entry.update');

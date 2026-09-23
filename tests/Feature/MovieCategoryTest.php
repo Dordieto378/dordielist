@@ -204,7 +204,7 @@ class MovieCategoryTest extends TestCase
         Http::assertSentCount(2);
     }
 
-    public function test_tmdb_sync_imports_movies_from_the_configured_lists(): void
+    public function test_scheduled_tmdb_import_command_imports_movies_from_the_configured_lists(): void
     {
         $user = $this->manager();
         $user->forceFill([
@@ -248,10 +248,9 @@ class MovieCategoryTest extends TestCase
             return Http::response([], 404);
         });
 
-        $this->actingAs($user)
-            ->post(route('tmdb.sync'))
-            ->assertRedirect()
-            ->assertSessionHas('success');
+        $this->artisan('tmdb:import')
+            ->expectsOutputToContain('TMDb sync complete')
+            ->assertSuccessful();
 
         $this->assertDatabaseHas('media', [
             'source' => 'tmdb',
@@ -291,6 +290,12 @@ class MovieCategoryTest extends TestCase
             ->assertSessionHas('status', 'TMDb account connected.');
 
         $this->assertSame('account-session', $user->fresh()->tmdb_session_id);
+
+        $this->get(route('settings.api'))
+            ->assertOk()
+            ->assertDontSee('TMDb Account')
+            ->assertDontSee('Connect TMDb Account')
+            ->assertDontSee('Sync TMDb Lists');
     }
 
     public function test_scheduled_tmdb_import_command_uses_saved_credentials(): void

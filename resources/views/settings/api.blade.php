@@ -136,42 +136,6 @@
               </div>
             </form>
 
-            <div class="mt-8 border-t border-gray-200 pt-6">
-              <div class="flex flex-wrap items-center justify-between gap-4">
-                <div>
-                  <h2 class="text-[17px] font-medium text-red-600">TMDb List Sync</h2>
-                  <p class="mt-1 text-sm font-medium normal-case text-gray-600">
-                    {{ $user->tmdb_session_id ? 'TMDb account connected.' : 'Connect your TMDb account to update its movie lists.' }}
-                  </p>
-                </div>
-
-                <div class="flex flex-wrap items-center gap-3">
-                  @if($user->tmdb_session_id)
-                    <form method="POST" action="{{ route('tmdb.sync') }}">
-                      @csrf
-                      <button type="submit" class="h-11 rounded-md bg-[#08875b] px-5 text-white hover:bg-emerald-700 focus:outline-none">
-                        Sync TMDb Lists
-                      </button>
-                    </form>
-
-                    <form method="POST" action="{{ route('settings.api.tmdb.disconnect') }}">
-                      @csrf
-                      @method('DELETE')
-                      <button type="submit" class="h-11 rounded-md border border-gray-300 px-5 text-gray-700 hover:bg-gray-100 focus:outline-none">
-                        Disconnect
-                      </button>
-                    </form>
-                  @else
-                    <form method="POST" action="{{ route('settings.api.tmdb.connect') }}">
-                      @csrf
-                      <button type="submit" class="h-11 rounded-md bg-[#08875b] px-5 text-white hover:bg-emerald-700 focus:outline-none">
-                        Connect TMDb Account
-                      </button>
-                    </form>
-                  @endif
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </main>

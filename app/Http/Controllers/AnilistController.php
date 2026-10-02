@@ -137,6 +137,7 @@ class AnilistController extends Controller
                         default => [],
                     },
                     'countryOfOrigin' => $media->origin,
+                    'format' => $media->format,
                     'studios' => in_array($canonicalType, ['anime', 'hentai'], true)
                         ? $media->metadataNamesFrom('anilistStudios')
                         : [],
@@ -547,7 +548,7 @@ GQL;
             'episodes' => $media->episodes_cnt ?: null,
             'chapters' => $media->chapters_cnt ?: null,
             'volumes' => $media->volumes_cnt ?: null,
-            'format' => null,
+            'format' => $media->format,
             'status' => $media->media_status,
             'startDate' => ['year' => $year, 'month' => $month, 'day' => $day],
             'countryOfOrigin' => $media->origin,

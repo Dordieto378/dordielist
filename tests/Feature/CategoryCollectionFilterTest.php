@@ -121,6 +121,57 @@ class CategoryCollectionFilterTest extends TestCase
             ->assertSee($rereading->title_english);
     }
 
+    public function test_anilist_categories_can_filter_by_format(): void
+    {
+        $user = $this->manager();
+        $ova = $this->anime('000 Format OVA '.Str::lower(Str::random(8)));
+        $tv = $this->anime('000 Format TV '.Str::lower(Str::random(8)));
+        $ova->update(['format' => 'OVA', 'source' => 'anilist']);
+        $tv->update(['format' => 'TV', 'source' => 'anilist']);
+
+        $this->actingAs($user)
+            ->get(route('category', [
+                'category' => 'animes',
+                'format' => 'OVA',
+            ]))
+            ->assertOk()
+            ->assertSee('FORMAT')
+            ->assertSee($ova->title_english)
+            ->assertDontSee($tv->title_english);
+    }
+
+    public function test_anilist_item_displays_its_format(): void
+    {
+        $user = $this->manager();
+        $ova = $this->anime('Detail OVA '.Str::lower(Str::random(8)));
+        $ova->update(['format' => 'OVA', 'source' => 'anilist']);
+
+        $this->actingAs($user)
+            ->get(route('media.show', ['id' => $ova->id]))
+            ->assertOk()
+            ->assertSeeText('Format')
+            ->assertSeeText('OVA')
+            ->assertSee(category_filter_url('animes', 'format', 'OVA'), false);
+    }
+
+    public function test_anilist_movie_format_does_not_display_an_episode_count(): void
+    {
+        $user = $this->manager();
+        $movie = $this->anime('Anime Movie '.Str::lower(Str::random(8)));
+        $movie->update([
+            'format' => 'MOVIE',
+            'source' => 'anilist',
+            'episodes_cnt' => 1,
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('media.show', ['id' => $movie->id]))
+            ->assertOk()
+            ->assertSeeText('Format')
+            ->assertSeeText('Movie')
+            ->assertDontSee('<div>Episodes</div>', false);
+    }
+
     private function anime(string $title): Media
     {
         return Media::create([

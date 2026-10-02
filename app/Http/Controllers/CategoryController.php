@@ -454,6 +454,16 @@ class CategoryController extends Controller
 
         $q->whereIn('type', $categoryTypes);
 
+        $formatParam = $request->query('format', '');
+        $selectedFormat = is_array($formatParam)
+            ? strtoupper(trim((string) reset($formatParam)))
+            : strtoupper(trim((string) $formatParam));
+        if ($normalized === 'MOVIES') {
+            $selectedFormat = '';
+        } elseif ($selectedFormat !== '') {
+            $q->where('format', $selectedFormat);
+        }
+
         $collectionItemType = strtolower($normalized);
         $collectionFilter = $this->collectionFilterData($request, $collectionItemType, $categoryTypes[0]);
         $this->applyCollectionFilter($q, $collectionFilter['selectedCollection'], $collectionItemType);
@@ -593,6 +603,34 @@ class CategoryController extends Controller
             ->filter(fn ($year) => $year > 0)
             ->toArray();
 
+        $formatLabels = [
+            'TV' => 'TV',
+            'TV_SHORT' => 'TV Short',
+            'OVA' => 'OVA',
+            'ONA' => 'ONA',
+            'MOVIE' => 'Movie',
+            'SPECIAL' => 'Special',
+            'MUSIC' => 'Music',
+            'MANGA' => 'Manga',
+            'NOVEL' => 'Novel',
+            'ONE_SHOT' => 'One Shot',
+        ];
+        $allFormats = $normalized === 'MOVIES'
+            ? []
+            : Media::query()
+                ->whereIn('type', $categoryTypes)
+                ->whereNotNull('format')
+                ->where('format', '!=', '')
+                ->distinct()
+                ->orderBy('format')
+                ->pluck('format')
+                ->map(fn ($format) => [
+                    'value' => $format,
+                    'label' => $formatLabels[$format] ?? str((string) $format)->replace('_', ' ')->title()->toString(),
+                ])
+                ->values()
+                ->all();
+
         $allEras = collect($allYears)
             ->map(fn ($year) => intdiv((int) $year, 10) * 10)
             ->unique()
@@ -664,6 +702,8 @@ class CategoryController extends Controller
             'selectedGenres' => $genreParams,
             'allYears' => $allYears,
             'selectedYears' => (array) $request->query('year', []),
+            'allFormats' => $allFormats,
+            'selectedFormat' => $selectedFormat,
             'allEras' => $allEras,
             'selectedEra' => $selectedEra,
             'allStudios' => $allStudios,

@@ -157,12 +157,12 @@ class AnilistSyncService
                 $episodesCnt = $media['episodes'] ?? null;
                 $chaptersCnt = $media['chapters'] ?? null;
                 $volumesCnt = $media['volumes'] ?? null;
+                $format = strtoupper(trim((string) ($media['format'] ?? '')));
 
                 $remoteType = $this->guessRemoteType($media);
                 if ($remoteType === 'ANIME') {
                     $localType = in_array('Hentai', $genres, true) ? 'hentai' : 'anime';
                 } else {
-                    $format = strtoupper((string) ($media['format'] ?? ''));
                     $localType = strtoupper((string) $origin) === 'KR' ? 'manhwa' : 'manga';
                     if ($format === 'NOVEL') {
                         $localType = 'light_novel';
@@ -184,6 +184,7 @@ class AnilistSyncService
                     'origin' => $origin,
                     'list_status' => $listStatus,
                     'media_status' => $mediaStatus,
+                    'format' => $format ?: null,
                     'user_score' => $userScore,
                     'avg_score' => $avgScore,
                     'year' => $year,

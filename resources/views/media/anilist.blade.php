@@ -8,6 +8,7 @@
     use App\Models\Collection;
     use App\Models\CollectionItem;
     use App\Models\Favorite;
+    use Illuminate\Support\Str;
     $romajiTitle = $item['title']['romaji'] ?? null;
     $englishTitle = $item['title']['english'] ?? null;
     $nativeTitle = $item['title']['native'] ?? null;
@@ -97,6 +98,15 @@
     ];
     $status = $item['status'] ?? 'N/A';
     $status = $statusMapping[$status] ?? ucfirst(strtolower($status));
+    $rawFormat = strtoupper((string) ($item['format'] ?? ''));
+    $format = match ($rawFormat) {
+        'TV' => 'TV',
+        'TV_SHORT' => 'TV Short',
+        'OVA' => 'OVA',
+        'ONA' => 'ONA',
+        'ONE_SHOT' => 'One Shot',
+        default => $rawFormat !== '' ? Str::of($rawFormat)->replace('_', ' ')->title() : 'N/A',
+    };
 
     $normalizedTypeFromItem = match (strtoupper($item['type'] ?? '')) {
         'ANIME'  => 'animes',
@@ -389,7 +399,7 @@
                         <div>Volumes</div>
                         <div>{{ $item['volumes'] }}</div>
                     @endif
-                @elseif($isEpisodeBased)
+                @elseif($isEpisodeBased && $rawFormat !== 'MOVIE')
                     <div>Episodes</div>
                     @php
                         $epTotal = $item['episodes'] ?? null;
@@ -412,6 +422,20 @@
 
                     <div>Status</div>
                     <div>{{ $status }}</div>
+
+                    @if($isAniListSource)
+                        <div>Format</div>
+                        <div>
+                            @if($rawFormat !== '')
+                                <a href="{{ category_filter_url($normalizedTypeFromItem, 'format', $rawFormat) }}"
+                                   class="text-blue-600 hover:underline cursor-pointer">
+                                    {{ $format }}
+                                </a>
+                            @else
+                                N/A
+                            @endif
+                        </div>
+                    @endif
 
                     <div>Release Date</div>
                     <div>{{ $releaseDate }}</div>

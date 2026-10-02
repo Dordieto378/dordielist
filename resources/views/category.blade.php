@@ -436,6 +436,24 @@ if (!function_exists('shortTitle')) {
                             <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
                         </svg>
                     </div>
+                    @if(strtoupper($category) !== 'MOVIES')
+                        <div class="relative mb-4">
+                            <label class="block text-sm font-medium text-gray-900 mb-2">FORMAT</label>
+                            <select name="format" onchange="redirectWithFilters()"
+                                    class="appearance-none w-full px-3 py-2 border rounded-sm focus:border-red-600 focus:outline-none focus:ring-2 focus:ring-red-600 h-[2.5rem] text-gray-900 font-medium">
+                                <option value="">All</option>
+                                @foreach($allFormats ?? [] as $formatOption)
+                                    <option value="{{ $formatOption['value'] }}" {{ (($selectedFormat ?? '') === $formatOption['value']) ? 'selected' : '' }}>
+                                        {{ $formatOption['label'] }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            <svg class="pointer-events-none absolute right-3 top-1/2 transform -translate-y-1/2 h-3 w-3 text-gray-400 mt-3.5"
+                                xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="4" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                            </svg>
+                        </div>
+                    @endif
                     <div class="relative mb-4">
                         <label class="block text-sm font-medium text-gray-900 mb-2">ERA</label>
                         <select name="era" onchange="redirectWithFilters()"
@@ -1016,6 +1034,7 @@ function redirectWithFilters () {
     const developers = dropdowns.Developers.selectedItems.join(',');
 
     const year       = document.querySelector('select[name="year"]')?.value ?? '';
+    const format     = document.querySelector('select[name="format"]')?.value ?? '';
     const era        = document.querySelector('select[name="era"]')?.value ?? '';
     const collection = dropdowns.Collection?.selectedItems.join(',') ?? '';
     const collectionBlacklist = dropdowns.CollectionBlacklist?.selectedItems.join(',') ?? '';
@@ -1028,6 +1047,7 @@ function redirectWithFilters () {
     if (authors)     qp.append('author',      authors);
     if (developers)  qp.append('developers',  developers);
     if (year)        qp.append('year',        year);
+    if (format)      qp.append('format',      format);
     if (era)         qp.append('era',         era);
     if (collection)  qp.append('collection',  collection);
     if (collectionBlacklist) qp.append('collection_blacklist', collectionBlacklist);

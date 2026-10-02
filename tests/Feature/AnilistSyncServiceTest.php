@@ -117,6 +117,7 @@ class AnilistSyncServiceTest extends TestCase
             'source_id' => 40443,
             'type' => 'manga',
             'title_romaji' => 'Bakuon Rettou',
+            'format' => 'MANGA',
             'list_status' => 'CURRENT',
             'progress' => 6,
         ]);

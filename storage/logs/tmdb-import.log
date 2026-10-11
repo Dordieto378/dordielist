@@ -4675,3 +4675,6 @@ TMDb sync failed: SQLSTATE[HY000] [2002] No connection could be made because the
   2   vendor\laravel\framework\src\Illuminate\Database\Connectors\Connector.php:66
       PDO::__construct("mysql:host=127.0.0.1;port=3307;dbname=dordielist", "root", Object(SensitiveParameterValue), [])
 
+TMDb sync complete. Created: 0, updated: 500, failed: 0.
+TMDb sync complete. Created: 0, updated: 500, failed: 0.
+TMDb sync complete. Created: 0, updated: 500, failed: 0.

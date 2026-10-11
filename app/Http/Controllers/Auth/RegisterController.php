@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Mail\AdminNewUserNotification;
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -65,7 +66,7 @@ class RegisterController extends Controller
             'email'     => $data['email'],
             'username'  => $data['username'],
             'password'  => $data['password'],
-            'role_id'   => 2,
+            'role_id'   => Role::where('role', 'Viewer')->firstOrFail()->role_id,
             'status'    => 'not_active',
         ]);
 
@@ -76,8 +77,25 @@ class RegisterController extends Controller
                 ['user' => $user->user_id]
             );
 
-            Mail::to('joshua.esser378@gmail.com')
-                ->send(new AdminNewUserNotification($user, $confirmUrl));
+            $admins = User::where('status', 'active')
+                ->whereHas('role', fn ($query) => $query->where('role', 'Admin'))
+                ->get();
+
+            if ($admins->isEmpty()) {
+                throw new \RuntimeException('No active administrator is available to approve registrations.');
+            }
+
+            foreach ($admins as $admin) {
+                try {
+                    Mail::to($admin->email)->send(new AdminNewUserNotification($user, $confirmUrl));
+                } catch (Throwable $exception) {
+                    Log::error('Registration completed, but an admin notification failed.', [
+                        'user_id' => $user->user_id,
+                        'admin_id' => $admin->user_id,
+                        'exception' => $exception,
+                    ]);
+                }
+            }
         } catch (Throwable $exception) {
             Log::error('Registration completed, but admin notification failed.', [
                 'user_id' => $user->user_id,

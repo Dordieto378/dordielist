@@ -16,7 +16,6 @@
     "tailwindcss": "^3.4.17",
     "autoprefixer": "^10.4.20",
     "postcss": "^8.5.2",
-    "@railway/cli": "^4.5.3",
     "concurrently": "^9.0.1",
     "tailwind-scrollbar-hide": "^2.0.0"
   }

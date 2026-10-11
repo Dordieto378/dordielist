@@ -99,7 +99,9 @@ class InitialAdminSetupTest extends TestCase
             $this->runSetup();
             $this->fail('Setup should reject missing bootstrap credentials.');
         } catch (\RuntimeException $exception) {
-            $this->assertStringContainsString('ADMIN_PASSWORD', $exception->getMessage());
+            $this->assertStringContainsString('ADMIN_PASSWORD is missing.', $exception->getMessage());
+            $this->assertStringNotContainsString('ADMIN_EMAIL', $exception->getMessage());
+            $this->assertStringNotContainsString('ADMIN_USERNAME', $exception->getMessage());
         }
 
         $this->assertSame(0, User::count());
@@ -115,6 +117,8 @@ class InitialAdminSetupTest extends TestCase
             $this->runSetup();
             $this->fail('Setup should reject an email belonging to a non-admin.');
         } catch (\RuntimeException $exception) {
+            $this->assertStringContainsString('ADMIN_EMAIL is already used by a non-admin account.', $exception->getMessage());
+            $this->assertStringNotContainsString($viewer->email, $exception->getMessage());
             $this->assertStringContainsString('never automatically promoted', $exception->getMessage());
         }
 
@@ -136,6 +140,43 @@ class InitialAdminSetupTest extends TestCase
         }
 
         $this->assertSame(0, User::count());
+    }
+
+    public function test_setup_reports_all_missing_or_empty_settings(): void
+    {
+        config(['admin.email' => null, 'admin.username' => '', 'admin.password' => null]);
+
+        try {
+            $this->runSetup();
+            $this->fail('Setup should identify each missing setting.');
+        } catch (\RuntimeException $exception) {
+            $this->assertStringContainsString('ADMIN_EMAIL is missing.', $exception->getMessage());
+            $this->assertStringContainsString('ADMIN_USERNAME is empty.', $exception->getMessage());
+            $this->assertStringContainsString('ADMIN_PASSWORD is missing.', $exception->getMessage());
+        }
+
+        $this->assertSame(0, User::count());
+        $this->assertSame(0, Role::count());
+    }
+
+    public function test_setup_identifies_a_username_collision_without_promoting_its_owner(): void
+    {
+        $role = Role::firstOrCreate(['role' => 'Viewer']);
+        $viewer = $this->user('viewer@example.test', $role, 'not_active');
+        config(['admin.username' => $viewer->username]);
+
+        try {
+            $this->runSetup();
+            $this->fail('Setup should reject an occupied username.');
+        } catch (\RuntimeException $exception) {
+            $this->assertStringContainsString('ADMIN_USERNAME is already used by a non-admin account.', $exception->getMessage());
+            $this->assertStringNotContainsString($viewer->username, $exception->getMessage());
+            $this->assertStringNotContainsString('ADMIN_EMAIL', $exception->getMessage());
+        }
+
+        $this->assertSame('Viewer', $viewer->fresh()->role->role);
+        $this->assertSame('not_active', $viewer->fresh()->status);
+        $this->assertSame(1, User::count());
     }
 
     public function test_failure_to_notify_one_admin_does_not_prevent_notifying_the_next(): void

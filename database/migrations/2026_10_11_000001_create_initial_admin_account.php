@@ -32,14 +32,25 @@ return new class extends Migration
                     'required', 'string', 'max:72',
                     'regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{15,}$/',
                 ],
+            ], [
+                'email.required' => 'ADMIN_EMAIL is missing.',
+                'email.email' => 'ADMIN_EMAIL must be a valid email address.',
+                'email.max' => 'ADMIN_EMAIL must not exceed 255 characters.',
+                'email.unique' => 'ADMIN_EMAIL is already used by a non-admin account. Choose an unused email.',
+                'username.required' => 'ADMIN_USERNAME is empty. Choose an unused username or omit it to use admin.',
+                'username.string' => 'ADMIN_USERNAME must be a string.',
+                'username.max' => 'ADMIN_USERNAME must not exceed 50 characters.',
+                'username.unique' => 'ADMIN_USERNAME is already used by a non-admin account. Choose an unused username.',
+                'password.required' => 'ADMIN_PASSWORD is missing.',
+                'password.string' => 'ADMIN_PASSWORD must be a string.',
+                'password.max' => 'ADMIN_PASSWORD must not exceed 72 characters.',
+                'password.regex' => 'ADMIN_PASSWORD must contain at least 15 characters including uppercase, lowercase, a number, and a symbol.',
             ]);
 
             if ($validator->fails()) {
                 throw new RuntimeException(
-                    'Initial admin setup failed. Set ADMIN_EMAIL to an unused email, '
-                    .'ADMIN_USERNAME to an unused username, and ADMIN_PASSWORD to a password '
-                    .'of 15-72 characters containing uppercase, lowercase, a number, and a symbol. '
-                    .'Existing non-admin accounts are never automatically promoted.'
+                    'Initial admin setup failed: '.implode(' ', $validator->errors()->all())
+                    .' Existing non-admin accounts are never automatically promoted.'
                 );
             }
 

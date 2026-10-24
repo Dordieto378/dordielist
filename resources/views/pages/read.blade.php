@@ -314,28 +314,34 @@
     display: none;
   }
   .reader-lazy-page.reader-lazy-error::before {
-    content: "";
-    width: 64px;
-    height: 48px;
-    border: 2px solid #94a3b8;
-    border-top-color: #94a3b8;
-    border-radius: 6px;
-    animation: none;
-    background:
-      radial-gradient(circle at 74% 26%, #94a3b8 0 4px, transparent 5px),
-      linear-gradient(135deg, transparent 46%, #94a3b8 47%, #94a3b8 53%, transparent 54%) left 9px bottom 10px / 30px 22px no-repeat,
-      linear-gradient(45deg, transparent 46%, #94a3b8 47%, #94a3b8 53%, transparent 54%) right 10px bottom 10px / 30px 20px no-repeat;
+    display: none;
   }
   .reader-lazy-page.reader-lazy-error::after {
-    content: "Image could not be loaded";
-    position: absolute;
-    left: 50%;
-    top: calc(50% + 48px);
+    content: none;
+  }
+  .reader-image-retry {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    padding: 8px;
+    border: none;
+    border-radius: 9999px;
+    background: transparent;
     color: #64748b;
-    font-size: 0.95rem;
-    font-weight: 500;
-    transform: translateX(-50%);
-    white-space: nowrap;
+    cursor: pointer;
+  }
+  .reader-lazy-error > .reader-image-retry {
+    display: inline-flex;
+  }
+  .reader-image-retry:hover {
+    background: #e2e8f0;
+    color: #ab2328;
+  }
+  .reader-image-retry:focus-visible {
+    outline: 2px solid #ab2328;
+    outline-offset: 4px;
   }
   .reader-lazy-page:not(.reader-lazy-pending) {
     min-height: 0;
@@ -518,7 +524,7 @@
         @endphp
 
         @if($isImage)
-            <div class="relative w-full overflow-hidden reader-lazy-page reader-lazy-pending" data-reader-lazy-frame>
+            <div class="relative w-full overflow-hidden reader-lazy-page reader-lazy-pending" data-reader-lazy-frame aria-busy="true">
             <img
                 data-reader-lazy
                 data-src="{{ $url }}"
@@ -528,6 +534,11 @@
                 decoding="async"
                 draggable="false"
             >
+            <button type="button" class="reader-image-retry" data-reader-image-retry aria-label="Retry loading page {{ $p->page_number }}" title="Retry image">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M3 11a9 9 0 1 1 2.9 6.6M3 4v7h7" />
+                </svg>
+            </button>
             <noscript>
                 <img
                     src="{{ $url }}"
@@ -868,14 +879,11 @@
     const markLazyImageFinished = (img, failed = false) => {
       const frame = img.closest('[data-reader-lazy-frame]');
       if (frame) {
+        frame.removeAttribute('aria-busy');
         if (failed) {
           frame.classList.add('reader-lazy-error', 'reader-image-error');
-          frame.setAttribute('role', 'img');
-          frame.setAttribute('aria-label', `${img.alt || 'Reader page'} failed to load`);
         } else {
           frame.classList.remove('reader-lazy-pending', 'reader-lazy-error', 'reader-image-error');
-          frame.removeAttribute('role');
-          frame.removeAttribute('aria-label');
         }
       }
       if (failed) return;
@@ -920,6 +928,20 @@
       img.loading = 'eager';
     };
 
+    const retryLazyReaderImage = (button) => {
+      const frame = button.closest('[data-reader-lazy-frame]');
+      const img = frame?.querySelector('img[data-reader-lazy]');
+      const src = img?.getAttribute('src');
+      if (!src || !frame.classList.contains('reader-lazy-error')) return;
+
+      frame.classList.remove('reader-lazy-error', 'reader-image-error');
+      frame.classList.add('reader-lazy-pending');
+      frame.setAttribute('aria-busy', 'true');
+      // Keep the signed URL intact when requesting the image again.
+      img.removeAttribute('src');
+      img.src = src;
+    };
+
     const initLazyReaderImages = () => {
       const lazyImages = Array.from(document.querySelectorAll('img[data-reader-lazy][data-src]'));
 
@@ -934,8 +956,8 @@
         if (img.dataset.readerLazyEventsBound === '1') return;
 
         img.dataset.readerLazyEventsBound = '1';
-        img.addEventListener('load', () => markLazyImageFinished(img), { once: true });
-        img.addEventListener('error', () => markLazyImageFinished(img, true), { once: true });
+        img.addEventListener('load', () => markLazyImageFinished(img));
+        img.addEventListener('error', () => markLazyImageFinished(img, true));
       });
 
       if (!('IntersectionObserver' in window)) {
@@ -1165,6 +1187,13 @@
       }, { capture: true });
 
       document.addEventListener('click', (e) => {
+        const retryButton = e.target.closest('[data-reader-image-retry]');
+        if (retryButton) {
+          e.preventDefault();
+          retryLazyReaderImage(retryButton);
+          return;
+        }
+
         const fullscreenButton = e.target.closest('[data-fullscreen-toggle]');
         if (fullscreenButton) {
           e.preventDefault();

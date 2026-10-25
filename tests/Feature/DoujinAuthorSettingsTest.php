@@ -31,15 +31,18 @@ class DoujinAuthorSettingsTest extends TestCase
             ->get(route('settings.doujin-authors'))
             ->assertOk()
             ->assertSee('Settings Artist')
-            ->assertSee('name="twitter_url"', false)
-            ->assertSee('name="patreon_url"', false)
-            ->assertSee('name="fanbox_url"', false)
-            ->assertSee('name="pixiv_url"', false)
+            ->assertSee('name="twitter_url[]"', false)
+            ->assertSee('name="patreon_url[]"', false)
+            ->assertSee('name="fanbox_url[]"', false)
+            ->assertSee('name="pixiv_url[]"', false)
             ->assertSee('placeholder="Patreon URL"', false)
             ->assertSee('Save')
-            ->assertDontSee('Hidden Social Artist')
-            ->assertDontSee('https://twitter.example/current')
-            ->assertDontSee('Edit Artist')
+            ->assertSee('Hidden Social Artist')
+            ->assertSee('https://twitter.example/current')
+            ->assertDontSee('id="editArtistModal"', false)
+            ->assertSee('id="doujinArtistSearch"', false)
+            ->assertSee('data-add-social', false)
+            ->assertSee('data-remove-social', false)
             ->assertDontSee('Add Existing Artist')
             ->assertDontSee('No social links');
 
@@ -66,10 +69,70 @@ class DoujinAuthorSettingsTest extends TestCase
             ->actingAs($user)
             ->get(route('settings.doujin-authors'))
             ->assertOk()
-            ->assertDontSee('Settings Artist Updated');
+            ->assertSee('Settings Artist Updated');
     }
 
-    public function test_additional_author_can_be_attached_to_doujin_from_settings(): void
+    public function test_failed_artist_update_keeps_the_entered_links_in_the_inline_form(): void
+    {
+        $author = $this->author('Artist With Failed Edit');
+        $other = $this->author('Existing Artist Name');
+        $this->actingAs($this->manager())
+            ->put(route('settings.doujin-authors.update', $author), [
+                'name' => $other->name,
+                'twitter_url' => ['https://example.test/new-social', 'https://example.test/second-social'],
+                'patreon_url' => [''],
+            ])
+            ->assertRedirect(route('settings.doujin-authors'))
+            ->assertSessionHas('open_edit_author_id', $author->id);
+
+        $response = $this->get(route('settings.doujin-authors'))->assertOk();
+        $document = new \DOMDocument();
+        @$document->loadHTML($response->getContent());
+        $xpath = new \DOMXPath($document);
+        $form = $document->getElementById('artist-form-'.$author->id);
+        $twitter = $xpath->query('.//input[@name="twitter_url[]"]', $form);
+        $this->assertSame(2, $twitter->length);
+        $this->assertSame('https://example.test/new-social', $twitter->item(0)->getAttribute('value'));
+        $this->assertSame('https://example.test/second-social', $twitter->item(1)->getAttribute('value'));
+        $this->assertSame('', $xpath->query('.//input[@name="patreon_url[]"]', $form)->item(0)->getAttribute('value'));
+    }
+
+    public function test_each_social_platform_supports_multiple_links_and_removing_links(): void
+    {
+        $author = $this->author('Multiple Social Links');
+        $this->actingAs($this->manager());
+        $payload = ['name' => $author->name];
+        foreach (['twitter_url', 'patreon_url', 'fanbox_url', 'pixiv_url'] as $column) {
+            $payload[$column] = ['https://example.test/'.$column.'/first', '', 'https://example.test/'.$column.'/second', 'https://example.test/'.$column.'/first'];
+        }
+        $this->put(route('settings.doujin-authors.update', $author), $payload)
+            ->assertRedirect(route('settings.doujin-authors'))
+            ->assertSessionHas('status_color', 'green');
+
+        $author->refresh();
+        foreach (['twitter_url', 'patreon_url', 'fanbox_url', 'pixiv_url'] as $column) {
+            $this->assertSame('https://example.test/'.$column.'/first'."\n".'https://example.test/'.$column.'/second', $author->{$column});
+        }
+        $response = $this->get(route('settings.doujin-authors'))->assertOk();
+        $document = new \DOMDocument();
+        @$document->loadHTML($response->getContent());
+        $xpath = new \DOMXPath($document);
+        $form = $document->getElementById('artist-form-'.$author->id);
+        foreach (['twitter_url', 'patreon_url', 'fanbox_url', 'pixiv_url'] as $column) {
+            $this->assertSame(2, $xpath->query('.//input[@name="'.$column.'[]"]', $form)->length);
+            $payload[$column] = [];
+        }
+        $payload['twitter_url'] = ['https://example.test/twitter_url/second'];
+        $this->put(route('settings.doujin-authors.update', $author), $payload)
+            ->assertRedirect(route('settings.doujin-authors'));
+        $author->refresh();
+        $this->assertSame('https://example.test/twitter_url/second', $author->twitter_url);
+        $this->assertNull($author->patreon_url);
+        $this->assertNull($author->fanbox_url);
+        $this->assertNull($author->pixiv_url);
+    }
+
+    public function test_changing_author_replaces_the_current_author_from_settings(): void
     {
         $user = $this->manager();
         $fromAuthor = $this->author('Attach Source');
@@ -88,7 +151,7 @@ class DoujinAuthorSettingsTest extends TestCase
             ])
             ->assertRedirect(route('settings.doujin-authors'));
 
-        $this->assertDatabaseHas('doujin_item_author', [
+        $this->assertDatabaseMissing('doujin_item_author', [
             'media_id' => $media->id,
             'author_id' => $fromAuthor->id,
         ]);
@@ -96,15 +159,15 @@ class DoujinAuthorSettingsTest extends TestCase
             'media_id' => $media->id,
             'author_id' => $toAuthor->id,
         ]);
+        $this->assertSame(1, $media->doujinAuthors()->count());
     }
 
-    public function test_author_can_be_detached_from_multi_author_doujin(): void
+    public function test_the_only_author_cannot_be_detached_from_a_doujin(): void
     {
         $user = $this->manager();
         $fromAuthor = $this->author('Detach Source');
-        $remainingAuthor = $this->author('Detach Target');
         $media = $this->doujin('Detach Doujin');
-        $media->doujinAuthors()->attach([$fromAuthor->id, $remainingAuthor->id]);
+        $media->doujinAuthors()->attach($fromAuthor->id);
 
         $this
             ->actingAs($user)
@@ -112,15 +175,12 @@ class DoujinAuthorSettingsTest extends TestCase
                 'author' => $fromAuthor,
                 'media' => $media,
             ]))
-            ->assertRedirect(route('settings.doujin-authors'));
+            ->assertRedirect(route('settings.doujin-authors'))
+            ->assertSessionHas('status_color', 'red');
 
-        $this->assertDatabaseMissing('doujin_item_author', [
-            'media_id' => $media->id,
-            'author_id' => $fromAuthor->id,
-        ]);
         $this->assertDatabaseHas('doujin_item_author', [
             'media_id' => $media->id,
-            'author_id' => $remainingAuthor->id,
+            'author_id' => $fromAuthor->id,
         ]);
     }
 

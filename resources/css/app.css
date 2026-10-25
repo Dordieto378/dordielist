@@ -2,6 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer components {
+    .app-modal {
+        @apply fixed inset-0 flex items-start justify-center overflow-y-auto py-8;
+    }
+}
+
 @font-face {
     font-family: 'Fruity Kiwi';
     src: url('/fonts/fruity-kiwi/Fruity%20Kiwi.otf') format('opentype');

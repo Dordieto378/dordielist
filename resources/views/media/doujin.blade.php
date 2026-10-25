@@ -7,7 +7,6 @@
         use App\Models\CollectionItem;
         use App\Models\Favorite;
         use App\Models\ReadingBookmark;
-        use App\Support\DoujinAuthorLinks;
         use Illuminate\Support\Facades\Storage;
 
         $title = $media->title_english
@@ -64,14 +63,7 @@
             ->values();
         $currentTitleEnglish = old('title_english', $media->title_english);
         $currentAuthor = old('author', $authors->first());
-        $currentAuthorRecord = $media->doujinAuthors->firstWhere('name', $currentAuthor)
-            ?: $media->doujinAuthors->first();
-        $currentAuthorName = old('author_name', $currentAuthorRecord?->name ?? $currentAuthor ?? '');
-        $doujinAuthorLinkValues = fn (string $field, mixed $default = null) => DoujinAuthorLinks::urls(old($field, $default)) ?: [''];
-        $currentTwitterUrls = $doujinAuthorLinkValues('author_twitter_url', $currentAuthorRecord?->twitter_url);
-        $currentPatreonUrls = $doujinAuthorLinkValues('author_patreon_url', $currentAuthorRecord?->patreon_url);
-        $currentFanboxUrls = $doujinAuthorLinkValues('author_fanbox_url', $currentAuthorRecord?->fanbox_url);
-        $currentPixivUrls = $doujinAuthorLinkValues('author_pixiv_url', $currentAuthorRecord?->pixiv_url);
+        $currentNewAuthor = old('new_author', '');
         $isAdmin = optional(auth()->user()?->role)->role === 'Admin';
         $contentUploadRoute = route('chapters.upload', ['media' => $media->id]);
         $contentUploadChunkRoute = route('chapters.upload.chunk', ['media' => $media->id]);
@@ -211,7 +203,7 @@
                                 <form action="{{ route('doujin.destroy', ['media' => $media->id]) }}"
                                       method="POST"
                                       class="w-full"
-                                      onsubmit="return confirm('Delete this doujin? This will remove its chapters and pages too.');">
+                                      data-confirm="Delete this doujin? This will remove its chapters and pages too.">
                                     @csrf
                                     @method('DELETE')
                                     <button type="submit" class="flex items-center justify-start w-full text-blue-950 py-2 rounded-sm hover:text-red-600">
@@ -382,9 +374,9 @@
     @auth
         <div
           id="editEntryModal"
-          class="fixed inset-0 flex items-center justify-center overflow-y-auto bg-black bg-opacity-50 hidden z-50 p-8"
+          class="app-modal bg-black bg-opacity-50 hidden z-50 px-8"
         >
-            <div class="relative bg-white p-4 text-left shadow-2xl w-[800px] max-w-full rounded-lg my-auto">
+            <div class="relative bg-white p-4 text-left shadow-2xl w-[800px] max-w-full rounded-lg">
                 <div class="flex justify-between items-start pb-4 pt-2 border-b ml-4 mr-4 border-gray-200">
                     <h3 class="text-lg font-bold text-gray-800">Edit Doujin</h3>
                     <button id="closeEditModal" type="button" class="text-gray-400 hover:text-gray-900" aria-label="Close Edit Modal">
@@ -408,83 +400,29 @@
                             </div>
                         @endif
 
-                        <div class="grid grid-cols-2 gap-4">
-                            <label class="block col-span-2">
-                                <span class="block mb-2 text-red-600 font-medium">Title</span>
-                                <input
-                                  type="text"
-                                  name="title_english"
-                                  value="{{ $currentTitleEnglish ?? '' }}"
-                                  class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
-                                />
+                        <label class="block">
+                            <span class="block mb-2 text-red-600 font-medium">Title</span>
+                            <input type="text" name="title_english" value="{{ $currentTitleEnglish ?? '' }}" required maxlength="255"
+                                   class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium" />
+                        </label>
+                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <label class="block">
+                                <span class="block mb-2 text-red-600 font-medium">Author</span>
+                                <select id="doujinAuthorSelect" name="author"
+                                        {{ filled($currentNewAuthor) ? 'disabled' : 'required' }}
+                                        class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium disabled:opacity-50">
+                                    <option value="" disabled {{ $currentAuthor ? '' : 'selected' }}>Select author</option>
+                                    @foreach($authorOptions as $authorName)
+                                        <option value="{{ $authorName }}" {{ ($currentAuthor ?? '') === $authorName ? 'selected' : '' }}>{{ $authorName }}</option>
+                                    @endforeach
+                                </select>
                             </label>
-
-                            <div class="block space-y-4">
-                                <label class="block">
-                                    <span class="block mb-2 text-red-600 font-medium">Author</span>
-                                    <select
-                                      id="doujinAuthorSelect"
-                                      name="author"
-                                      class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
-                                    >
-                                        <option value="">No author</option>
-                                        @foreach($authorOptions as $authorName)
-                                            <option value="{{ $authorName }}" {{ ($currentAuthor ?? '') === $authorName ? 'selected' : '' }}>
-                                                {{ $authorName }}
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                </label>
-
-                                <label class="block">
-                                    <span class="block mb-2 text-red-600 font-medium">Author Name</span>
-                                    <input
-                                      id="doujinAuthorName"
-                                      type="text"
-                                      name="author_name"
-                                      value="{{ $currentAuthorName }}"
-                                      class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
-                                    />
-                                </label>
-                            </div>
-
-                            <div class="block space-y-4">
-                                @foreach([
-                                    'author_twitter_url' => ['label' => 'Twitter', 'values' => $currentTwitterUrls],
-                                    'author_patreon_url' => ['label' => 'Patreon', 'values' => $currentPatreonUrls],
-                                    'author_fanbox_url' => ['label' => 'Fanbox', 'values' => $currentFanboxUrls],
-                                    'author_pixiv_url' => ['label' => 'Pixiv', 'values' => $currentPixivUrls],
-                                ] as $field => $linkField)
-                                    <div class="block" data-author-link-group data-field-name="{{ $field }}" data-label="{{ $linkField['label'] }}">
-                                        <span class="block mb-2 text-red-600 font-medium">{{ $linkField['label'] }}</span>
-                                        <div class="space-y-2" data-author-link-list>
-                                            @foreach($linkField['values'] as $url)
-                                                <div class="flex items-center gap-2" data-author-link-row>
-                                                    <input
-                                                      type="text"
-                                                      name="{{ $field }}[]"
-                                                      value="{{ $url }}"
-                                                      class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
-                                                    />
-                                                    <button type="button"
-                                                            data-add-author-link
-                                                            aria-label="Add {{ $linkField['label'] }} link"
-                                                            class="shrink-0 rounded-md border border-gray-200 bg-gray-100 px-3 py-2 text-base font-bold text-red-600 hover:bg-red-600 hover:text-white">
-                                                        +
-                                                    </button>
-                                                    <button type="button"
-                                                            data-remove-author-link
-                                                            aria-label="Remove {{ $linkField['label'] }} link"
-                                                            class="hidden shrink-0 rounded-md border border-gray-200 bg-gray-100 px-3 py-2 text-base font-bold text-gray-500 hover:bg-gray-200">
-                                                        &times;
-                                                    </button>
-                                                </div>
-                                            @endforeach
-                                        </div>
-                                    </div>
-                                @endforeach
-
-                            </div>
+                            <label class="block">
+                                <span class="block mb-2 text-red-600 font-medium">New Author</span>
+                                <input id="doujinNewAuthor" type="text" name="new_author" value="{{ $currentNewAuthor }}" maxlength="255"
+                                       placeholder="Add a new author"
+                                       class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium" />
+                            </label>
                         </div>
                     </form>
                 </div>
@@ -503,7 +441,7 @@
         @if($isAdmin)
             <div
               id="mediaContentUploadModal"
-              class="fixed inset-0 flex items-start pt-[130px] justify-center bg-black bg-opacity-50 hidden z-50"
+              class="app-modal bg-black bg-opacity-50 hidden z-50"
             >
                 <div class="relative bg-white p-4 text-left shadow-2xl w-[800px] rounded-lg">
                     <div class="flex justify-between items-start pb-4 pt-2 border-b ml-4 mr-4 border-gray-200">
@@ -556,7 +494,7 @@
                     </div>
 
                     <div class="mb-2 px-4 pt-4 flex items-center justify-between gap-3">
-                        <form method="POST" action="{{ $contentResetRoute }}" onsubmit="return confirm(@js($contentResetConfirm));">
+                        <form method="POST" action="{{ $contentResetRoute }}" data-confirm="{{ $contentResetConfirm }}">
                             @csrf
                             @method('DELETE')
                             <button type="submit" class="rounded bg-red-600 px-5 py-3 text-white transition-colors hover:bg-red-700">
@@ -579,7 +517,7 @@
 
         <div
           id="addToCollectionModal"
-          class="fixed inset-0 flex items-start pt-[130px] justify-center bg-black bg-opacity-50 hidden z-50"
+          class="app-modal bg-black bg-opacity-50 hidden z-50"
         >
             <div class="relative bg-white p-4 text-left shadow-2xl w-[800px] rounded-lg">
                 <div class="flex justify-between items-start pb-4 pt-2 border-b ml-4 mr-4 border-gray-200">
@@ -659,7 +597,7 @@
 
         <div
           id="createCollectionModal"
-          class="fixed inset-0 flex items-start pt-[130px] justify-center bg-black bg-opacity-50 hidden z-50"
+          class="app-modal bg-black bg-opacity-50 hidden z-50"
         >
             <div
                 class="relative bg-white p-4 text-left shadow-2xl w-[800px] h-[255px] rounded-lg space-y-6 overflow-auto"
@@ -729,7 +667,6 @@
                 const cancelUploadBtn = document.getElementById('cancelMediaContentUploadModal');
                 const openCreateBtn  = document.getElementById('openInlineCreateCollection');
                 const closeCreateBtn = document.getElementById('closeCreateModal');
-                const editForm       = document.getElementById('editEntryForm');
                 const createForm     = document.getElementById('collectionCreateForm');
                 const listContainer  = document.getElementById('collectionCheckboxList');
                 const mediaContentUploadForm = document.getElementById('mediaContentUploadForm');
@@ -743,70 +680,10 @@
                 const uploadCompleteRoute = @json($contentUploadCompleteRoute);
                 const uploadChunkSizeBytes = 8 * 1024 * 1024;
                 let currentUploadSession = null;
-                const doujinAuthorLinks = @json($allAuthorLinks ?? []);
                 const doujinAuthorSelect = document.getElementById('doujinAuthorSelect');
-                const doujinAuthorNameInput = document.getElementById('doujinAuthorName');
-                const doujinAuthorLinkGroups = document.querySelectorAll('#editEntryForm [data-author-link-group]');
+                const doujinNewAuthor = document.getElementById('doujinNewAuthor');
                 const shouldOpenEditModal = @json(session('open_edit_doujin_modal', false));
                 const shouldOpenUploadModal = @json(session('open_media_content_upload_modal', false));
-
-                const normalizeAuthorLinkValues = (values) => {
-                    if (Array.isArray(values)) {
-                        return values.map((value) => String(value || '').trim()).filter(Boolean);
-                    }
-
-                    if (typeof values === 'string') {
-                        return values.split(/\r?\n/).map((value) => value.trim()).filter(Boolean);
-                    }
-
-                    return [];
-                };
-
-                const refreshAuthorLinkGroupButtons = (group) => {
-                    const rows = group.querySelectorAll('[data-author-link-row]');
-                    rows.forEach((row, index) => {
-                        row.querySelector('[data-add-author-link]')?.classList.toggle('hidden', index !== rows.length - 1);
-                        row.querySelector('[data-remove-author-link]')?.classList.toggle('hidden', rows.length <= 1);
-                    });
-                };
-
-                const appendAuthorLinkRow = (group, value = '') => {
-                    const list = group.querySelector('[data-author-link-list]');
-                    const template = list?.querySelector('[data-author-link-row]');
-                    if (!list || !template) return;
-
-                    const row = template.cloneNode(true);
-                    const input = row.querySelector('input');
-                    if (input) {
-                        input.value = value;
-                        input.name = `${group.dataset.fieldName}[]`;
-                    }
-
-                    list.appendChild(row);
-                    refreshAuthorLinkGroupButtons(group);
-                };
-
-                const setAuthorLinkGroupValues = (group, values) => {
-                    const list = group.querySelector('[data-author-link-list]');
-                    const template = list?.querySelector('[data-author-link-row]');
-                    if (!list || !template) return;
-
-                    const normalized = normalizeAuthorLinkValues(values);
-                    list.innerHTML = '';
-                    (normalized.length ? normalized : ['']).forEach((value) => {
-                        const row = template.cloneNode(true);
-                        const input = row.querySelector('input');
-                        if (input) {
-                            input.value = value;
-                            input.name = `${group.dataset.fieldName}[]`;
-                        }
-                        list.appendChild(row);
-                    });
-
-                    refreshAuthorLinkGroupButtons(group);
-                };
-
-                doujinAuthorLinkGroups.forEach((group) => refreshAuthorLinkGroupButtons(group));
 
                 const lockBody = () => document.body.classList.add('overflow-hidden');
                 const unlockBody = () => {
@@ -860,43 +737,14 @@
                     resetUploadState();
                     unlockBody();
                 };
-                const fillAuthorLinkFields = (authorName) => {
-                    const links = doujinAuthorLinks[authorName] || {};
-                    const keyByField = {
-                        author_twitter_url: 'twitter',
-                        author_patreon_url: 'patreon',
-                        author_fanbox_url: 'fanbox',
-                        author_pixiv_url: 'pixiv',
-                    };
-
-                    doujinAuthorLinkGroups.forEach((group) => {
-                        setAuthorLinkGroupValues(group, links[keyByField[group.dataset.fieldName]] || []);
-                    });
+                const syncAuthorSelection = () => {
+                    if (!doujinAuthorSelect) return;
+                    const addingAuthor = Boolean(doujinNewAuthor?.value.trim());
+                    doujinAuthorSelect.disabled = addingAuthor;
+                    doujinAuthorSelect.required = !addingAuthor;
                 };
-                doujinAuthorSelect?.addEventListener('change', () => {
-                    fillAuthorLinkFields(doujinAuthorSelect.value);
-                    if (doujinAuthorNameInput) {
-                        doujinAuthorNameInput.value = doujinAuthorSelect.value || '';
-                    }
-                });
-                editForm?.addEventListener('click', (event) => {
-                    const addButton = event.target.closest('[data-add-author-link]');
-                    const removeButton = event.target.closest('[data-remove-author-link]');
-
-                    if (addButton) {
-                        const group = addButton.closest('[data-author-link-group]');
-                        if (group) appendAuthorLinkRow(group);
-                    }
-
-                    if (removeButton) {
-                        const group = removeButton.closest('[data-author-link-group]');
-                        const row = removeButton.closest('[data-author-link-row]');
-                        if (group && row && group.querySelectorAll('[data-author-link-row]').length > 1) {
-                            row.remove();
-                            refreshAuthorLinkGroupButtons(group);
-                        }
-                    }
-                });
+                doujinNewAuthor?.addEventListener('input', syncAuthorSelection);
+                syncAuthorSelection();
                 const syncArchiveName = () => {
                     if (!archiveInput || !archiveName) return;
                     const selectedFile = archiveInput.files?.[0];
@@ -1166,7 +1014,7 @@
 
                         if (!res.ok) {
                             const err = await res.json();
-                            return alert(err.errors?.name?.[0] || 'Create failed');
+                            return window.showAppAlert(err.errors?.name?.[0] || 'Create failed');
                         }
 
                         const newCol = await res.json();

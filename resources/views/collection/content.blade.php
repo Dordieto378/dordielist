@@ -124,7 +124,7 @@
 @if(!$collection->is_system)
     <div
         id="renameCollectionModal"
-        class="fixed inset-0 flex items-start pt-[130px] justify-center bg-black bg-opacity-50 hidden z-50"
+        class="app-modal bg-black bg-opacity-50 hidden z-50"
     >
         <div
             class="relative bg-white p-4 text-left shadow-2xl

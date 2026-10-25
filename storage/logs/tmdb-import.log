@@ -8971,3 +8971,56 @@ TMDb sync complete. Created: 0, updated: 503, failed: 0.
 TMDb sync complete. Created: 0, updated: 503, failed: 0.
 TMDb sync complete. Created: 0, updated: 503, failed: 0.
 TMDb sync complete. Created: 0, updated: 503, failed: 0.
+TMDb sync complete. Created: 0, updated: 503, failed: 0.
+TMDb sync complete. Created: 0, updated: 503, failed: 0.
+TMDb sync complete. Created: 0, updated: 495, failed: 8.
+Movie 933260 failed: cURL error 28: Failed to connect to api.themoviedb.org port 443 after 10014 ms: Timeout was reached (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/933260?append_to_response=keywords&language=en-US
+Movie 37165 failed: cURL error 28: Failed to connect to api.themoviedb.org port 443 after 10005 ms: Timeout was reached (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/37165?append_to_response=keywords&language=en-US
+Movie 106646 failed: cURL error 28: Failed to connect to api.themoviedb.org port 443 after 10008 ms: Timeout was reached (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/106646?append_to_response=keywords&language=en-US
+Movie 11524 failed: cURL error 28: Resolving timed out after 10007 milliseconds (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/11524?append_to_response=keywords&language=en-US
+Movie 109414 failed: cURL error 6: Could not resolve host: api.themoviedb.org (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/109414?append_to_response=keywords&language=en-US
+Movie 10195 failed: cURL error 28: Resolving timed out after 10023 milliseconds (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/10195?append_to_response=keywords&language=en-US
+Movie 76338 failed: cURL error 6: Could not resolve host: api.themoviedb.org (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/76338?append_to_response=keywords&language=en-US
+Movie 284053 failed: cURL error 28: Resolving timed out after 10007 milliseconds (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/284053?append_to_response=keywords&language=en-US
+TMDb sync complete. Created: 0, updated: 503, failed: 0.
+TMDb sync complete. Created: 0, updated: 503, failed: 0.
+TMDb sync complete. Created: 0, updated: 503, failed: 0.
+TMDb sync complete. Created: 0, updated: 503, failed: 0.
+TMDb sync complete. Created: 0, updated: 503, failed: 0.
+TMDb sync complete. Created: 0, updated: 503, failed: 0.
+TMDb sync complete. Created: 0, updated: 503, failed: 0.
+TMDb sync complete. Created: 0, updated: 503, failed: 0.
+TMDb sync complete. Created: 0, updated: 503, failed: 0.
+TMDb sync complete. Created: 0, updated: 503, failed: 0.
+TMDb sync complete. Created: 0, updated: 503, failed: 0.
+TMDb sync complete. Created: 0, updated: 503, failed: 0.
+TMDb sync complete. Created: 0, updated: 503, failed: 0.
+TMDb sync complete. Created: 0, updated: 503, failed: 0.
+TMDb sync complete. Created: 0, updated: 503, failed: 0.
+TMDb sync complete. Created: 0, updated: 503, failed: 0.
+TMDb sync complete. Created: 0, updated: 503, failed: 0.
+TMDb sync complete. Created: 0, updated: 503, failed: 0.
+TMDb sync complete. Created: 0, updated: 503, failed: 0.
+TMDb sync complete. Created: 0, updated: 503, failed: 0.
+TMDb sync complete. Created: 0, updated: 503, failed: 0.
+TMDb sync complete. Created: 0, updated: 503, failed: 0.
+TMDb sync complete. Created: 0, updated: 503, failed: 0.
+TMDb sync complete. Created: 0, updated: 503, failed: 0.
+TMDb sync complete. Created: 0, updated: 503, failed: 0.
+TMDb sync complete. Created: 0, updated: 503, failed: 0.
+TMDb sync complete. Created: 0, updated: 503, failed: 0.
+TMDb sync complete. Created: 0, updated: 503, failed: 0.
+TMDb sync complete. Created: 0, updated: 503, failed: 0.
+TMDb sync failed: cURL error 56: Recv failure: Connection was reset (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/list/8697654?language=en-US&page=2
+TMDb sync complete. Created: 0, updated: 503, failed: 0.
+TMDb sync complete. Created: 0, updated: 503, failed: 0.
+TMDb sync complete. Created: 0, updated: 503, failed: 0.
+TMDb sync complete. Created: 0, updated: 503, failed: 0.
+TMDb sync complete. Created: 0, updated: 503, failed: 0.
+TMDb sync complete. Created: 0, updated: 503, failed: 0.
+TMDb sync complete. Created: 0, updated: 503, failed: 0.
+TMDb sync complete. Created: 0, updated: 503, failed: 0.
+TMDb sync complete. Created: 0, updated: 503, failed: 0.
+TMDb sync complete. Created: 0, updated: 503, failed: 0.
+TMDb sync complete. Created: 0, updated: 503, failed: 0.
+TMDb sync complete. Created: 0, updated: 503, failed: 0.

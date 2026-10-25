@@ -248,7 +248,9 @@
         </div>
     </footer>
 
-    <div id="popupOverlay" class="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-[1.8px] flex justify-center items-start pt-[2.9rem] font-boldness hidden z-50">
+    @include('partials.app-dialog')
+
+    <div id="popupOverlay" class="app-modal bg-black bg-opacity-50 backdrop-blur-[1.8px] font-boldness hidden z-50">
         <!-- Search Container -->
         <div class="relative w-[70%] md:w-[580px]">
             <!-- Search Input -->

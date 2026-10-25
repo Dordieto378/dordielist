@@ -207,9 +207,9 @@
 @unless($isViewer)
 <div
   id="editEntryModal"
-  class="fixed inset-0 flex items-center justify-center overflow-y-auto bg-black bg-opacity-50 hidden z-50 p-8"
+  class="app-modal bg-black bg-opacity-50 hidden z-50 px-8"
 >
-  <div class="relative bg-white p-4 text-left shadow-2xl w-[800px] max-w-full rounded-lg my-auto">
+  <div class="relative bg-white p-4 text-left shadow-2xl w-[800px] max-w-full rounded-lg">
     <div class="flex justify-between items-start pb-4 pt-2 border-b ml-4 mr-4 border-gray-200">
       <h3 class="text-lg font-bold text-gray-800">Edit Entry</h3>
       <button id="closeEditModal" type="button" class="text-gray-400 hover:text-gray-900" aria-label="Close Edit Modal">
@@ -278,7 +278,7 @@
 
 <div
   id="addToCollectionModal"
-  class="fixed inset-0 flex items-start pt-[130px] justify-center bg-black bg-opacity-50 hidden z-50"
+  class="app-modal bg-black bg-opacity-50 hidden z-50"
 >
   <div class="relative bg-white p-4 text-left shadow-2xl
             w-[800px] rounded-lg">
@@ -365,7 +365,7 @@
 
 <div
   id="createCollectionModal"
-  class="fixed inset-0 flex items-start pt-[130px] justify-center bg-black bg-opacity-50 hidden z-50"
+  class="app-modal bg-black bg-opacity-50 hidden z-50"
 >
     <div
         class="relative bg-white p-4 text-left shadow-2xl
@@ -517,7 +517,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!res.ok) {
       const err = await res.json();
-      return alert(err.errors?.name?.[0] || 'Create failed');
+      return window.showAppAlert(err.errors?.name?.[0] || 'Create failed');
     }
 
     const newCol = await res.json();

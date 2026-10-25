@@ -220,12 +220,12 @@
     "src": "node_modules/flag-icons/flags/4x3/vn.svg"
   },
   "resources/css/app.css": {
-    "file": "assets/app-C1LecwQs.css",
+    "file": "assets/app-D7DrK1qm.css",
     "src": "resources/css/app.css",
     "isEntry": true
   },
   "resources/js/app.js": {
-    "file": "assets/app-CUsZQVnh.js",
+    "file": "assets/app-jYsiZbF4.js",
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true,

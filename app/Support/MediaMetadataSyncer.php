@@ -18,6 +18,7 @@ use App\Models\VnTag;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class MediaMetadataSyncer
 {
@@ -36,6 +37,10 @@ class MediaMetadataSyncer
 
     public function syncDoujin(Media $media, ?array $authors = null): void
     {
+        if ($authors !== null && count($this->normalizedNames($authors)) !== 1) {
+            throw ValidationException::withMessages(['author' => 'Select one author for each doujin.']);
+        }
+
         $this->syncRelation($media, 'doujinAuthors', DoujinAuthor::class, $authors);
     }
 

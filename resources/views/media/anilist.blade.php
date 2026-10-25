@@ -342,9 +342,9 @@
                                     : route('media.destroy', ['media' => $item['id']]) }}"
                           method="POST"
                           class="w-full"
-                          onsubmit="return confirm('{{ $isMovie
+                          data-confirm="{{ $isMovie
                               ? 'Delete this movie from Dordielist?'
-                              : 'Delete this entry? This will remove it locally and from your AniList list.' }}');">
+                              : 'Delete this entry? This will remove it locally and from your AniList list.' }}">
                         @csrf
                         @method('DELETE')
                         <button type="submit" class="flex items-center justify-start w-full text-blue-950 py-2 rounded-sm hover:text-red-600">
@@ -748,9 +748,9 @@
 
 <div
   id="editEntryModal"
-  class="fixed inset-0 flex items-center justify-center overflow-y-auto bg-black bg-opacity-50 hidden z-50 p-8"
+  class="app-modal bg-black bg-opacity-50 hidden z-50 px-8"
 >
-  <div class="relative bg-white p-4 text-left shadow-2xl w-[800px] max-w-full rounded-lg my-auto">
+  <div class="relative bg-white p-4 text-left shadow-2xl w-[800px] max-w-full rounded-lg">
     <div class="flex justify-between items-start pb-4 pt-2 border-b ml-4 mr-4 border-gray-200">
       <h3 class="text-lg font-bold text-gray-800">Edit Entry</h3>
       <button id="closeEditModal" type="button" class="text-gray-400 hover:text-gray-900" aria-label="Close Edit Modal">
@@ -902,7 +902,7 @@
 @if($isAdmin && !$isMovie)
 <div
   id="mediaContentUploadModal"
-  class="fixed inset-0 flex items-start pt-[130px] justify-center bg-black bg-opacity-50 hidden z-50"
+  class="app-modal bg-black bg-opacity-50 hidden z-50"
 >
   <div class="relative bg-white p-4 text-left shadow-2xl w-[800px] rounded-lg">
     <div class="flex justify-between items-start pb-4 pt-2 border-b ml-4 mr-4 border-gray-200">
@@ -956,7 +956,7 @@
 
     <div class="mb-2 px-4 pt-4 flex items-center justify-between gap-3">
       @if($hasStoredContent)
-        <form method="POST" action="{{ $contentResetRoute }}" onsubmit="return confirm(@js($contentResetConfirm));">
+        <form method="POST" action="{{ $contentResetRoute }}" data-confirm="{{ $contentResetConfirm }}">
           @csrf
           @method('DELETE')
           <button type="submit" class="rounded bg-red-600 px-5 py-3 text-white transition-colors hover:bg-red-700">
@@ -982,7 +982,7 @@
 
 <div
   id="addToCollectionModal"
-  class="fixed inset-0 flex items-start pt-[130px] justify-center bg-black bg-opacity-50 hidden z-50"
+  class="app-modal bg-black bg-opacity-50 hidden z-50"
 >
   <div class="relative bg-white p-4 text-left shadow-2xl
             w-[800px] rounded-lg">
@@ -1069,7 +1069,7 @@
 
 <div
   id="createCollectionModal"
-  class="fixed inset-0 flex items-start pt-[130px] justify-center bg-black bg-opacity-50 hidden z-50"
+  class="app-modal bg-black bg-opacity-50 hidden z-50"
 >
     <div
         class="relative bg-white p-4 text-left shadow-2xl
@@ -1505,7 +1505,7 @@ const res   = await fetch(createForm.action, {
 
 if (!res.ok) {
     const err = await res.json();
-    return alert(err.errors?.name?.[0] || 'Create failed');
+    return window.showAppAlert(err.errors?.name?.[0] || 'Create failed');
 }
 
 const newCol = await res.json();

@@ -7,7 +7,7 @@ use App\Models\ChapterPage;
 use App\Models\DoujinAuthor;
 use App\Models\Media;
 use App\Support\DoujinFolderIndex;
-use App\Support\DoujinAuthorLinks;
+use App\Support\DoujinImportMetadata;
 use App\Support\DoujinMediaDeleter;
 use App\Support\MediaMetadataSyncer;
 use Illuminate\Http\Request;
@@ -69,14 +69,7 @@ class DoujinController extends Controller
         $allCollections = \App\Models\Collection::orderBy('is_system', 'desc')
             ->orderBy('name')
             ->get();
-        $allAuthorRows = DoujinAuthor::query()
-            ->orderBy('name')
-            ->get(['name', 'twitter_url', 'patreon_url', 'fanbox_url', 'pixiv_url']);
-        $allAuthors = $allAuthorRows->pluck('name');
-        $allAuthorLinks = $allAuthorRows
-            ->mapWithKeys(fn (DoujinAuthor $author) => [
-                $author->name => DoujinAuthorLinks::payload($author),
-            ]);
+        $allAuthors = DoujinAuthor::orderBy('name')->pluck('name');
         $attachedIds = \App\Models\CollectionItem::where('item_type', 'doujins')
             ->where('item_id', $media->id)
             ->pluck('collection_id')
@@ -89,7 +82,6 @@ class DoujinController extends Controller
             'isFavorited' => $isFavorited,
             'allCollections' => $allCollections,
             'allAuthors' => $allAuthors,
-            'allAuthorLinks' => $allAuthorLinks,
             'attachedIds' => $attachedIds,
         ]);
     }
@@ -99,17 +91,9 @@ class DoujinController extends Controller
         abort_unless($media->type === 'doujin', 404);
 
         $validator = Validator::make($request->all(), [
-            'title_english' => ['nullable', 'string', 'max:255'],
-            'author' => ['nullable', 'string', 'max:255'],
-            'author_name' => ['nullable', 'string', 'max:255'],
-            'author_twitter_url' => ['nullable', 'array'],
-            'author_twitter_url.*' => ['nullable', 'string', 'max:2048'],
-            'author_patreon_url' => ['nullable', 'array'],
-            'author_patreon_url.*' => ['nullable', 'string', 'max:2048'],
-            'author_fanbox_url' => ['nullable', 'array'],
-            'author_fanbox_url.*' => ['nullable', 'string', 'max:2048'],
-            'author_pixiv_url' => ['nullable', 'array'],
-            'author_pixiv_url.*' => ['nullable', 'string', 'max:2048'],
+            'title_english' => ['required', 'string', 'max:255'],
+            'author' => ['nullable', 'required_without:new_author', 'string', 'max:255'],
+            'new_author' => ['nullable', 'string', 'max:255'],
         ]);
 
         if ($validator->fails()) {
@@ -121,9 +105,8 @@ class DoujinController extends Controller
 
         $data = $validator->validated();
         $titleEnglish = $this->trimToNull($data['title_english'] ?? null);
-        $selectedAuthorName = $this->trimToNull($data['author'] ?? null);
-        $editedAuthorName = $this->trimToNull($data['author_name'] ?? null);
-        $authors = $this->parseAuthorNames($selectedAuthorName);
+        $authorName = $this->trimToNull($data['new_author'] ?? null)
+            ?? $this->trimToNull($data['author'] ?? null);
 
         if (!$titleEnglish) {
             return back()
@@ -132,29 +115,14 @@ class DoujinController extends Controller
                 ->with('doujin_update_error', 'Add a title.');
         }
 
-        if ($editedAuthorName !== null) {
-            $renameError = $this->renameDoujinAuthorForEdit($selectedAuthorName, $editedAuthorName);
-            if ($renameError !== null) {
-                return back()
-                    ->withInput()
-                    ->with('open_edit_doujin_modal', true)
-                    ->with('doujin_update_error', $renameError);
-            }
-
-            $authors = [$editedAuthorName];
-        }
-
-        $media->title_english = $titleEnglish;
-        $media->title_romaji = null;
-        $media->title_native = null;
-        $media->slug = $this->makeUniqueMediaSlug(
-            $media,
-            $titleEnglish ?: ($media->slug ?: 'doujin-'.$media->id)
-        );
-        $media->save();
-
-        $this->metadataSyncer->syncDoujin($media, $authors);
-        $this->syncDoujinAuthorLinks($authors, $data);
+        DB::transaction(function () use ($media, $titleEnglish, $authorName) {
+            $media->title_english = $titleEnglish;
+            $media->title_romaji = null;
+            $media->title_native = null;
+            $media->slug = $this->makeUniqueMediaSlug($media, $titleEnglish);
+            $media->save();
+            $this->metadataSyncer->syncDoujin($media, [$authorName]);
+        });
 
         return back();
     }
@@ -255,7 +223,7 @@ class DoujinController extends Controller
         $validator = Validator::make($request->all(), [
             'title_english' => ['nullable', 'string', 'max:255'],
             'existing_author' => ['nullable', 'string', 'max:255'],
-            'new_author' => ['nullable', 'array'],
+            'new_author' => ['nullable', 'array', 'max:1'],
             'new_author.*' => ['nullable', 'string', 'max:255'],
             'archive' => ['required', 'file', 'max:1048576'],
         ]);
@@ -377,18 +345,11 @@ class DoujinController extends Controller
         abort_unless(optional($request->user()?->role)->role === 'Admin', 403);
 
         $validator = Validator::make($request->all(), [
+            'relative_path' => ['nullable', 'string', 'max:1024'],
             'title_english' => ['nullable', 'string', 'max:255'],
             'existing_author' => ['nullable', 'string', 'max:255'],
-            'new_author' => ['nullable', 'array'],
+            'new_author' => ['nullable', 'array', 'max:1'],
             'new_author.*' => ['nullable', 'string', 'max:255'],
-            'author_twitter_url' => ['nullable', 'array'],
-            'author_twitter_url.*' => ['nullable', 'string', 'max:2048'],
-            'author_patreon_url' => ['nullable', 'array'],
-            'author_patreon_url.*' => ['nullable', 'string', 'max:2048'],
-            'author_fanbox_url' => ['nullable', 'array'],
-            'author_fanbox_url.*' => ['nullable', 'string', 'max:2048'],
-            'author_pixiv_url' => ['nullable', 'array'],
-            'author_pixiv_url.*' => ['nullable', 'string', 'max:2048'],
         ]);
 
         if ($validator->fails()) {
@@ -403,16 +364,48 @@ class DoujinController extends Controller
             is_array($newAuthors) ? $newAuthors : [$newAuthors]
         ));
 
+        $isFolderImport = filled($data['relative_path'] ?? null);
+        if ($isFolderImport) {
+            try {
+                $metadata = DoujinImportMetadata::fromRelativePath($data['relative_path']);
+            } catch (\InvalidArgumentException $exception) {
+                return $this->redirectUploadFailure($exception->getMessage(), $request);
+            }
+
+            if ($metadata['filename'] !== $archive->getClientOriginalName()) {
+                return $this->redirectUploadFailure('The ZIP filename does not match its folder path.', $request);
+            }
+
+            $titleEnglish = $metadata['title'];
+            $authors = [$metadata['author']];
+        }
+
         if (!$titleEnglish) {
             return $this->redirectUploadFailure('Add a title.', $request);
         }
 
-        if ($authors === []) {
-            return $this->redirectUploadFailure('Select an author or add at least one new author.', $request);
+        if (count($authors) !== 1) {
+            return $this->redirectUploadFailure('Select one author for each doujin.', $request);
         }
 
         if (strtolower((string) $archive->getClientOriginalExtension()) !== 'zip') {
             return $this->redirectUploadFailure('Upload a ZIP archive.', $request);
+        }
+
+        if ($isFolderImport) {
+            $existing = Media::where('type', 'doujin')
+                ->where('title_english', $titleEnglish)
+                ->whereHas('doujinAuthors', fn ($query) => $query->where('name', $authors[0]))
+                ->orderBy('id')
+                ->first();
+
+            if ($existing) {
+                return response()->json([
+                    'ok' => true,
+                    'skipped' => true,
+                    'media_id' => $existing->id,
+                ]);
+            }
         }
 
         $media = null;
@@ -441,7 +434,6 @@ class DoujinController extends Controller
             $media->save();
 
             $this->metadataSyncer->syncDoujin($media, $authors);
-            $this->syncDoujinAuthorLinks($authors, $data, false);
 
             $disk = Storage::disk('public');
             $targetRel = 'doujin/'.$media->id;
@@ -454,6 +446,8 @@ class DoujinController extends Controller
             if ($request->expectsJson()) {
                 return response()->json([
                     'ok' => true,
+                    'skipped' => false,
+                    'media_id' => $media->id,
                     'redirect_url' => route('doujins.show', ['media' => $media->id]),
                 ]);
             }
@@ -894,12 +888,15 @@ class DoujinController extends Controller
     private function stageExtractedDoujin(string $importRoot, string $targetAbs): void
     {
         $chapterDirs = $this->listDirectories($importRoot);
+        if ($chapterDirs === [] && $this->listImages($importRoot) !== []) {
+            $chapterDirs = [$importRoot];
+        }
         if ($chapterDirs === []) {
             throw new \RuntimeException('ZIP does not contain any chapter folders.');
         }
 
         foreach ($chapterDirs as $chapterDir) {
-            $chapterName = basename($chapterDir);
+            $chapterName = $chapterDir === $importRoot ? '001' : basename($chapterDir);
             $targetChapterDir = $targetAbs.DIRECTORY_SEPARATOR.$chapterName;
             File::ensureDirectoryExists($targetChapterDir);
 
@@ -928,7 +925,7 @@ class DoujinController extends Controller
     private function looksLikeChapterRoot(string $path): bool
     {
         if ($this->listImages($path) !== []) {
-            return false;
+            return $this->listDirectories($path) === [];
         }
 
         $chapterDirs = $this->listDirectories($path);
@@ -1091,78 +1088,9 @@ class DoujinController extends Controller
         return $value === '' ? null : $value;
     }
 
-    private function renameDoujinAuthorForEdit(?string $selectedAuthorName, string $editedAuthorName): ?string
-    {
-        if ($selectedAuthorName === null) {
-            return null;
-        }
-
-        $author = DoujinAuthor::query()
-            ->where('name', $selectedAuthorName)
-            ->first();
-
-        if (!$author || $author->name === $editedAuthorName) {
-            return null;
-        }
-
-        $nameExists = DoujinAuthor::query()
-            ->where('name', $editedAuthorName)
-            ->whereKeyNot($author->getKey())
-            ->exists();
-
-        if ($nameExists) {
-            return 'That author name already exists.';
-        }
-
-        $author->forceFill([
-            'name' => $editedAuthorName,
-            'slug' => $this->makeUniqueDoujinAuthorSlug($author, $editedAuthorName),
-        ])->save();
-
-        return null;
-    }
-
-    private function syncDoujinAuthorLinks(array $authorNames, array $data, bool $clearMissing = true): void
-    {
-        $links = [
-            'twitter_url' => DoujinAuthorLinks::store($data['author_twitter_url'] ?? null),
-            'patreon_url' => DoujinAuthorLinks::store($data['author_patreon_url'] ?? null),
-            'fanbox_url' => DoujinAuthorLinks::store($data['author_fanbox_url'] ?? null),
-            'pixiv_url' => DoujinAuthorLinks::store($data['author_pixiv_url'] ?? null),
-        ];
-
-        if (!$clearMissing) {
-            $links = array_filter($links, fn (?string $value) => $value !== null);
-        }
-
-        foreach ($authorNames as $authorName) {
-            $authorName = $this->trimToNull($authorName);
-            if ($authorName === null) {
-                continue;
-            }
-
-            $author = DoujinAuthor::firstOrCreate(['name' => $authorName]);
-            $author->forceFill($links)->save();
-        }
-    }
-
     private function parseAuthorNames(mixed $value): array
     {
-        return $this->parseNames($value);
-    }
-
-    private function parseNames(mixed $value): array
-    {
-        $values = is_array($value) ? $value : [$value];
-
-        return collect($values)
-            ->flatten()
-            ->flatMap(fn ($name) => explode(',', (string) $name))
-            ->map(fn ($name) => trim((string) $name))
-            ->filter()
-            ->unique(fn ($name) => mb_strtolower($name))
-            ->values()
-            ->all();
+        return $this->metadataSyncer->normalizedNames(is_array($value) ? $value : [$value]) ?? [];
     }
 
     private function makeUniqueMediaSlug(Media $media, string $value): string
@@ -1179,28 +1107,6 @@ class DoujinController extends Controller
             Media::query()
                 ->where('slug', $slug)
                 ->whereKeyNot($media->getKey())
-                ->exists()
-        ) {
-            $slug = $base.'-'.$index++;
-        }
-
-        return $slug;
-    }
-
-    private function makeUniqueDoujinAuthorSlug(DoujinAuthor $author, string $name): ?string
-    {
-        $base = Str::slug($name);
-        if ($base === '') {
-            return null;
-        }
-
-        $slug = $base;
-        $index = 2;
-
-        while (
-            DoujinAuthor::query()
-                ->where('slug', $slug)
-                ->whereKeyNot($author->getKey())
                 ->exists()
         ) {
             $slug = $base.'-'.$index++;

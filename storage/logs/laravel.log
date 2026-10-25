@@ -125527,3 +125527,7 @@ Stack trace:
 #19 D:\\Development\\laragon\\www\\dordielist\\public\\index.php(17): Illuminate\\Foundation\\Application->handleRequest(Object(Illuminate\\Http\\Request))
 #20 {main}
 "} 
+[2026-10-25 18:37:39] local.ERROR: Missing popup style: inset:0 {"exception":"[object] (RuntimeException(code: 0): Missing popup style: inset:0 at Standard input code:23)
+[stacktrace]
+#0 {main}
+"} 

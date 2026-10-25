@@ -186,15 +186,6 @@ class SettingsController extends Controller
         $this->abortIfViewer();
 
         $authors = DoujinAuthor::query()
-            ->where(function ($query) {
-                foreach (array_keys(DoujinAuthorLinks::PLATFORMS) as $column) {
-                    $query->where(function ($fieldQuery) use ($column) {
-                        $fieldQuery
-                            ->whereNull($column)
-                            ->orWhere($column, '');
-                    });
-                }
-            })
             ->withCount([
                 'media as doujin_count' => fn ($query) => $query->where('type', 'doujin'),
             ])
@@ -219,11 +210,26 @@ class SettingsController extends Controller
             ],
         ];
 
+        $input = $request->all();
         foreach (array_keys(DoujinAuthorLinks::PLATFORMS) as $column) {
-            $rules[$column] = ['nullable', 'string', 'max:12000'];
+            if (is_string($input[$column] ?? null)) {
+                $input[$column] = DoujinAuthorLinks::urls($input[$column]);
+            }
+            $rules[$column] = ['nullable', 'array'];
+            $rules[$column.'.*'] = ['nullable', 'string', 'max:2048'];
         }
 
-        $validator = Validator::make($request->all(), $rules);
+        $validator = Validator::make($input, $rules);
+        $validator->after(function ($validator) use ($input) {
+            if ($validator->errors()->isNotEmpty()) {
+                return;
+            }
+            foreach (array_keys(DoujinAuthorLinks::PLATFORMS) as $column) {
+                if (mb_strlen(DoujinAuthorLinks::store($input[$column] ?? null) ?? '') > 12000) {
+                    $validator->errors()->add($column, 'The social links must not exceed 12000 characters per platform.');
+                }
+            }
+        });
 
         if ($validator->fails()) {
             return redirect()
@@ -305,11 +311,11 @@ class SettingsController extends Controller
             return $this->redirectDoujinAuthorError('That artist is already attached to this doujin.');
         }
 
-        $media->doujinAuthors()->syncWithoutDetaching([$targetAuthor->id]);
+        $media->doujinAuthors()->sync([$targetAuthor->id]);
 
         return redirect()
             ->route('settings.doujin-authors')
-            ->with('status', $targetAuthor->name.' added to the doujin.')
+            ->with('status', 'Doujin moved to '.$targetAuthor->name.'.')
             ->with('status_color', 'green');
     }
 
@@ -320,7 +326,7 @@ class SettingsController extends Controller
         abort_unless($media->doujinAuthors()->whereKey($author->id)->exists(), 404);
 
         if ($media->doujinAuthors()->count() <= 1) {
-            return $this->redirectDoujinAuthorError('Add another artist before removing the only artist.');
+            return $this->redirectDoujinAuthorError('A doujin must have one artist. Change the artist instead.');
         }
 
         $media->doujinAuthors()->detach($author->id);

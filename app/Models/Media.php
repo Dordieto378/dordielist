@@ -97,6 +97,31 @@ class Media extends Model
         return $this->hasOne(MediaArchive::class);
     }
 
+    public function refreshDoujinCover(): bool
+    {
+        if ($this->type !== 'doujin') {
+            return false;
+        }
+
+        $firstChapter = Chapter::where('media_fk', $this->id)
+            ->where('item_type', 'doujin')
+            ->orderBy('chapter_number')
+            ->orderBy('id')
+            ->first(['id']);
+        $coverPath = $firstChapter?->pages()
+            ->orderBy('page_number')
+            ->orderBy('id')
+            ->value('file_path');
+
+        if ($this->cover_url === $coverPath) {
+            return false;
+        }
+
+        $this->cover_url = $coverPath;
+
+        return $this->save();
+    }
+
     public function metadataNamesFrom(string $relation): array
     {
         if (! $this->relationLoaded($relation)) {

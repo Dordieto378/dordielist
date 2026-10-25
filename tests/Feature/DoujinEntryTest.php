@@ -93,6 +93,50 @@ class DoujinEntryTest extends TestCase
         ]);
     }
 
+    public function test_import_refreshes_an_existing_cover_using_chapter_and_page_order(): void
+    {
+        Storage::fake('public');
+        $media = $this->doujin('Import Cover Order');
+        $root = 'doujin/'.$media->id;
+        $firstPage = $root.'/Chapter 1/001.jpg';
+        $laterChapterPage = $root.'/Chaper 2.5/001.jpg';
+
+        foreach ([$laterChapterPage, $root.'/Chapter 1/010.jpg', $firstPage] as $path) {
+            Storage::disk('public')->put($path, 'image');
+        }
+        $media->update(['cover_url' => $laterChapterPage]);
+
+        $this->artisan('doujin:import', [
+            'mediaId' => $media->id,
+            '--path' => $root,
+        ])->assertSuccessful();
+
+        $this->assertSame($firstPage, $media->fresh()->cover_url);
+        Storage::disk('public')->assertExists($laterChapterPage);
+    }
+
+    public function test_sync_refreshes_an_existing_cover_from_chapter_zero(): void
+    {
+        Storage::fake('public');
+        $media = $this->doujin('Sync Cover Order');
+        $root = 'doujin/'.$media->id;
+        $firstPage = $root.'/Chapter 0/001.jpg';
+        $laterChapterPage = $root.'/Chapte 1/01.jpg';
+
+        foreach ([$laterChapterPage, $root.'/Chapter 0/010.jpg', $firstPage] as $path) {
+            Storage::disk('public')->put($path, 'image');
+        }
+        $media->update(['cover_url' => $laterChapterPage]);
+
+        $this->actingAs($this->manager())
+            ->post(route('doujin.sync'))
+            ->assertRedirect()
+            ->assertSessionHas('status', 'Sync complete - created: 0, updated: 1');
+
+        $this->assertSame($firstPage, $media->fresh()->cover_url);
+        Storage::disk('public')->assertExists($laterChapterPage);
+    }
+
     private function makeDoujinZip(): string
     {
         $directory = storage_path('framework/testing');

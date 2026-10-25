@@ -582,7 +582,7 @@
                 </p>
                 <div class="mb-2 mt-2">
                     <div class="flex flex-wrap gap-2 text-xs text-gray-700">
-                      @foreach($item['tags'] ?? [] as $tag)
+                      @foreach(collect($item['tags'] ?? [])->sortBy(fn ($tag) => $tag['name'] ?? $tag, SORT_NATURAL | SORT_FLAG_CASE) as $tag)
                           <?php ($name = $tag['name'] ?? $tag) ?>
                           <a  href="{{ category_filter_url($normalizedTypeFromItem, 'tags', $name) }}"
                               class="inline-block bg-gray-100 px-4 py-3 rounded-sm

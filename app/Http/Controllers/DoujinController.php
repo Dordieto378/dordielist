@@ -594,8 +594,6 @@ class DoujinController extends Controller
             }
         }
 
-        $firstCover = null;
-
         foreach ($desired as $numberKey => $info) {
             if (!isset($existing[$numberKey])) {
                 $chapter = Chapter::create([
@@ -615,10 +613,6 @@ class DoujinController extends Controller
             }
 
             $this->mirrorPages($disk, $chapter->id, $info['images']);
-
-            if ($firstCover === null && !empty($info['images'])) {
-                $firstCover = ltrim($info['images'][0], '/');
-            }
         }
 
         $emptyChapterIds = Chapter::where('media_fk', $mediaId)
@@ -627,16 +621,6 @@ class DoujinController extends Controller
             ->all();
         if ($emptyChapterIds) {
             Chapter::whereIn('id', $emptyChapterIds)->delete();
-        }
-
-        $media = Media::find($mediaId);
-        if ($media) {
-            $coverMissing = !$media->cover_url || !Storage::disk('public')->exists((string) $media->cover_url);
-            if ($coverMissing && $firstCover) {
-                $media->cover_url = $firstCover;
-            }
-            $media->chapters_cnt = Chapter::where('media_fk', $mediaId)->count();
-            $media->save();
         }
 
         $chapters = Chapter::where('media_fk', $mediaId)->get(['id', 'chapter_title']);
@@ -680,6 +664,13 @@ class DoujinController extends Controller
                     Chapter::where('id', $chapter->id)->delete();
                 }
             }
+        }
+
+        $media = Media::find($mediaId);
+        if ($media) {
+            $media->chapters_cnt = Chapter::where('media_fk', $mediaId)->count();
+            $media->save();
+            $media->refreshDoujinCover();
         }
     }
 

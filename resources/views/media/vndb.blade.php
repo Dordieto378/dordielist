@@ -189,7 +189,7 @@
                 </p>
                 <div class="mb-2 mt-2">
                     <div class="flex flex-wrap gap-2 text-xs text-gray-700">
-                      @foreach ($item['tags'] ?? [] as $tag)
+                      @foreach (collect($item['tags'] ?? [])->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE) as $tag)
                           <a  href="{{ category_filter_url('visual-novel', 'tags', $tag['name']) }}"
                               class="inline-block bg-gray-100 px-4 py-3 rounded-sm
                                     hover:bg-gray-200 transition">

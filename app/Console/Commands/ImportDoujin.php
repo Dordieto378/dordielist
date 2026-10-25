@@ -228,14 +228,6 @@ class ImportDoujin extends Command
                 ->whereNotIn('page_number', $pageNumbers)
                 ->delete();
 
-            if ($media) {
-                $coverMissing = !$media->cover_url || !$disk->exists((string) $media->cover_url);
-                if ($coverMissing) {
-                    $media->cover_url = ltrim($images[0], '/');
-                    $media->save();
-                }
-            }
-
             $chapterCount++;
         }
 
@@ -256,6 +248,7 @@ class ImportDoujin extends Command
         }
 
         Media::where('id',$mediaId)->update(['chapters_cnt' => $chapterCount]);
+        ($media ?? Media::findOrFail($mediaId))->refreshDoujinCover();
         return $chapterCount;
     }
 

@@ -79,6 +79,8 @@ class DoujinController extends Controller
             'media' => $media,
             'coverUrl' => $coverUrl,
             'chapters' => $chaptersView,
+            'chapterCount' => $chapters->count(),
+            'pageCount' => count($chaptersView->first()['pages'] ?? []),
             'isFavorited' => $isFavorited,
             'allCollections' => $allCollections,
             'allAuthors' => $allAuthors,

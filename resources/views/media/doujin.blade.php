@@ -239,6 +239,8 @@
                             @endif
                         </div>
 
+                        <div>{{ $chapterCount === 1 ? 'Pages' : 'Chapters' }}</div>
+                        <div>{{ $chapterCount === 1 ? $pageCount : $chapterCount }}</div>
                     </div>
                 </div>
             </div>

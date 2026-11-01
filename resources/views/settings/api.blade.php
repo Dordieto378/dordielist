@@ -65,10 +65,39 @@
                     name="tmdb_api_token"
                     value="{{ old('tmdb_api_token', $user->tmdb_api_token) }}"
                     autocomplete="off"
+                    @unless($user->tmdb_session_id)
+                    aria-describedby="tmdb_api_token_help"
+                    @endunless
                     class="w-full rounded-md border border-gray-200 py-2 pl-3 pr-3 text-base
                            bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600
                            text-gray-800 font-medium"
                   />
+                </div>
+                <div class="mt-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+                  @unless($user->tmdb_session_id)
+                    <p id="tmdb_api_token_help" class="text-xs font-normal normal-case text-gray-500">
+                      @if($user->tmdb_api_token ?: config('services.tmdb.token'))
+                        Connect your account to update movie lists.
+                      @else
+                        Save your TMDb API Read Access Token before connecting your account.
+                      @endif
+                    </p>
+                  @endunless
+                  @if($user->tmdb_session_id)
+                    <button type="submit" form="tmdb-disconnect-form" aria-label="Disconnect TMDb Account"
+                            class="ml-auto rounded text-xs font-medium normal-case text-gray-500 transition hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-red-600 focus:ring-offset-2">
+                      Disconnect
+                    </button>
+                  @elseif($user->tmdb_api_token ?: config('services.tmdb.token'))
+                    <button type="submit" form="tmdb-connect-form"
+                            class="inline-flex items-center gap-1.5 rounded text-xs font-medium normal-case text-red-600 transition hover:text-red-700 focus:outline-none focus:ring-2 focus:ring-red-600 focus:ring-offset-2">
+                      <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M10 13a5 5 0 0 0 7.07 0l3-3A5 5 0 0 0 13 2.93l-1.72 1.71" />
+                        <path d="M14 11a5 5 0 0 0-7.07 0l-3 3A5 5 0 0 0 11 21.07l1.71-1.71" />
+                      </svg>
+                      Connect TMDb Account
+                    </button>
+                  @endif
                 </div>
               </div>
 
@@ -135,6 +164,17 @@
                 </button>
               </div>
             </form>
+
+            @if($user->tmdb_session_id)
+              <form id="tmdb-disconnect-form" method="POST" action="{{ route('settings.api.tmdb.disconnect') }}" class="hidden">
+                @csrf
+                @method('DELETE')
+              </form>
+            @elseif($user->tmdb_api_token ?: config('services.tmdb.token'))
+              <form id="tmdb-connect-form" method="POST" action="{{ route('settings.api.tmdb.connect') }}" class="hidden">
+                @csrf
+              </form>
+            @endif
 
           </div>
         </div>

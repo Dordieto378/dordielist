@@ -204,6 +204,47 @@ class MovieCategoryTest extends TestCase
         Http::assertSentCount(2);
     }
 
+    public function test_movie_list_changes_with_only_a_read_token_explain_how_to_connect(): void
+    {
+        $user = $this->manager();
+        $user->forceFill([
+            'tmdb_api_token' => 'test-token',
+            'tmdb_session_id' => null,
+        ])->save();
+        $movie = Media::create([
+            'type' => 'movie',
+            'title_english' => 'Unconnected Movie',
+            'slug' => 'unconnected-movie-'.Str::lower(Str::random(10)),
+            'source' => 'tmdb',
+            'source_id' => 999003,
+            'list_status' => 'CURRENT',
+            'user_score' => 75,
+            'list_end_date' => null,
+        ]);
+
+        Http::fake();
+
+        $this->actingAs($user)
+            ->from(route('movies.show', $movie))
+            ->patch(route('movies.entry.update', $movie), [
+                'user_score' => 92,
+                'list_status' => 'COMPLETED',
+                'watched_date' => '2026-09-20',
+            ])
+            ->assertRedirect(route('movies.show', $movie))
+            ->assertSessionHas('open_edit_entry_modal', true)
+            ->assertSessionHas('entry_update_error', 'Your TMDb read token is set. Open API settings and click "Connect TMDb Account" to authorize movie list changes.')
+            ->assertSessionHasInput('list_status', 'COMPLETED');
+
+        $this->assertDatabaseHas('media', [
+            'id' => $movie->id,
+            'list_status' => 'CURRENT',
+            'user_score' => 75,
+            'list_end_date' => null,
+        ]);
+        Http::assertNothingSent();
+    }
+
     public function test_scheduled_tmdb_import_command_imports_movies_from_the_configured_lists(): void
     {
         $user = $this->manager();
@@ -265,6 +306,14 @@ class MovieCategoryTest extends TestCase
         $user = $this->manager();
         $user->forceFill(['tmdb_api_token' => 'test-token'])->save();
 
+        $this->actingAs($user)
+            ->get(route('settings.api'))
+            ->assertOk()
+            ->assertSee('TMDb Account')
+            ->assertSee('Connect TMDb Account')
+            ->assertSee(route('settings.api.tmdb.connect'), false)
+            ->assertDontSee('Disconnect TMDb Account');
+
         Http::fake([
             'api.themoviedb.org/3/authentication/token/new' => Http::response([
                 'success' => true,
@@ -293,9 +342,32 @@ class MovieCategoryTest extends TestCase
 
         $this->get(route('settings.api'))
             ->assertOk()
-            ->assertDontSee('TMDb Account')
+            ->assertSee('Disconnect TMDb Account')
+            ->assertSee(route('settings.api.tmdb.disconnect'), false)
             ->assertDontSee('Connect TMDb Account')
             ->assertDontSee('Sync TMDb Lists');
+    }
+
+    public function test_tmdb_account_settings_require_a_saved_token_before_connecting(): void
+    {
+        config(['services.tmdb.token' => null]);
+
+        $this->actingAs($this->manager())
+            ->get(route('settings.api'))
+            ->assertOk()
+            ->assertSee('Save your TMDb API Read Access Token before connecting your account.')
+            ->assertDontSee(route('settings.api.tmdb.connect'), false);
+    }
+
+    public function test_tmdb_account_settings_allow_connecting_with_the_configured_token(): void
+    {
+        config(['services.tmdb.token' => 'configured-token']);
+
+        $this->actingAs($this->manager())
+            ->get(route('settings.api'))
+            ->assertOk()
+            ->assertSee('Connect TMDb Account')
+            ->assertSee(route('settings.api.tmdb.connect'), false);
     }
 
     public function test_scheduled_tmdb_import_command_uses_saved_credentials(): void

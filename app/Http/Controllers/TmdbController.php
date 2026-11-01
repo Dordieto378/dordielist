@@ -151,7 +151,7 @@ class TmdbController extends Controller
                 return back()
                     ->withInput()
                     ->with('open_edit_entry_modal', true)
-                    ->with('entry_update_error', 'Connect your TMDb account in API settings before changing movie lists.');
+                    ->with('entry_update_error', 'Your TMDb read token is set. Open API settings and click "Connect TMDb Account" to authorize movie list changes.');
             }
 
             if ($media->source !== 'tmdb' || ! $media->source_id) {

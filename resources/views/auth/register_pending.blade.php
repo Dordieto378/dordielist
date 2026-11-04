@@ -2,7 +2,7 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="min-h-[650px] flex items-center justify-center bg-gray-100 py-16">
+<div class="responsive-auth min-h-[650px] flex items-center justify-center bg-gray-100 py-16">
   <div class="max-w-md w-full bg-white shadow-md rounded-lg p-8">
     <h2 class="text-2xl font-semibold text-gray-900 mb-4">Registration Received</h2>
     <p class="text-gray-700 mb-6 font-medium">

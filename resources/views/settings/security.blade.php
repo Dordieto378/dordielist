@@ -4,13 +4,13 @@
 @section('content')
 @php $user = auth()->user(); @endphp
   <div class="bg-gray-100 mb-[50px] pt-[100px]">
-    <div class="max-w-[1320px] mx-auto px-4 sm:px-6 lg:px-8 flex space-x-6 text-sm">
+    <div class="responsive-settings max-w-[1320px] mx-auto px-4 sm:px-6 lg:px-8 flex space-x-6 text-sm">
 
       {{-- LEFT: Shared settings sidebar --}}
       @include('settings.partials.sidebar')
 
       {{-- RIGHT: 2FA management --}}
-      <main class="w-3/4">
+      <main class="responsive-settings-main w-3/4">
         <div class="bg-white shadow-md rounded-lg overflow-hidden">
           <div class="p-8">
             <div class="flex items-center justify-between">

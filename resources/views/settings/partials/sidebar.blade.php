@@ -1,5 +1,5 @@
 {{-- resources/views/settings/partials/sidebar.blade.php --}}
-<aside class="w-1/4">
+<aside class="responsive-settings-sidebar w-1/4">
   @php $isViewer = optional(auth()->user()?->role)->role === 'Viewer'; @endphp
   <ul class="space-y-[-3px]">
     <li>

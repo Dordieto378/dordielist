@@ -11544,3 +11544,403 @@ Movie 718930 failed: cURL error 56: Recv failure: Connection was reset (see http
 TMDb sync complete. Created: 0, updated: 508, failed: 0.
 TMDb sync complete. Created: 0, updated: 508, failed: 0.
 TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 461, failed: 47.
+Movie 629 failed: cURL error 35: Recv failure: Connection was reset (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/629?append_to_response=keywords&language=en-US
+Movie 12163 failed: cURL error 6: Could not resolve host: api.themoviedb.org (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/12163?append_to_response=keywords&language=en-US
+Movie 7345 failed: cURL error 6: Could not resolve host: api.themoviedb.org (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/7345?append_to_response=keywords&language=en-US
+Movie 9846 failed: cURL error 6: Could not resolve host: api.themoviedb.org (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/9846?append_to_response=keywords&language=en-US
+Movie 2034 failed: cURL error 6: Could not resolve host: api.themoviedb.org (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/2034?append_to_response=keywords&language=en-US
+Movie 319 failed: cURL error 6: Could not resolve host: api.themoviedb.org (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/319?append_to_response=keywords&language=en-US
+Movie 63 failed: cURL error 6: Could not resolve host: api.themoviedb.org (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/63?append_to_response=keywords&language=en-US
+Movie 752 failed: cURL error 6: Could not resolve host: api.themoviedb.org (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/752?append_to_response=keywords&language=en-US
+Movie 395834 failed: cURL error 6: Could not resolve host: api.themoviedb.org (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/395834?append_to_response=keywords&language=en-US
+Movie 1391 failed: cURL error 6: Could not resolve host: api.themoviedb.org (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/1391?append_to_response=keywords&language=en-US
+Movie 1949 failed: cURL error 6: Could not resolve host: api.themoviedb.org (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/1949?append_to_response=keywords&language=en-US
+Movie 389015 failed: cURL error 6: Could not resolve host: api.themoviedb.org (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/389015?append_to_response=keywords&language=en-US
+Movie 161 failed: cURL error 6: Could not resolve host: api.themoviedb.org (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/161?append_to_response=keywords&language=en-US
+Movie 4538 failed: cURL error 6: Could not resolve host: api.themoviedb.org (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/4538?append_to_response=keywords&language=en-US
+Movie 324786 failed: cURL error 6: Could not resolve host: api.themoviedb.org (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/324786?append_to_response=keywords&language=en-US
+Movie 424 failed: cURL error 6: Could not resolve host: api.themoviedb.org (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/424?append_to_response=keywords&language=en-US
+Movie 1035259 failed: cURL error 6: Could not resolve host: api.themoviedb.org (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/1035259?append_to_response=keywords&language=en-US
+Movie 637649 failed: cURL error 6: Could not resolve host: api.themoviedb.org (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/637649?append_to_response=keywords&language=en-US
+Movie 136795 failed: cURL error 6: Could not resolve host: api.themoviedb.org (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/136795?append_to_response=keywords&language=en-US
+Movie 9762 failed: cURL error 6: Could not resolve host: api.themoviedb.org (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/9762?append_to_response=keywords&language=en-US
+Movie 8328 failed: cURL error 6: Could not resolve host: api.themoviedb.org (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/8328?append_to_response=keywords&language=en-US
+Movie 41233 failed: cURL error 6: Could not resolve host: api.themoviedb.org (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/41233?append_to_response=keywords&language=en-US
+Movie 85446 failed: cURL error 6: Could not resolve host: api.themoviedb.org (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/85446?append_to_response=keywords&language=en-US
+Movie 243683 failed: cURL error 6: Could not resolve host: api.themoviedb.org (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/243683?append_to_response=keywords&language=en-US
+Movie 13161 failed: cURL error 6: Could not resolve host: api.themoviedb.org (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/13161?append_to_response=keywords&language=en-US
+Movie 274167 failed: cURL error 6: Could not resolve host: api.themoviedb.org (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/274167?append_to_response=keywords&language=en-US
+Movie 510 failed: cURL error 6: Could not resolve host: api.themoviedb.org (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/510?append_to_response=keywords&language=en-US
+Movie 2898 failed: cURL error 6: Could not resolve host: api.themoviedb.org (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/2898?append_to_response=keywords&language=en-US
+Movie 7350 failed: cURL error 6: Could not resolve host: api.themoviedb.org (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/7350?append_to_response=keywords&language=en-US
+Movie 562 failed: cURL error 6: Could not resolve host: api.themoviedb.org (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/562?append_to_response=keywords&language=en-US
+Movie 1573 failed: cURL error 6: Could not resolve host: api.themoviedb.org (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/1573?append_to_response=keywords&language=en-US
+Movie 1572 failed: cURL error 6: Could not resolve host: api.themoviedb.org (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/1572?append_to_response=keywords&language=en-US
+Movie 2501 failed: cURL error 6: Could not resolve host: api.themoviedb.org (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/2501?append_to_response=keywords&language=en-US
+Movie 2502 failed: cURL error 6: Could not resolve host: api.themoviedb.org (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/2502?append_to_response=keywords&language=en-US
+Movie 2503 failed: cURL error 6: Could not resolve host: api.themoviedb.org (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/2503?append_to_response=keywords&language=en-US
+Movie 652 failed: cURL error 6: Could not resolve host: api.themoviedb.org (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/652?append_to_response=keywords&language=en-US
+Movie 1368337 failed: cURL error 6: Could not resolve host: api.themoviedb.org (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/1368337?append_to_response=keywords&language=en-US
+Movie 77 failed: cURL error 6: Could not resolve host: api.themoviedb.org (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/77?append_to_response=keywords&language=en-US
+Movie 51828 failed: cURL error 6: Could not resolve host: api.themoviedb.org (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/51828?append_to_response=keywords&language=en-US
+Movie 257211 failed: cURL error 6: Could not resolve host: api.themoviedb.org (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/257211?append_to_response=keywords&language=en-US
+Movie 350 failed: cURL error 6: Could not resolve host: api.themoviedb.org (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/350?append_to_response=keywords&language=en-US
+Movie 78 failed: cURL error 6: Could not resolve host: api.themoviedb.org (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/78?append_to_response=keywords&language=en-US
+Movie 11096 failed: cURL error 6: Could not resolve host: api.themoviedb.org (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/11096?append_to_response=keywords&language=en-US
+Movie 1643 failed: cURL error 6: Could not resolve host: api.themoviedb.org (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/1643?append_to_response=keywords&language=en-US
+Movie 654 failed: cURL error 6: Could not resolve host: api.themoviedb.org (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/654?append_to_response=keywords&language=en-US
+Movie 11371 failed: cURL error 6: Could not resolve host: api.themoviedb.org (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/11371?append_to_response=keywords&language=en-US
+Movie 210479 failed: cURL error 6: Could not resolve host: api.themoviedb.org (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/210479?append_to_response=keywords&language=en-US
+TMDb sync failed: cURL error 28: SSL connection timeout (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/list/8697812?language=en-US&page=3&session_id=3894df2fce52c9fd4763d221b521f85bc3e00e6d
+TMDb sync failed: cURL error 28: SSL connection timeout (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/list/8697815?language=en-US&page=1&session_id=3894df2fce52c9fd4763d221b521f85bc3e00e6d
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 507, failed: 1.
+Movie 50544 failed: cURL error 56: Recv failure: Connection was reset (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/50544?append_to_response=keywords&language=en-US
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 499, failed: 9.
+Movie 384018 failed: cURL error 28: SSL connection timeout (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/384018?append_to_response=keywords&language=en-US
+Movie 51497 failed: cURL error 28: Resolving timed out after 10011 milliseconds (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/51497?append_to_response=keywords&language=en-US
+Movie 385687 failed: cURL error 6: Could not resolve host: api.themoviedb.org (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/385687?append_to_response=keywords&language=en-US
+Movie 9799 failed: cURL error 28: Resolving timed out after 10006 milliseconds (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/9799?append_to_response=keywords&language=en-US
+Movie 9615 failed: cURL error 6: Could not resolve host: api.themoviedb.org (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/9615?append_to_response=keywords&language=en-US
+Movie 168259 failed: cURL error 28: Resolving timed out after 10005 milliseconds (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/168259?append_to_response=keywords&language=en-US
+Movie 337339 failed: cURL error 6: Could not resolve host: api.themoviedb.org (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/337339?append_to_response=keywords&language=en-US
+Movie 385128 failed: cURL error 28: Resolving timed out after 10011 milliseconds (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/385128?append_to_response=keywords&language=en-US
+Movie 550 failed: cURL error 28: Failed to connect to api.themoviedb.org port 443 after 10002 ms: Timeout was reached (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/550?append_to_response=keywords&language=en-US
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 507, failed: 1.
+Movie 76163 failed: cURL error 28: SSL connection timeout (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/76163?append_to_response=keywords&language=en-US
+TMDb sync complete. Created: 0, updated: 507, failed: 1.
+Movie 454626 failed: cURL error 28: SSL connection timeout (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/454626?append_to_response=keywords&language=en-US
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 505, failed: 3.
+Movie 238 failed: cURL error 28: Operation timed out after 30002 milliseconds with 0 bytes received (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/238?append_to_response=keywords&language=en-US
+Movie 240 failed: cURL error 28: Resolving timed out after 10017 milliseconds (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/240?append_to_response=keywords&language=en-US
+Movie 10022 failed: cURL error 56: Recv failure: Connection was reset (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/10022?append_to_response=keywords&language=en-US
+TMDb sync failed: cURL error 28: SSL connection timeout (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/list/8697812?language=en-US&page=7&session_id=3894df2fce52c9fd4763d221b521f85bc3e00e6d
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 507, failed: 1.
+Movie 45243 failed: cURL error 28: SSL connection timeout (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/45243?append_to_response=keywords&language=en-US
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 507, failed: 1.
+Movie 6075 failed: cURL error 28: SSL connection timeout (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/6075?append_to_response=keywords&language=en-US
+TMDb sync complete. Created: 0, updated: 506, failed: 2.
+Movie 2109 failed: cURL error 28: SSL connection timeout (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/2109?append_to_response=keywords&language=en-US
+Movie 6075 failed: cURL error 28: SSL connection timeout (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/6075?append_to_response=keywords&language=en-US
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 502, failed: 6.
+Movie 68718 failed: cURL error 56: Recv failure: Connection was reset (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/68718?append_to_response=keywords&language=en-US
+Movie 284052 failed: cURL error 28: Resolving timed out after 10011 milliseconds (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/284052?append_to_response=keywords&language=en-US
+Movie 9366 failed: cURL error 6: Could not resolve host: api.themoviedb.org (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/9366?append_to_response=keywords&language=en-US
+Movie 47327 failed: cURL error 28: Resolving timed out after 10014 milliseconds (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/47327?append_to_response=keywords&language=en-US
+Movie 8467 failed: cURL error 6: Could not resolve host: api.themoviedb.org (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/8467?append_to_response=keywords&language=en-US
+Movie 100042 failed: cURL error 28: Resolving timed out after 10013 milliseconds (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/100042?append_to_response=keywords&language=en-US
+TMDb sync complete. Created: 0, updated: 504, failed: 4.
+Movie 299534 failed: cURL error 56: Recv failure: Connection was reset (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/299534?append_to_response=keywords&language=en-US
+Movie 10202 failed: cURL error 28: Resolving timed out after 10008 milliseconds (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/10202?append_to_response=keywords&language=en-US
+Movie 284054 failed: cURL error 6: Could not resolve host: api.themoviedb.org (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/284054?append_to_response=keywords&language=en-US
+Movie 36647 failed: cURL error 28: Resolving timed out after 10007 milliseconds (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/36647?append_to_response=keywords&language=en-US
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync failed: cURL error 28: Resolving timed out after 10002 milliseconds (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/list/8697654?language=en-US&page=1&session_id=3894df2fce52c9fd4763d221b521f85bc3e00e6d
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 507, failed: 1.
+Movie 109439 failed: cURL error 28: Operation timed out after 30008 milliseconds with 0 bytes received (see https://curl.haxx.se/libcurl/c/libcurl-errors.html) for https://api.themoviedb.org/3/movie/109439?append_to_response=keywords&language=en-US
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.
+TMDb sync complete. Created: 0, updated: 508, failed: 0.

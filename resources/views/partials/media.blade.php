@@ -1,5 +1,5 @@
 @if(count($media) > 0)
-    <div id="contentContainer" class="w-[1050px] grid grid-cols-4 gap-y-2 transition-opacity duration-500 ease-in-out">
+    <div id="contentContainer" class="responsive-media-grid responsive-category-grid w-[1050px] grid grid-cols-4 gap-y-2 transition-opacity duration-500 ease-in-out">
         @foreach($media as $card)
             @php
                 $url   = $card['url']   ?? '#';
@@ -9,7 +9,7 @@
 
             <div class="block group">
                 <a href="{{ $url }}" class="block">
-                    <div class="thumb-wrapper thumb-portrait relative w-[242px] h-[339px] rounded-lg overflow-hidden shadow-lg">
+                    <div class="thumb-wrapper thumb-portrait relative responsive-cover w-[242px] h-[339px] rounded-lg overflow-hidden shadow-lg">
                         {{-- Cover --}}
                         <img src="{{ $cover }}" alt="Cover"
                              class="thumb-img w-full h-full">

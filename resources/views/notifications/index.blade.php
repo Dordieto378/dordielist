@@ -3,7 +3,7 @@
 @section('content')
 <div class="bg-gray-100 mb-[50px] pt-[100px] pb-16">
     <div class="max-w-[1320px] mx-auto px-4 sm:px-6 lg:px-8">
-        <main class="mx-auto w-3/4">
+        <main class="responsive-notifications mx-auto w-3/4">
             @if($notifications->isEmpty())
                 <div class="rounded-md bg-white p-8 text-center text-gray-600 shadow-sm">
                     No notifications yet.

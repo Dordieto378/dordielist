@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="min-h-[1032px] flex items-center justify-center bg-gray-100 py-[200px]">
+<div class="responsive-auth min-h-[1032px] flex items-center justify-center bg-gray-100 py-[200px]">
   <div class="max-w-md w-full bg-white shadow-md rounded-lg p-8">
     {{-- Title --}}
     <h2 class="text-2xl font-semibold text-gray-800 mb-4">

@@ -196,16 +196,16 @@
     $isViewer = optional(auth()->user()?->role)->role === 'Viewer';
 @endphp
 
-<div class="flex flex-col items-center py-[8.5rem]">
+<div class="responsive-detail-page flex flex-col items-center py-[8.5rem]">
     @if(session('status') && session('status_color') === 'red')
         <div class="app-alert app-alert-error w-[1280px] mb-4 px-5 py-4 text-sm">
             {{ session('status') }}
         </div>
     @endif
-    <div class="w-[1280px] h-auto bg-white shadow-sm rounded-md p-6 ml-[0.5rem]">
-        <div class="flex flex-col md:flex-row">
+    <div class="responsive-detail-panel w-[1280px] h-auto bg-white shadow-sm rounded-md p-6 ml-[0.5rem]">
+        <div class="responsive-detail-columns flex flex-col md:flex-row">
             {{-- Left Column: Image & Buttons --}}
-            <div class="flex flex-col items-center">
+            <div class="responsive-detail-sidebar flex flex-col items-center">
                 <div class="thumb-wrapper thumb-portrait relative w-[325px] h-[450px] overflow-hidden rounded">
                     <img
                         src="{{ $item['coverImage']['extraLarge'] ?? asset('images/no-image.jpg') }}"
@@ -214,7 +214,7 @@
                 </div>
                 @auth
                 @if ((($isEpisodeBased || $isMovie) && $dordieWatchLaunchUrl) || ! $isViewer)
-                <div class="mt-4 flex flex-col space-y-3 w-[325px] font-bold">
+                <div class="mt-4 flex flex-col space-y-3 responsive-detail-actions w-[325px] font-bold">
                     @if (($isEpisodeBased || $isMovie) && $dordieWatchLaunchUrl)
                     <a href="{{ $dordieWatchLaunchUrl }}"
                        class="flex items-center justify-start w-full flatGreen text-white
@@ -363,9 +363,9 @@
                 @endauth
             </div>
             {{-- Right Column: Basic Info --}}
-            <div class="flex flex-col justify-start ml-8 mt-4 md:mt-2 text-gray-900 font-medium">
+            <div class="responsive-detail-copy flex flex-col justify-start ml-8 mt-4 md:mt-2 text-gray-900 font-medium">
                 <h1 class="text-2xl font-bold text-red-600 mb-2">{{ $title }}</h1>
-                <div class="grid grid-cols-[7rem,1fr] gap-x-3 gap-y-4 text-sm mt-2 mb-2">
+                <div class="responsive-info grid grid-cols-[7rem,1fr] gap-x-3 gap-y-4 text-sm mt-2 mb-2">
                     @if($showRomajiTitle)
                         <div>Romaji</div>
                         <div>{{ $romajiTitle }}</div>
@@ -598,7 +598,7 @@
 
     @auth
         @if($isEpisodeBased && $mediaArchive)
-            <div class="mt-8 w-[1278px] mx-auto rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+            <div class="responsive-archive mt-8 w-[1278px] mx-auto rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
                 <div class="flex items-center justify-between gap-6">
                     <div class="min-w-0">
                         <div class="mb-1 text-sm font-semibold uppercase tracking-wide text-red-600">Stored video archive</div>
@@ -644,29 +644,14 @@
 @auth
     @if($chaptersPaginator->total() > 0)
         <div class="flex justify-center mb-12 mt-[-100px] font-medium">
-            <div id="chaptersGrid" class="w-[1278px] ml-[13px] grid grid-cols-4 gap-4 transition-opacity duration-500 ease-in-out">
+            <div id="chaptersGrid" class="responsive-chapter-grid {{ strtoupper($item['type'] ?? '') === 'MANGA' ? 'chapter-grid-rtl' : '' }} w-[1278px] ml-[13px] grid grid-cols-4 gap-4 transition-opacity duration-500 ease-in-out">
                 @php
                     $allowedExts = ['jpg','jpeg','png','gif','webp'];
                     $thumbnailExts = ['jpg','jpeg','png','gif','webp','svg'];
                     $isMangaType = strtoupper($item['type'] ?? '') === 'MANGA';
                 @endphp
 
-                @foreach($chapters->chunk(4) as $rowIndex => $row)
-                    @php
-                        // Manga: reverse each row so it reads R→L; Manhwa stays L→R
-                        $cells  = $isMangaType ? $row->reverse()->values() : $row->values();
-                        $count  = $cells->count();
-                        $blanks = max(0, 4 - $count);
-                    @endphp
-
-                    {{-- For MANGA only: add blank cells first so short rows align to the RIGHT --}}
-                    @if($isMangaType && $blanks > 0)
-                        @for($i = 0; $i < $blanks; $i++)
-                            <div></div>
-                        @endfor
-                    @endif
-
-                        @foreach($cells as $chapter)
+                @foreach($chapters as $chapter)
                             @php
                                 $firstPage = $chapter->pages->first();
                                 $thumbPath = $chapter->thumbnail_path ?: ($firstPage->file_path ?? null);
@@ -704,7 +689,6 @@
                             </div>
                         </div>
                     @endforeach
-                @endforeach
             </div>
         </div>
 
@@ -714,7 +698,7 @@
             $chLast    = $chaptersPaginator->lastPage();
             $chUrl     = fn($p) => request()->fullUrlWithQuery(['ch_page' => $p]);
         @endphp
-        <div class="flex items-center justify-center space-x-2 mt-6 mb-6 {{ $chLast > 1 ? '' : 'hidden' }}">
+        <div class="responsive-pagination flex items-center justify-center space-x-2 mt-6 mb-6 {{ $chLast > 1 ? '' : 'hidden' }}">
             <span class="text-gray-600 text-lg font-medium">{{ $contentUnitPlural }}</span>
 
             @if($chCurrent > 1)
@@ -1073,7 +1057,7 @@
 >
     <div
         class="relative bg-white p-4 text-left shadow-2xl
-            w-[800px] h-[255px] rounded-lg space-y-6 overflow-auto"
+            w-[800px] responsive-compact-dialog h-[255px] rounded-lg space-y-6 overflow-auto"
         role="dialog"
         aria-modal="true"
     >
@@ -1117,7 +1101,7 @@
                 type="text"
                 id="name"
                 name="name"
-                class="w-[735px] ml-4
+                class="responsive-dialog-input w-[735px] ml-4
                     rounded-md
                     border border-gray-200
                     px-3

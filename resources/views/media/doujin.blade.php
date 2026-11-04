@@ -76,11 +76,11 @@
 
     @endphp
 
-    <div class="flex flex-col items-center py-[8.5rem]">
-        <div class="w-[1280px] h-auto bg-white shadow-sm rounded-md p-6 ml-[0.5rem]">
-            <div class="flex flex-col md:flex-row">
+    <div class="responsive-detail-page flex flex-col items-center py-[8.5rem]">
+        <div class="responsive-detail-panel w-[1280px] h-auto bg-white shadow-sm rounded-md p-6 ml-[0.5rem]">
+            <div class="responsive-detail-columns flex flex-col md:flex-row">
                 {{-- Left Column --}}
-                <div class="flex flex-col items-center">
+                <div class="responsive-detail-sidebar flex flex-col items-center">
                     <div class="thumb-wrapper thumb-portrait relative w-[325px] h-[450px] overflow-hidden rounded">
                         <img
                             src="{{ $coverUrl ?? asset('images/no-image.jpg') }}"
@@ -89,7 +89,7 @@
                     </div>
                     @auth
                         @unless($isViewer)
-                        <div class="mt-4 flex flex-col space-y-3 w-[325px] font-bold">
+                        <div class="mt-4 flex flex-col space-y-3 responsive-detail-actions w-[325px] font-bold">
                             @if($firstChapter)
                                 @php
                                     $startReaderChapter = $readingBookmark?->chapter ?: $firstChapter;
@@ -222,9 +222,9 @@
                 </div>
 
                 {{-- Right Column --}}
-                <div class="flex flex-col justify-start ml-8 mt-4 md:mt-2 text-gray-900 font-medium">
+                <div class="responsive-detail-copy flex flex-col justify-start ml-8 mt-4 md:mt-2 text-gray-900 font-medium">
                     <h1 class="text-2xl font-bold text-red-600 mb-2">{{ $title }}</h1>
-                    <div class="grid grid-cols-[7rem,1fr] gap-x-3 gap-y-4 text-sm mt-2 mb-2">
+                    <div class="responsive-info grid grid-cols-[7rem,1fr] gap-x-3 gap-y-4 text-sm mt-2 mb-2">
                         <div>Author</div>
                         <div>
                             @if($authors->isEmpty())
@@ -265,27 +265,12 @@
         @auth
             @if($chaptersPaginator->total() > 0)
                 <div class="flex justify-center mb-12 mt-8 font-medium">
-                    <div id="chaptersGrid" class="w-[1278px] ml-[13px] grid grid-cols-4 gap-4 transition-opacity duration-500 ease-in-out">
+                    <div id="chaptersGrid" class="responsive-chapter-grid chapter-grid-rtl w-[1278px] ml-[13px] grid grid-cols-4 gap-4 transition-opacity duration-500 ease-in-out">
                         @php
                             $allowedExts = ['jpg','jpeg','png','gif','webp'];
                         @endphp
 
-                        @foreach($chapters->chunk(4) as $rowIndex => $row)
-                            @php
-                                // RTL: reverse each row so it reads right→left
-                                $cells  = $row->reverse()->values();
-                                $count  = $cells->count();
-                                $blanks = max(0, 4 - $count);
-                            @endphp
-
-                            {{-- Add blank cells first so short rows align to the RIGHT --}}
-                            @if($blanks > 0)
-                                @for($i = 0; $i < $blanks; $i++)
-                                    <div></div>
-                                @endfor
-                            @endif
-
-                            @foreach($cells as $chapter)
+                        @foreach($chapters as $chapter)
                                 @php
                                     $firstPage = $chapter->pages->first();
                                     $ext       = strtolower(pathinfo($firstPage->file_path ?? '', PATHINFO_EXTENSION));
@@ -330,7 +315,6 @@
                                     </div>
                                 </div>
                             @endforeach
-                        @endforeach
                     </div>
                 </div>
 
@@ -340,7 +324,7 @@
                     $chLast    = $chaptersPaginator->lastPage();
                     $chUrl     = fn($p) => request()->fullUrlWithQuery(['ch_page' => $p]);
                 @endphp
-                <div class="flex items-center justify-center space-x-2 mt-6 mb-6 {{ $chLast > 1 ? '' : 'hidden' }}">
+                <div class="responsive-pagination flex items-center justify-center space-x-2 mt-6 mb-6 {{ $chLast > 1 ? '' : 'hidden' }}">
                     <span class="text-gray-600 text-lg font-medium">Chapters</span>
 
                     @if($chCurrent > 1)
@@ -602,7 +586,7 @@
           class="app-modal bg-black bg-opacity-50 hidden z-50"
         >
             <div
-                class="relative bg-white p-4 text-left shadow-2xl w-[800px] h-[255px] rounded-lg space-y-6 overflow-auto"
+                class="relative bg-white p-4 text-left shadow-2xl w-[800px] responsive-compact-dialog h-[255px] rounded-lg space-y-6 overflow-auto"
                 role="dialog"
                 aria-modal="true"
             >
@@ -634,7 +618,7 @@
                               type="text"
                               id="name"
                               name="name"
-                              class="w-[735px] ml-4 rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
+                              class="responsive-dialog-input w-[735px] ml-4 rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
                               required
                             />
 

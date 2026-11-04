@@ -409,8 +409,8 @@
   data-reader-view="{{ $view }}"
   class="doujin-reader {{ $isFixedView ? 'fixed-mode' : 'flex flex-col items-center py-[4rem] mt-12' }}"
 >
-  <div class="{{ $isFixedView ? 'doujin-reader-frame bg-white space-y-6' : 'w-[1280px] bg-white shadow-sm rounded-md p-6 ml-[0.5rem] space-y-6' }}">
-    <div class="{{ $isFixedView ? 'doujin-topbar relative flex items-center' : 'relative flex items-center mb-4' }}">
+  <div class="{{ $isFixedView ? 'doujin-reader-frame bg-white space-y-6' : 'responsive-reader-frame w-[1280px] bg-white shadow-sm rounded-md p-6 ml-[0.5rem] space-y-6' }}">
+    <div class="{{ $isFixedView ? 'responsive-reader-toolbar doujin-topbar relative flex items-center' : 'responsive-reader-toolbar relative flex items-center mb-4' }}">
       <div class="flex-1">
         @if($view === 'one')
             <h1 class="text-2xl font-bold text-red-600">

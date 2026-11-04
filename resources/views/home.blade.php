@@ -72,7 +72,7 @@
     <div id="preContent" class="py-[4.5rem] {{ !$isOnFirstPage ? 'hidden' : '' }}">
         <!-- Scrollable Section -->
         @if(!empty($dropped))
-        <section class="bg-black text-white py-6">
+        <section class="responsive-carousel bg-black text-white py-6">
             <div class="container mx-auto px-6">
                 <div class="flex justify-between items-center">
                     <h2 class="text-2xl font-bold px-24">Series that I've dropped!</h2>
@@ -84,8 +84,8 @@
                             class="transition-opacity duration-300 opacity-100 bg-opacity-80 absolute left-[7.5rem] top-[13rem] -translate-y-1/2 transform -translate-x-10 bg-gray-600 text-white w-12 h-12 flex items-center justify-center rounded-full shadow-lg focus:outline-none z-10 text-[1.4rem] pr-1 transition-transform duration-300 scale-100 group-hover:scale-110">
                         &#10094;
                     </button>
-                    <div class="w-[1286px] ml-[5.65rem] overflow-x-auto custom-scrollbar">
-                        <div class="flex space-x-0 h-[433px] text-sm">
+                    <div class="responsive-carousel-viewport w-[1286px] ml-[5.65rem] overflow-x-auto custom-scrollbar">
+                        <div class="responsive-carousel-track flex space-x-0 h-[433px] text-sm">
                             @foreach($dropped as $item)
                                 @php
                                     // Title logic:
@@ -107,9 +107,9 @@
                                     $item['type'] === 'DOUJIN' ||
                                     $item['type'] === 'MOVIE'
                                 )
-                                    <div class="w-[270px] flex-shrink-0 mt-7">
+                                    <div class="responsive-carousel-card w-[270px] flex-shrink-0 mt-7">
                                         <a href="{{ $href }}" class="block">
-                                            <div class="relative w-[256px] h-[360px] mx-auto rounded shadow-lg overflow-hidden">
+                                            <div class="relative responsive-carousel-cover w-[256px] h-[360px] mx-auto rounded shadow-lg overflow-hidden">
                                                 <img
                                                     src="{{ $item['coverImage']['extraLarge'] ?? asset('images/6.jpg') }}"
                                                     alt="Image"
@@ -131,9 +131,9 @@
                                         @endif
                                     </div>
                                 @elseif($item['type'] === 'VN')
-                                    <div class="w-[270px] flex-shrink-0 mt-7">
+                                    <div class="responsive-carousel-card w-[270px] flex-shrink-0 mt-7">
                                         <a href="{{ $href }}" class="block">
-                                            <div class="relative w-[256px] h-[360px] mx-auto rounded shadow-lg overflow-hidden">
+                                            <div class="relative responsive-carousel-cover w-[256px] h-[360px] mx-auto rounded shadow-lg overflow-hidden">
                                                 <img
                                                     src="{{ $item['coverImage']['extraLarge'] ?? asset('images/6.jpg') }}"
                                                     alt="Image"
@@ -161,13 +161,13 @@
         </section>
         @endif
 
-        <section class="mt-5 ml-4 flex flex-col items-center">
+        <section class="responsive-browse-section mt-5 ml-4 flex flex-col items-center">
             <!-- Title aligned to the left -->
             <div class="w-[1300px]">
                 <h2 class="text-2xl text-black mb-6">Top Rated Wishlisted</h2>
             </div>
             <!-- Centered Card Container -->
-            <div class="w-[1300px] grid grid-cols-4 gap-2">
+            <div class="responsive-media-grid responsive-home-grid w-[1300px] grid grid-cols-4 gap-2">
                 <!-- Show top 4 series you rated the highest -->
                 @foreach($highestRated4 as $item)
                     @php
@@ -190,7 +190,7 @@
                     )
                         <div class="flex-shrink-0 overflow-hidden">
                             <a href="{{ $href }}" class="block">
-                                <div class="relative w-[302px] h-[424px] rounded-lg shadow-lg overflow-hidden">
+                                <div class="relative responsive-cover w-[302px] h-[424px] rounded-lg shadow-lg overflow-hidden">
                                     <img
                                         src="{{ $item['coverImage']['extraLarge'] ?? asset('images/no-image.jpg') }}"
                                         alt="Cover Image"
@@ -214,7 +214,7 @@
                     @elseif($item['type'] === 'VN')
                         <div class="flex-shrink-0 overflow-hidden">
                             <a href="{{ $href }}" class="block">
-                                <div class="relative w-[302px] h-[424px] rounded-lg shadow-lg overflow-hidden">
+                                <div class="relative responsive-cover w-[302px] h-[424px] rounded-lg shadow-lg overflow-hidden">
                                     <img
                                         src="{{ $item['coverImage']['extraLarge'] ?? asset('images/no-image.jpg') }}"
                                         alt="Cover Image"
@@ -235,7 +235,7 @@
         </section>
     </div>
 
-    <section class="ml-4 flex flex-col items-center {{ !$isOnFirstPage ? 'py-[6rem]' : '' }}">
+    <section class="responsive-browse-section ml-4 flex flex-col items-center {{ !$isOnFirstPage ? 'py-[6rem]' : '' }}">
         <!-- Title and Toggle Buttons -->
         <div class="w-[1300px] flex justify-between items-center">
             <h2 class="text-2xl text-black mb-[1.5rem]">Most recent</h2>
@@ -280,7 +280,7 @@
         <!-- Content Section -->
         <div id="contentContainer"
              class="w-[1300px]
-                {{ $isGrid ? 'grid grid-cols-4 gap-2' : 'flex flex-col gap-6' }}">
+                {{ $isGrid ? 'responsive-media-grid responsive-home-grid grid grid-cols-4 gap-2' : 'responsive-media-list flex flex-col gap-6' }}">
             @foreach ($paginatedMedia as $item)
                 @php
                     $fullTitle = $item['title']['english']
@@ -509,7 +509,7 @@
     @endphp
 
     <div id="pagination"
-         class="flex items-center justify-center space-x-2 mt-6 mb-6
+         class="responsive-pagination flex items-center justify-center space-x-2 mt-6 mb-6
             {{ $lastPage > 1 ? '' : 'hidden' }}">
         <span class="text-gray-600 text-lg font-medium">Pages</span>
 

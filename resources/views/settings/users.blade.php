@@ -13,13 +13,13 @@
     ];
   @endphp
   <div class="bg-gray-100 mb-[50px] pt-[100px]">
-    <div class="max-w-[1320px] mx-auto px-4 sm:px-6 lg:px-8 flex space-x-6 text-sm">
+    <div class="responsive-settings max-w-[1320px] mx-auto px-4 sm:px-6 lg:px-8 flex space-x-6 text-sm">
 
       {{-- LEFT: shared sidebar --}}
       @include('settings.partials.sidebar')
 
       {{-- RIGHT: Users content --}}
-      <main class="w-3/4">
+      <main class="responsive-settings-main w-3/4">
         <div class="bg-white shadow-md rounded-lg overflow-hidden p-8">
           <h1 class="text-2xl font-bold text-red-600 mb-4">Users</h1>
 
@@ -145,7 +145,7 @@
               type="text"
               id="editUsername"
               name="username"
-              class="w-[735px] ml-4 rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
+              class="responsive-dialog-input w-[735px] ml-4 rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
               required
             />
           </label>
@@ -156,7 +156,7 @@
               type="email"
               id="editEmail"
               name="email"
-              class="w-[735px] ml-4 rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
+              class="responsive-dialog-input w-[735px] ml-4 rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
               required
             />
           </label>

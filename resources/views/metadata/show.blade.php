@@ -27,7 +27,7 @@
         }
     </style>
 
-    <section class="ml-4 flex flex-col items-center py-[6rem]">
+    <section class="responsive-browse-section ml-4 flex flex-col items-center py-[6rem]">
         <div class="w-[1300px] flex justify-between items-start">
             <div class="mb-[1.5rem]">
                 <h2 class="text-2xl text-red-600">{{ $heading }}</h2>
@@ -66,7 +66,7 @@
         </div>
 
         <div id="contentContainer"
-             class="w-[1300px] {{ $isGrid ? 'grid grid-cols-4 gap-2' : 'flex flex-col gap-6' }}">
+             class="w-[1300px] {{ $isGrid ? 'responsive-media-grid grid grid-cols-4 gap-2' : 'responsive-media-list flex flex-col gap-6' }}">
             @forelse ($paginatedMedia as $item)
                 @php
                     $fullTitle = $item['title']['english']
@@ -198,7 +198,7 @@
     </section>
 
     <div id="pagination"
-         class="flex items-center justify-center space-x-2 mt-6 mb-6 {{ $lastPage > 1 ? '' : 'hidden' }}">
+         class="responsive-pagination flex items-center justify-center space-x-2 mt-6 mb-6 {{ $lastPage > 1 ? '' : 'hidden' }}">
         <span class="text-gray-600 text-lg font-medium">Pages</span>
 
         @if($currentPage > 1)

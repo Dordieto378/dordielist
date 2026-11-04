@@ -43,11 +43,11 @@
 
     @endphp
 
-<div class="flex flex-col items-center py-[8.5rem]">
-    <div class="w-[1280px] h-auto bg-white shadow-sm rounded-md p-6 ml-[0.5rem]">
-        <div class="flex flex-col md:flex-row">
+<div class="responsive-detail-page flex flex-col items-center py-[8.5rem]">
+    <div class="responsive-detail-panel w-[1280px] h-auto bg-white shadow-sm rounded-md p-6 ml-[0.5rem]">
+        <div class="responsive-detail-columns flex flex-col md:flex-row">
             {{-- Left Column: Image & Buttons --}}
-            <div class="flex flex-col items-center">
+            <div class="responsive-detail-sidebar flex flex-col items-center">
                 <div class="thumb-wrapper thumb-portrait relative w-[325px] h-[450px] overflow-hidden rounded">
                     <img
                         src="{{ $item['image']['url'] ?? asset('images/no-image.jpg') }}"
@@ -56,7 +56,7 @@
                 </div>
                 @auth
                   @unless($isViewer)
-                  <div class="mt-4 flex flex-col space-y-3 w-[325px] font-bold">
+                  <div class="mt-4 flex flex-col space-y-3 responsive-detail-actions w-[325px] font-bold">
                       @php
                       $id       = $item['id'];
                       $category = $category;
@@ -126,9 +126,9 @@
             </div>
 
             {{-- Right Column: Basic Info --}}
-            <div class="flex flex-col justify-start ml-8 mt-4 md:mt-2 text-gray-900 font-medium">
+            <div class="responsive-detail-copy flex flex-col justify-start ml-8 mt-4 md:mt-2 text-gray-900 font-medium">
                 <h1 class="text-2xl font-bold text-red-600 mb-2">{{ $title }}</h1>
-                <div class="grid grid-cols-[7rem,1fr] gap-x-3 gap-y-4 text-sm mt-2 mb-2">
+                <div class="responsive-info grid grid-cols-[7rem,1fr] gap-x-3 gap-y-4 text-sm mt-2 mb-2">
                     @if($showRomajiTitle)
                         <div>Romaji</div>
                         <div>{{ $romajiTitle }}</div>
@@ -369,7 +369,7 @@
 >
     <div
         class="relative bg-white p-4 text-left shadow-2xl
-            w-[800px] h-[255px] rounded-lg space-y-6 overflow-auto"
+            w-[800px] responsive-compact-dialog h-[255px] rounded-lg space-y-6 overflow-auto"
         role="dialog"
         aria-modal="true"
     >
@@ -413,7 +413,7 @@
                 type="text"
                 id="name"
                 name="name"
-                class="w-[735px] ml-4
+                class="responsive-dialog-input w-[735px] ml-4
                     rounded-md
                     border border-gray-200
                     px-3

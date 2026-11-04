@@ -1506,7 +1506,7 @@ html {
     scrollbar-width: none !important;
 }
 body {
-    width: min(720px, calc(100% - 120px)) !important;
+    width: min(720px, calc(100% - clamp(2rem, 10vw, 120px))) !important;
     min-width: 0 !important;
     max-width: 720px !important;
     min-height: 100% !important;

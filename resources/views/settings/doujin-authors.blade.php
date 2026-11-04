@@ -12,10 +12,10 @@
     @endphp
 
     <div id="doujinArtistsSettings" class="bg-gray-100 mb-[50px] pt-[100px]" data-failed-artist-id="{{ $failedArtistId ?: '' }}">
-        <div class="max-w-[1320px] mx-auto px-4 sm:px-6 lg:px-8 flex space-x-6 text-sm">
+        <div class="responsive-settings max-w-[1320px] mx-auto px-4 sm:px-6 lg:px-8 flex space-x-6 text-sm">
             @include('settings.partials.sidebar')
 
-            <main class="w-3/4">
+            <main class="responsive-settings-main w-3/4">
                 <div class="bg-white shadow-md rounded-lg p-6">
                     <div class="flex items-center justify-between gap-4 border-b border-gray-200 pb-4">
                         <h1 class="text-2xl font-bold text-red-600">Doujin Artists</h1>

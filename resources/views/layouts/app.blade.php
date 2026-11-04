@@ -66,8 +66,8 @@
 </head>
 <body class="bg-gray-100 font-sans text-white text-base font-semibold capitalize">
     <!-- Navbar -->
-    <nav class="bg-flatRed tracking-wide fixed top-0 left-0 w-full z-50">
-        <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+    <nav class="responsive-header bg-flatRed tracking-wide fixed top-0 left-0 w-full z-50">
+        <div class="responsive-header-inner container mx-auto px-4 py-4 flex justify-between items-center">
             @guest
                 <div class="flex-1"></div>
                 <div class="flex-1 flex justify-center">
@@ -84,11 +84,11 @@
                         ? '9+'
                         : (string) $navbarUnreadNotificationCount;
                 @endphp
-                <div class="flex items-center space-x-1">
+                <div class="responsive-brand-group flex items-center space-x-1">
                     <!-- Title -->
                     <a href="{{ route('home') }}" class="navbar-logo text-3xl ml-[6.2rem] pr-2">DORDIELIST!</a>
                     <!-- Menu Items -->
-                    <div class="hidden md:flex items-center">
+                    <div class="responsive-desktop-navigation hidden md:flex items-center">
                         <a href="{{ route('category', ['category' => 'ANIMES']) }}" class="text-white text-sm px-2 py-1 rounded hover:bg-red-600">Animes</a>
                         <a href="{{ route('category', ['category' => 'MANGAS']) }}" class="text-white text-sm px-2 py-1 rounded hover:bg-red-600">Mangas</a>
                         <a href="{{ route('category', ['category' => 'MANHWAS']) }}" class="text-white text-sm px-2 py-1 rounded hover:bg-red-600">Manhwas</a>
@@ -102,7 +102,7 @@
                         <a href="{{ route('category', ['category' => 'MOVIES']) }}" class="text-white text-sm px-2 py-1 rounded hover:bg-red-600">Movies</a>
                     </div>
                 </div>
-                <div class="flex items-center space-x-4 mr-[7.3rem]">
+                <div class="responsive-header-actions flex items-center space-x-4 mr-[7.3rem]">
                     <button id="searchButton" type="button" class="relative group w-[80px] md:w-[170px] h-[40px] rounded-[0.8rem] pl-10 pr-4 flex items-center justify-center transition-all group dark:bg-gray-800 dark:bg-opacity-20 text-gray-300 hover:bg-red-600 text-opacity-50 group-hover:opacity-100 hover:text-white">
                         <span class="text-sm">Quick search...</span>
                         <svg xmlns="http://www.w3.org/2000/svg"
@@ -218,17 +218,43 @@
                         </li>
                         </ul>
                     </div>
+                    <button id="mobileMenuToggle" type="button"
+                            class="responsive-menu-toggle hidden items-center justify-center h-10 w-10 rounded hover:bg-red-600"
+                            aria-label="Category menu" aria-haspopup="dialog" aria-controls="mobileNavigation" aria-expanded="false">
+                        <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <path stroke-linecap="round" d="M4 6h16M4 12h16M4 18h16" />
+                        </svg>
+                    </button>
                 </div>
             @endguest
         </div>
+        @auth
+            <dialog id="mobileNavigation" class="responsive-mobile-navigation" aria-labelledby="mobileNavigationTitle">
+                <div class="responsive-drawer-header">
+                    <h2 id="mobileNavigationTitle" class="text-lg font-semibold">Categories</h2>
+                    <button type="button" data-close-navigation autofocus
+                            class="inline-flex h-11 w-11 items-center justify-center rounded hover:bg-red-600"
+                            aria-label="Close category menu">
+                        <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <path stroke-linecap="round" d="m6 6 12 12M6 18 18 6" />
+                        </svg>
+                    </button>
+                </div>
+                <div class="responsive-drawer-links">
+                    @include('partials.category-navigation')
+                </div>
+            </dialog>
+        @endauth
     </nav>
 
     @include('partials.app-error-alert')
 
-    @yield('content')
+    <div class="responsive-content">
+        @yield('content')
+    </div>
 
     <!-- Footer Section -->
-    <footer class="bg-gray-100 text-gray-600 text-sm font-medium">
+    <footer class="responsive-footer bg-gray-100 text-gray-600 text-sm font-medium">
         <div class="flex justify-center">
             <div class="border-t border-gray-300 w-[1350px]"></div> <!-- Centered Thin Line -->
         </div>
@@ -290,7 +316,7 @@
             let debTimer = null;
 
             // show popup
-            searchButton.addEventListener("click", () => {
+            searchButton?.addEventListener("click", () => {
                 popupOverlay.classList.remove("hidden");
                 body.classList.add("overflow-hidden");
                 searchInput.focus();

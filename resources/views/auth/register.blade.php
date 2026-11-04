@@ -11,7 +11,7 @@
     box-shadow: none !important;
   }
 </style>
-<div class="min-h-[1032px] bg-gray-100 flex items-start justify-center pt-[115px]">
+<div class="responsive-auth min-h-[1032px] bg-gray-100 flex items-start justify-center pt-[115px]">
   <div class="w-full max-w-[500px] grid gap-4">
     <div
       role="tablist"

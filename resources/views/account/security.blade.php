@@ -2,7 +2,7 @@
 
 @section('content')
 @php $user = auth()->user(); @endphp
-<div class="min-h-[908px] flex items-center justify-center bg-gray-100 mt-[100px] mb-6">
+<div class="responsive-auth min-h-[908px] flex items-center justify-center bg-gray-100 mt-[100px] mb-6">
   <div class="max-w-md w-full bg-white shadow-md rounded-lg p-8">
     @if (! $user->two_factor_secret)
     <h2 class="text-2xl font-semibold text-gray-800 mb-4">

@@ -3,7 +3,7 @@
 
 @section('content')
     @php $isViewer = optional(auth()->user()?->role)->role === 'Viewer'; @endphp
-    <div class="mt-6 py-[4.5rem]">
+    <div class="responsive-collection mt-6 py-[4.5rem]">
         <div class="max-w-screen-xl mx-auto flex justify-between items-center px-4">
             <h2 class="text-2xl text-red-600 mb-[1.9rem]">Collections</h2>
             <button
@@ -16,9 +16,9 @@
         </div>
 
         <section class="mt-6 flex justify-center">
-            <div id="contentContainer" class="w-full max-w-screen-xl grid grid-cols-4 gap-4">
+            <div id="contentContainer" class="responsive-media-grid w-full max-w-screen-xl grid grid-cols-4 gap-4">
                 <a href="{{ route('collection.show', $favorites) }}" class="block card grid-view overflow-hidden">
-                    <div class="thumb-wrapper thumb-portrait rounded-lg shadow-lg w-[302px] h-[424px] overflow-hidden">
+                    <div class="thumb-wrapper thumb-portrait rounded-lg shadow-lg responsive-cover w-[302px] h-[424px] overflow-hidden">
                         <img
                             src="{{ $favoritesThumbnail ?? asset('images/no-image.jpg') }}"
                             alt="Favorites Cover"
@@ -77,7 +77,7 @@
                         @endphp
 
                         <a href="{{ $cardHref }}" class="block card grid-view overflow-hidden">
-                                <div class="thumb-wrapper thumb-portrait rounded-lg shadow-lg w-[302px] h-[424px] overflow-hidden">
+                                <div class="thumb-wrapper thumb-portrait rounded-lg shadow-lg responsive-cover w-[302px] h-[424px] overflow-hidden">
                                     <img
                                         src="{{ $thumbUrl }}"
                                         alt="Cover for {{ $col->name }}"
@@ -104,7 +104,7 @@
     >
         <div
             class="relative bg-white p-4 text-left shadow-2xl
-           w-[800px] h-[255px] rounded-lg space-y-6 overflow-auto"
+           w-[800px] responsive-compact-dialog h-[255px] rounded-lg space-y-6 overflow-auto"
             role="dialog"
             aria-modal="true"
         >
@@ -127,7 +127,7 @@
                         <span class="block mb-2 label-text text-red-600 font-medium pl-4">Collection Name</span>
                         <input
                             type="text" id="name" name="name"
-                            class="w-[735px] ml-4 rounded-md border border-gray-200 px-3 py-2 text-base
+                            class="responsive-dialog-input w-[735px] ml-4 rounded-md border border-gray-200 px-3 py-2 text-base
                    bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600
                    text-gray-800 font-medium"
                             required

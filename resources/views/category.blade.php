@@ -17,7 +17,7 @@ if (!function_exists('shortTitle')) {
 <script>
   const categorySlug = @json($categorySlug ?? Str::slug($category));
 </script>
-<div class="mt-6 ml-4 flex flex-col items-center py-[4.5rem]">
+<div class="responsive-category mt-6 ml-4 flex flex-col items-center py-[4.5rem]">
     <div class="w-[1320px] flex justify-between items-center">
         @if($category === 'VISUAL-NOVEL')
             <h2 class="text-2xl text-red-600 mb-[1.5rem]">VISUAL NOVELS</h2>
@@ -26,9 +26,17 @@ if (!function_exists('shortTitle')) {
         @endif
     </div>
     <!-- Category Layout -->
-    <div class="flex w-[1400px] ml-[48px]">
+    <div class="responsive-category-layout flex w-[1400px] ml-[48px]">
         <!-- Sidebar for Filters -->
         <aside class="w-[265px] bg-gray-100 p-4 mt-[5px]">
+            <details class="responsive-filters" data-responsive-filters open>
+                <summary class="text-gray-900 text-sm font-medium cursor-pointer">
+                    <svg class="h-6 w-6 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <path stroke-linecap="round" d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                    <span>Filters</span>
+                </summary>
+                <div class="responsive-filter-content">
             @if(strtoupper($category) === 'DOUJINS')
                 <form method="GET"
                         action="{{ route('category', ['category' => $categorySlug ?? Str::slug($category)]) }}"
@@ -608,6 +616,8 @@ if (!function_exists('shortTitle')) {
                 </form>
             @endif
 
+                </div>
+            </details>
         </aside>
 
         <!-- Main Content -->
@@ -625,7 +635,7 @@ if (!function_exists('shortTitle')) {
 
 <div id="paginationContainer">
     @if($paginatedMedia->lastPage() > 1)
-        <div class="flex items-center justify-center space-x-2 ml-[280px] mb-6">
+        <div class="responsive-pagination flex items-center justify-center space-x-2 ml-[280px] mb-6">
             <span class="text-gray-900 text-lg font-medium">Pages</span>
 
             @if($paginatedMedia->currentPage() > 1)

@@ -188,6 +188,7 @@
 
 /* Responsive sizing keeps the original desktop styles and animation rules. */
 .responsive-content { min-width: 0; }
+.responsive-detail-title-mobile { display: none; }
 .responsive-home-grid { --media-cover-max: 302px; --media-column-gap: 25px; }
 .responsive-category-grid { --media-cover-max: 242px; --media-column-gap: 20.5px; }
 .responsive-media-grid.responsive-home-grid,
@@ -352,6 +353,8 @@ body.responsive-drawer-open { overflow: hidden; }
 
 @media (max-width: 1279px) {
     .responsive-detail-panel > .responsive-detail-columns { flex-direction: column; }
+    .responsive-detail-columns > .responsive-detail-title-mobile { display: block; }
+    .responsive-detail-copy > .responsive-detail-title-desktop { display: none; }
     .responsive-detail-columns > .responsive-detail-sidebar { width: min(325px, 100%); align-self: flex-start; align-items: flex-start; }
     .responsive-detail-sidebar > .thumb-wrapper { max-width: 100%; height: auto; aspect-ratio: 325 / 450; }
     .responsive-detail-sidebar > .thumb-landscape { height: auto !important; aspect-ratio: 325 / 190; }

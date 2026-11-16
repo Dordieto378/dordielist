@@ -424,9 +424,6 @@ body.responsive-drawer-open { overflow: hidden; }
     .app-modal .grid-cols-2 { grid-template-columns: minmax(0, 1fr); }
     #popupOverlay > div { width: 100%; }
     body.reader-mode .reader-nav-inner { flex-wrap: wrap; gap: .5rem; }
-    body.reader-mode .reader-title-group { flex-wrap: wrap; min-width: 0; }
-    body.reader-mode .reader-title-copy { flex-wrap: wrap; min-width: 0; }
-    body.reader-mode .reader-title, body.reader-mode .reader-title-chapter { line-height: 1.3; }
     .responsive-reader-toolbar { flex-wrap: wrap; gap: .75rem; }
     .responsive-reader-toolbar > .flex-1 { flex: 1 1 100%; }
     .responsive-reader-toolbar > .flex-1:last-child { flex-wrap: wrap; justify-content: flex-start; gap: .5rem; }

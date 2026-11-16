@@ -20,7 +20,6 @@
         $isManhwa = $isManhwa ?? false; // passed from controller
         $isLightNovel = $isLightNovel ?? false;
         $readerUnitLabel = $readerUnitLabel ?? 'Chapter';
-        $isCurrentPageBookmarked = $isCurrentPageBookmarked ?? false;
         if ($isManhwa) {
             $view = 'scroll';
         }
@@ -39,7 +38,7 @@
 
         // View switcher base params
         $baseParams = ['media' => $chapter->item_id, 'chapter' => $chapter->chapter_number];
-        $bookmarkRoute = route('chapters.bookmark', [
+        $progressRoute = route('chapters.progress', [
             'media' => $chapter->media_fk ?: $chapter->item_id,
             'chapter' => $chapter->id,
         ]);
@@ -48,6 +47,8 @@
         $pageObjectsByNumber = $chapter->pages->sortBy('page_number')->keyBy('page_number');
         $pageNums = $pageObjectsByNumber->keys()->values();
         $nums = $pageNums->all();
+        $spreadStart = $spreadStart ?? $pageNumber;
+        $pageDimensions = [];
 
         $getStoredPageAbsolutePath = static function (?string $filePath): ?string {
             if (!$filePath) {
@@ -127,7 +128,7 @@
                 }
 
                 $nextNum = $nums[$i + 1] ?? null;
-                if ($nextNum !== null && ($pageKinds[$currentNum] ?? 'text') === ($pageKinds[$nextNum] ?? 'text')) {
+                if ($nextNum !== null && $nextNum !== (int) $spreadStart && ($pageKinds[$currentNum] ?? 'text') === ($pageKinds[$nextNum] ?? 'text')) {
                     $spreads[] = ['pages' => [$currentNum, $nextNum]];
                     $i += 2;
                     continue;
@@ -140,6 +141,7 @@
             $pageIsLandscape = [];
             foreach ($pageObjectsByNumber as $number => $page) {
                 $dimensions = $getChapterPageDimensions($page->file_path ?? null);
+                $pageDimensions[$number] = $dimensions;
                 $pageIsLandscape[$number] = $dimensions ? ($dimensions[0] > $dimensions[1]) : false;
             }
 
@@ -156,7 +158,7 @@
                 }
 
                 $nextNum = $nums[$i + 1] ?? null;
-                if ($nextNum !== null && !($pageIsLandscape[$nextNum] ?? false)) {
+                if ($nextNum !== null && $nextNum !== (int) $spreadStart && !($pageIsLandscape[$nextNum] ?? false)) {
                     $spreads[] = ['pages' => [$currentNum, $nextNum]];
                     $i += 2;
                     continue;
@@ -196,11 +198,11 @@
 
         // Pair links (fallback to controller links if needed)
         $prevPairLink = $prevPairPage
-            ? route('chapters.page', ['media' => $chapter->item_id, 'chapter' => $chapter->chapter_number, 'page' => $prevPairPage, 'view' => 'double'])
+            ? route('chapters.page', ['media' => $chapter->item_id, 'chapter' => $chapter->chapter_number, 'page' => $prevPairPage, 'view' => 'double', 'spread_start' => $spreadStart])
             : ($prevChapterLink ?? null);
 
         $nextPairLink = $nextPairPage
-            ? route('chapters.page', ['media' => $chapter->item_id, 'chapter' => $chapter->chapter_number, 'page' => $nextPairPage, 'view' => 'double'])
+            ? route('chapters.page', ['media' => $chapter->item_id, 'chapter' => $chapter->chapter_number, 'page' => $nextPairPage, 'view' => 'double', 'spread_start' => $spreadStart])
             : ($nextChapterLink ?? null);
 
         $chapterTitleText = trim((string) ($chapter->chapter_title ?? ''));
@@ -298,6 +300,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            column-gap: 1rem;
         }
         .reader-hover-zone:hover + .reader-float-nav .reader-nav-panel,
         .reader-float-nav:hover .reader-nav-panel {
@@ -336,6 +339,8 @@
         .reader-title-copy {
             display: flex;
             align-items: center;
+            flex-shrink: 0;
+            white-space: nowrap;
         }
         .reader-title-copy {
             min-height: 1.875rem;
@@ -357,6 +362,22 @@
             line-height: 1;
             color: rgba(255, 255, 255, 0.68);
             margin-left: 0.6rem;
+        }
+        .reader-title-overflow {
+            display: none;
+            color: #ffffff;
+            font-size: 1.125rem;
+            line-height: 1;
+            transform: translateY(-3px);
+        }
+        .reader-title-collapsed .reader-title-copy {
+            display: none;
+        }
+        .reader-title-collapsed .reader-title-overflow {
+            display: block;
+        }
+        .reader-nav-actions {
+            flex-shrink: 0;
         }
         .reader-shell {
             min-height: 100vh;
@@ -520,17 +541,6 @@
         }
         .reader-fullscreen-btn {
             margin-right: 0;
-        }
-        .reader-bookmark-form {
-            display: flex;
-            margin: 0;
-        }
-        .reader-nav-inner .reader-bookmark-form {
-            margin-left: 1.35rem !important;
-        }
-        .reader-bookmark-btn.reader-bookmark-saved {
-            color: #ffffff;
-            opacity: 1;
         }
         .reader-fullscreen-btn [data-fullscreen-exit] {
             display: none;
@@ -832,10 +842,12 @@
                         </a>
                         <span class="reader-title-chapter">{{ $readerUnitHeading }}</span>
                     </div>
+                    <a href="{{ $itemUrl }}" class="reader-title-overflow" title="{{ $readerTitleWithChapter }}" aria-label="{{ $readerTitleWithChapter }}">...</a>
                 </div>
-                <div class="flex items-center space-x-2 text-white text-sm">
+                <div class="reader-nav-actions flex items-center space-x-2 text-white text-sm">
                     @if(!$isManhwa && !$isLightNovel)
                         <a href="{{ route('chapters.page', array_merge($baseParams, ['page' => $pageNumber, 'view' => 'scroll'])) }}"
+                           data-reader-view-switch="scroll"
                            class="control-btn {{ $view === 'scroll' ? 'active' : '' }}"
                            aria-label="Scroll view">
                             <span class="sr-only">Scroll</span>
@@ -844,6 +856,7 @@
                             </svg>
                         </a>
                         <a href="{{ route('chapters.page', array_merge($baseParams, ['page' => $pageNumber, 'view' => 'one'])) }}"
+                           data-reader-view-switch="one"
                            class="control-btn {{ $view === 'one' ? 'active' : '' }}"
                            aria-label="Single page view">
                             <span class="sr-only">One</span>
@@ -852,6 +865,7 @@
                             </svg>
                         </a>
                         <a href="{{ route('chapters.page', array_merge($baseParams, ['page' => $pageNumber, 'view' => 'double'])) }}"
+                           data-reader-view-switch="double"
                            class="control-btn {{ $view === 'double' ? 'active' : '' }}"
                            aria-label="Double page view">
                             <span class="sr-only">Double</span>
@@ -861,30 +875,6 @@
                                 <path d="M12 7c2-1.4 4.5-2 7-2v12c-2.5 0-5 0.6-7 2" />
                             </svg>
                         </a>
-                    @endif
-                    @if(!$isManhwa)
-                        <form
-                            method="POST"
-                            action="{{ $bookmarkRoute }}"
-                            class="reader-bookmark-form"
-                            data-reader-bookmark-form
-                        >
-                            @csrf
-                            <input type="hidden" name="page_number" value="{{ $pageNumber }}">
-                            <input type="hidden" name="view" value="{{ $view }}">
-                            <button
-                                type="submit"
-                                class="control-btn reader-bookmark-btn {{ $isCurrentPageBookmarked ? 'active reader-bookmark-saved' : '' }}"
-                                data-reader-bookmark-button
-                                aria-label="{{ $isCurrentPageBookmarked ? 'Remove bookmark' : 'Bookmark this page' }}"
-                                title="{{ $isCurrentPageBookmarked ? 'Remove bookmark' : 'Bookmark this page' }}"
-                            >
-                                <span class="sr-only">{{ $isCurrentPageBookmarked ? 'Remove bookmark' : 'Bookmark this page' }}</span>
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="{{ $isCurrentPageBookmarked ? 'currentColor' : 'none' }}" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                    <path d="M6 4.75A1.75 1.75 0 0 1 7.75 3h8.5A1.75 1.75 0 0 1 18 4.75V21l-6-3.5L6 21V4.75Z" />
-                                </svg>
-                            </button>
-                        </form>
                     @endif
                     <button type="button"
                             class="control-btn reader-fullscreen-btn"
@@ -915,6 +905,12 @@
         data-reader-kind="chapter"
         data-reader-fixed="{{ $isFixedView ? '1' : '0' }}"
         data-reader-view="{{ $view }}"
+        data-reader-progress-url="{{ $progressRoute }}"
+        data-reader-base-url="{{ route('chapters.page', $baseParams) }}"
+        data-reader-page-number="{{ $pageNumber }}"
+        data-reader-scroll-offset="{{ $resumeScrollOffset ?? 0 }}"
+        data-reader-spread-start="{{ $spreadStart }}"
+        data-reader-recorded-at="{{ $readingProgress?->recorded_at ?? 0 }}"
         data-reader-is-manhwa="{{ $isManhwa ? '1' : '0' }}"
         data-reader-is-light-novel="{{ $isLightNovel ? '1' : '0' }}"
         data-reader-next-page="{{ $nextLink ?? '' }}"
@@ -937,7 +933,8 @@
                         @endphp
 
                         @if($isImage)
-                            <div class="reader-page reader-lazy-page reader-lazy-pending" data-reader-lazy-frame aria-busy="true">
+                            <div class="reader-page reader-lazy-page reader-lazy-pending" data-reader-lazy-frame data-reader-page-number="{{ $p->page_number }}" aria-busy="true"
+                                 @if($pageDimensions[$p->page_number] ?? null) style="aspect-ratio: {{ $pageDimensions[$p->page_number][0] }} / {{ $pageDimensions[$p->page_number][1] }}; min-height: 0;" @endif>
                                 <img
                                     data-reader-lazy
                                     data-src="{{ $url }}"
@@ -1268,8 +1265,34 @@
             let navigating = false;
             let lazyReaderObserver = null;
             let cursorIdleTimer = null;
+            let readerTitleResizeObserver = null;
             const cursorIdleDelay = 1400;
             const cursorHiddenStorageKey = 'readerCursorHidden';
+
+            const initReaderTitle = () => {
+                readerTitleResizeObserver?.disconnect();
+                const navbar = document.querySelector('.reader-nav-inner');
+                const titleGroup = navbar?.querySelector('.reader-title-group');
+                const actions = navbar?.querySelector('.reader-nav-actions');
+                if (!navbar || !titleGroup || !actions) return;
+
+                const update = () => {
+                    // Measure the complete title so it also returns as soon as it fits.
+                    navbar.classList.remove('reader-title-collapsed');
+                    const style = getComputedStyle(navbar);
+                    const available = navbar.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+                    const required = titleGroup.getBoundingClientRect().width + actions.getBoundingClientRect().width + (parseFloat(style.columnGap) || 0);
+                    navbar.classList.toggle('reader-title-collapsed', required > available);
+                };
+
+                update();
+                readerTitleResizeObserver = new ResizeObserver(update);
+                readerTitleResizeObserver.observe(navbar);
+                readerTitleResizeObserver.observe(actions);
+                document.fonts.ready.then(() => {
+                    if (navbar.isConnected) update();
+                });
+            };
 
             const syncFullscreenButtons = () => {
                 const isFullscreen = Boolean(fullscreenElement());
@@ -1679,55 +1702,6 @@ a {
                 });
             };
 
-            const bindReaderBookmarkForms = () => {
-                document.querySelectorAll('[data-reader-bookmark-form]').forEach((form) => {
-                    if (form.dataset.readerBookmarkBound === '1') return;
-                    form.dataset.readerBookmarkBound = '1';
-
-                    form.addEventListener('submit', async (e) => {
-                        e.preventDefault();
-
-                        const button = form.querySelector('[data-reader-bookmark-button]');
-                        if (button) button.disabled = true;
-
-                        try {
-                            const response = await fetch(form.action, {
-                                method: 'POST',
-                                body: new FormData(form),
-                                credentials: 'same-origin',
-                                headers: {
-                                    'Accept': 'application/json',
-                                    'X-Requested-With': 'XMLHttpRequest',
-                                },
-                            });
-
-                            if (!response.ok) {
-                                throw new Error(`Bookmark failed: ${response.status}`);
-                            }
-
-                            const result = await response.json().catch(() => ({ bookmarked: true }));
-                            const isBookmarked = result.bookmarked !== false;
-
-                            if (button) {
-                                button.classList.toggle('active', isBookmarked);
-                                button.classList.toggle('reader-bookmark-saved', isBookmarked);
-                                button.setAttribute('aria-label', isBookmarked ? 'Remove bookmark' : 'Bookmark this page');
-                                button.setAttribute('title', isBookmarked ? 'Remove bookmark' : 'Bookmark this page');
-                                const label = button.querySelector('.sr-only');
-                                if (label) label.textContent = isBookmarked ? 'Remove bookmark' : 'Bookmark this page';
-                                const icon = button.querySelector('svg');
-                                if (icon) icon.setAttribute('fill', isBookmarked ? 'currentColor' : 'none');
-                            }
-                        } catch (error) {
-                            console.warn('Reader bookmark request fell back to a page submit', error);
-                            form.submit();
-                        } finally {
-                            if (button) button.disabled = false;
-                        }
-                    });
-                });
-            };
-
             const loadLazyReaderImage = (img) => {
                 if (!img || img.dataset.readerLazyLoaded === '1') return;
 
@@ -1804,14 +1778,17 @@ a {
                 bindHoverBars();
                 bindReaderCursorIdle();
                 bindProtectedReader();
-                bindReaderBookmarkForms();
                 syncFullscreenButtons();
+                initReaderTitle();
                 initLazyReaderImages();
                 initReaderImageErrors();
                 initEpubFrames();
+                window.readerProgress = window.initReaderProgress?.();
             };
 
             const navigateReader = async (targetUrl) => {
+                targetUrl = window.readerProgress?.navigationUrl(targetUrl) ?? targetUrl;
+                await window.readerProgress?.flush();
                 if (!fullscreenElement()) {
                     window.location.replace(targetUrl);
                     return;
@@ -1836,6 +1813,7 @@ a {
                         throw new Error('Response was not a reader page.');
                     }
 
+                    window.readerProgress?.destroy();
                     document.title = nextDocument.title;
                     document.body.className = nextDocument.body.className;
                     document.body.innerHTML = nextDocument.body.innerHTML;

@@ -220,17 +220,17 @@
     "src": "node_modules/flag-icons/flags/4x3/vn.svg"
   },
   "resources/css/app.css": {
-    "file": "assets/app-trRKHxNp.css",
+    "file": "assets/app-AOTvBjnA.css",
     "src": "resources/css/app.css",
     "isEntry": true
   },
   "resources/js/app.js": {
-    "file": "assets/app-CyXrfDn5.js",
+    "file": "assets/app-CmRVdVQJ.js",
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true,
     "css": [
-      "assets/app-DBappgFh.css"
+      "assets/app-D99M8nrs.css"
     ],
     "assets": [
       "assets/ba-WdDiSMvP.svg",

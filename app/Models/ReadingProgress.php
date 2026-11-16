@@ -5,14 +5,16 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class ReadingBookmark extends Model
+class ReadingProgress extends Model
 {
+    protected $table = 'reading_progress';
+
     protected $guarded = [];
 
-    public function media(): BelongsTo
-    {
-        return $this->belongsTo(Media::class);
-    }
+    protected $casts = [
+        'scroll_offset' => 'float',
+        'recorded_at' => 'integer',
+    ];
 
     public function chapter(): BelongsTo
     {

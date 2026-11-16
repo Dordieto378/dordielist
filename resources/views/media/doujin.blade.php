@@ -6,7 +6,7 @@
         use App\Models\Collection;
         use App\Models\CollectionItem;
         use App\Models\Favorite;
-        use App\Models\ReadingBookmark;
+        use App\Models\ReadingProgress;
         use Illuminate\Support\Facades\Storage;
 
         $title = $media->title_english
@@ -19,15 +19,18 @@
                                ->orderBy('chapter_number')
                                ->first();
 
-        $readingBookmark = null;
+        $readingProgress = null;
         if (auth()->check()) {
-            $readingBookmark = ReadingBookmark::with(['chapter', 'page'])
+            $readingProgress = ReadingProgress::with(['chapter', 'page'])
                 ->where('user_id', auth()->id())
                 ->where('media_id', $media->id)
+                ->latest('recorded_at')
+                ->latest('updated_at')
+                ->latest('id')
                 ->first();
 
-            if (!$readingBookmark?->chapter || !$readingBookmark?->page) {
-                $readingBookmark = null;
+            if (!$readingProgress?->chapter || !$readingProgress?->page) {
+                $readingProgress = null;
             }
         }
 
@@ -93,13 +96,11 @@
                         <div class="mt-4 flex flex-col space-y-3 responsive-detail-actions w-[325px] font-bold">
                             @if($firstChapter)
                                 @php
-                                    $startReaderChapter = $readingBookmark?->chapter ?: $firstChapter;
-                                    $startReaderPage = $readingBookmark?->page ? (int) $readingBookmark->page->page_number : 1;
+                                    $startReaderChapter = $readingProgress?->chapter ?: $firstChapter;
                                 @endphp
                                 <a href="{{ route('chapters.page', [
                 'media'   => $media->id,
-                'chapter' => $chapterRouteParam($startReaderChapter),
-                'page'    => $startReaderPage
+                'chapter' => $chapterRouteParam($startReaderChapter)
           ]) }}"
                                    class="flex items-center justify-start w-full flatGreen text-white
               py-2 rounded-sm shadow-sm h-[50px] transition-200">
@@ -292,16 +293,12 @@
 
                                     // Prefer numeric chapter param; fall back to title if needed
                                     $chapterParam = $chapterRouteParam($chapter);
-                                    $bookmarkPage = $readingBookmark && (int) $readingBookmark->chapter_id === (int) $chapter->id && $readingBookmark->page
-                                        ? (int) $readingBookmark->page->page_number
-                                        : 1;
                                 @endphp
 
                                 <div
                                     onclick="window.location.href='{{ route('chapters.page', [
               'media'   => $chapter->media_fk,
-              'chapter' => $chapterParam,
-              'page'    => $bookmarkPage
+              'chapter' => $chapterParam
             ]) }}'"
                                     class="cursor-pointer"
                                 >

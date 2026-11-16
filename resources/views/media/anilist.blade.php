@@ -4,7 +4,7 @@
 @php
     use App\Models\Chapter;
     use App\Models\MediaArchive;
-    use App\Models\ReadingBookmark;
+    use App\Models\ReadingProgress;
     use App\Models\Collection;
     use App\Models\CollectionItem;
     use App\Models\Favorite;
@@ -52,15 +52,18 @@
                                ->first();
     }
 
-    $readingBookmark = null;
+    $readingProgress = null;
     if (auth()->check() && $isChapterBased) {
-        $readingBookmark = ReadingBookmark::with(['chapter', 'page'])
+        $readingProgress = ReadingProgress::with(['chapter', 'page'])
             ->where('user_id', auth()->id())
             ->where('media_id', $item['id'])
+            ->latest('recorded_at')
+            ->latest('updated_at')
+            ->latest('id')
             ->first();
 
-        if (!$readingBookmark?->chapter || !$readingBookmark?->page) {
-            $readingBookmark = null;
+        if (!$readingProgress?->chapter || !$readingProgress?->page) {
+            $readingProgress = null;
         }
     }
 
@@ -243,15 +246,11 @@
                         </a>
                     @elseif ($isChapterBased && $firstChapter)
                         @php
-                            $defaultReaderView = $isLightNovel ? 'double' : 'one';
-                            $startReaderChapter = $readingBookmark?->chapter ?: $firstChapter;
-                            $startReaderPage = $readingBookmark?->page ? (int) $readingBookmark->page->page_number : 1;
+                            $startReaderChapter = $readingProgress?->chapter ?: $firstChapter;
                         @endphp
                         <a href="{{ route('chapters.page', [
                                 'media' => $item['id'],
                                 'chapter' => $chapterRouteParam($startReaderChapter),
-                                'page' => $startReaderPage,
-                                'view' => $defaultReaderView,
                             ]) }}"
                            class="flex items-center justify-start w-full flatGreen text-white
                py-2 rounded-sm shadow-sm h-[50px] transition-200">
@@ -664,10 +663,7 @@
                                     : ((preg_match('/\d+(?:\.\d+)?/', (string) $chapter->chapter_title, $m) === 1) ? $m[0] : '?');
 
                                 $chapterParam = $chapterRouteParam($chapter);
-                                $bookmarkPage = $readingBookmark && (int) $readingBookmark->chapter_id === (int) $chapter->id && $readingBookmark->page
-                                    ? (int) $readingBookmark->page->page_number
-                                    : 1;
-                                $chapterRouteParams = ['media' => $chapter->item_id, 'chapter' => $chapterParam, 'page' => $bookmarkPage];
+                                $chapterRouteParams = ['media' => $chapter->item_id, 'chapter' => $chapterParam];
                                 if ($isLightNovel) {
                                     $chapterRouteParams['view'] = 'double';
                                 }

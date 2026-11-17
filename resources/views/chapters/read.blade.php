@@ -289,6 +289,7 @@
             background: #ab2328; /* tailwind flatRed */
             box-shadow: none;
             opacity: 0;
+            visibility: hidden;
             transform: translateY(-10px);
             transition: opacity 0.18s ease, transform 0.18s ease;
             pointer-events: none;
@@ -302,25 +303,31 @@
             align-items: center;
             column-gap: 1rem;
         }
-        .reader-hover-zone:hover + .reader-float-nav .reader-nav-panel,
-        .reader-float-nav:hover .reader-nav-panel {
-            opacity: 1;
-            transform: translateY(0);
-            pointer-events: auto;
-        }
-        .reader-bottom-hover:hover + .reader-bottom-float .reader-bottom-panel,
-        .reader-bottom-float:hover .reader-bottom-panel {
-            opacity: 1;
-            transform: translate(-50%, 0);
-            pointer-events: auto;
+        @media (hover: hover) and (pointer: fine) {
+            .reader-hover-zone:hover + .reader-float-nav .reader-nav-panel,
+            .reader-float-nav:hover .reader-nav-panel {
+                opacity: 1;
+                visibility: visible;
+                transform: translateY(0);
+                pointer-events: auto;
+            }
+            .reader-bottom-hover:hover + .reader-bottom-float .reader-bottom-panel,
+            .reader-bottom-float:hover .reader-bottom-panel {
+                opacity: 1;
+                visibility: visible;
+                transform: translate(-50%, 0);
+                pointer-events: auto;
+            }
         }
         body.reader-bars-visible .reader-nav-panel {
             opacity: 1;
+            visibility: visible;
             transform: translateY(0);
             pointer-events: auto;
         }
         body.reader-bars-visible .reader-bottom-panel {
             opacity: 1;
+            visibility: visible;
             transform: translate(-50%, 0);
             pointer-events: auto;
         }
@@ -389,7 +396,7 @@
             overflow: hidden;
         }
         .reader-content {
-            width: min(1200px, calc(100vw - 24px));
+            width: min(1200px, 100%);
             margin: 0 auto;
         }
         .reader-content-fixed {
@@ -610,6 +617,7 @@
         }
         .dual-page > div {
             flex: 0 0 50%;
+            min-width: 0;
             width: 50%;
             max-width: 50%;
         }
@@ -633,10 +641,10 @@
             max-width: 100%;
             object-fit: contain;
         }
-        .reader-content-fixed .dual-full img {
+        .reader-content-fixed .dual-full .reader-img {
             height: 100dvh;
             max-height: 100dvh;
-            max-width: 50vw;
+            max-width: 100%;
         }
         .reader-epub-frame {
             display: block;
@@ -685,6 +693,7 @@
             border-radius: 0;
             box-shadow: none;
             opacity: 0;
+            visibility: hidden;
             transition: opacity 0.18s ease, transform 0.18s ease;
             pointer-events: none;
             z-index: 60;
@@ -1423,6 +1432,13 @@
             };
 
             const bindHoverBars = () => {
+                window.readerBarsCleanup?.();
+                const listeners = new AbortController();
+                const signal = listeners.signal;
+                window.readerBarsCleanup = () => listeners.abort();
+                let pointer = null;
+                let touchBarsVisible = false;
+                const panels = Array.from(document.querySelectorAll('.reader-nav-panel, .reader-bottom-panel'));
                 const updateBars = (delta) => {
                     hoverCount = Math.max(0, hoverCount + delta);
                     document.body.classList.toggle('reader-bars-visible', hoverCount > 0);
@@ -1434,11 +1450,46 @@
                     document.querySelector('.reader-bottom-hover'),
                     document.querySelector('.reader-bottom-float'),
                 ].filter(Boolean).forEach((el) => {
-                    if (el.dataset.readerHoverBound === '1') return;
-                    el.dataset.readerHoverBound = '1';
-                    el.addEventListener('mouseenter', () => updateBars(1));
-                    el.addEventListener('mouseleave', () => updateBars(-1));
+                    el.addEventListener('pointerenter', (event) => {
+                        if (event.pointerType === 'mouse') updateBars(1);
+                    }, { signal });
+                    el.addEventListener('pointerleave', (event) => {
+                        if (event.pointerType === 'mouse') updateBars(-1);
+                    }, { signal });
                 });
+
+                document.addEventListener('pointerdown', (event) => {
+                    const inBarArea = event.target.closest('.reader-hover-zone, .reader-bottom-hover, .reader-float-nav, .reader-bottom-float');
+                    const visible = document.body.classList.contains('reader-bars-visible')
+                        && panels.every(panel => Number(getComputedStyle(panel).opacity) >= 0.98);
+                    pointer = inBarArea && !visible
+                        ? { id: event.pointerId, x: event.clientX, y: event.clientY }
+                        : null;
+                    if (event.pointerType !== 'mouse' && !inBarArea) {
+                        touchBarsVisible = false;
+                        hoverCount = 0;
+                        document.body.classList.remove('reader-bars-visible');
+                    }
+                }, { capture: true, passive: true, signal });
+                document.addEventListener('pointerup', (event) => {
+                    if (pointer?.id === event.pointerId && Math.hypot(event.clientX - pointer.x, event.clientY - pointer.y) > 12) pointer = null;
+                }, { capture: true, passive: true, signal });
+                document.addEventListener('pointercancel', () => { pointer = null; }, { signal });
+                document.addEventListener('click', (event) => {
+                    if (!pointer) return;
+                    pointer = null;
+                    // The tap that reveals a bar must never activate a link underneath it.
+                    event.preventDefault();
+                    event.stopImmediatePropagation();
+                    touchBarsVisible = true;
+                    document.body.classList.add('reader-bars-visible');
+                }, { capture: true, signal });
+                window.addEventListener('scroll', () => {
+                    if (!touchBarsVisible) return;
+                    touchBarsVisible = false;
+                    hoverCount = 0;
+                    document.body.classList.remove('reader-bars-visible');
+                }, { passive: true, signal });
             };
 
             const bindProtectedReader = () => {

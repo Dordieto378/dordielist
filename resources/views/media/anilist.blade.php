@@ -139,6 +139,7 @@
     $allCollections = Collection::orderBy('name')->get();
 
     $currentProgress = old('progress', $item['userProgress'] ?? null);
+    $currentVolumeProgress = old('progress_volumes', $item['userProgressVolumes'] ?? null);
     $currentScore = old('user_score', $item['userScore'] ?? null);
     $currentListStatus = old('list_status', $item['listStatus'] ?? 'PLANNING');
     $currentListStartDate = old('list_start_date', $item['listStartDate'] ?? null);
@@ -816,7 +817,24 @@
             />
           </label>
 
+          @if($isManga)
           <label class="block">
+            <span class="block mb-2 text-red-600 font-medium">Volume Progress</span>
+            <input
+              type="number"
+              min="0"
+              @if(!empty($item['volumes']))
+              max="{{ $item['volumes'] }}"
+              @endif
+              name="progress_volumes"
+              value="{{ $currentVolumeProgress ?? '' }}"
+              class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
+              placeholder="0"
+            />
+          </label>
+          @endif
+
+          <label class="block {{ $isManga ? 'sm:col-span-2' : '' }}">
             <span class="block mb-2 text-red-600 font-medium">Score</span>
             <input
               type="number"
@@ -827,6 +845,20 @@
               class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
               placeholder="0 - 100"
             />
+          </label>
+
+          <label class="block sm:col-span-2">
+            <span class="block mb-2 text-red-600 font-medium">List</span>
+            <select
+              name="list_status"
+              class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
+            >
+              @foreach($listOptions as $value => $label)
+                <option value="{{ $value }}" {{ $currentListStatus === $value ? 'selected' : '' }}>
+                  {{ $label }}
+                </option>
+              @endforeach
+            </select>
           </label>
 
           <label class="block">
@@ -847,20 +879,6 @@
               value="{{ $currentListEndDate ?? '' }}"
               class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
             />
-          </label>
-
-          <label class="block col-span-2">
-            <span class="block mb-2 text-red-600 font-medium">List</span>
-            <select
-              name="list_status"
-              class="w-full rounded-md border border-gray-200 px-3 py-2 text-base bg-gray-100 focus:outline-none focus:ring-[0.2rem] focus:ring-red-600 text-gray-800 font-medium"
-            >
-              @foreach($listOptions as $value => $label)
-                <option value="{{ $value }}" {{ $currentListStatus === $value ? 'selected' : '' }}>
-                  {{ $label }}
-                </option>
-              @endforeach
-            </select>
           </label>
         </div>
         @endif

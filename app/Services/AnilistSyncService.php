@@ -76,6 +76,7 @@ class AnilistSyncService
                 $listStatus = $entry['status'] ?? null;
                 $userScore = isset($entry['score']) ? (int) $entry['score'] : null;
                 $progress = isset($entry['progress']) ? (int) $entry['progress'] : null;
+                $progressVolumes = isset($entry['progressVolumes']) ? (int) $entry['progressVolumes'] : null;
                 $listStartDate = $this->fuzzyDateToString($entry['startedAt'] ?? null);
                 $listEndDate = $this->fuzzyDateToString($entry['completedAt'] ?? null);
 
@@ -195,6 +196,7 @@ class AnilistSyncService
                     'chapters_cnt' => $remoteType === 'MANGA' ? $chaptersCnt : null,
                     'volumes_cnt' => $remoteType === 'MANGA' ? $volumesCnt : null,
                     'progress' => $progress,
+                    'progress_volumes' => $remoteType === 'MANGA' ? $progressVolumes : null,
                 ], $mediaColumns);
 
                 $model = Media::updateOrCreate(
@@ -643,6 +645,7 @@ GQL;
             status
             score
             progress
+            progressVolumes
             createdAt
             updatedAt
             startedAt { year month day }

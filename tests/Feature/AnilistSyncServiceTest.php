@@ -55,6 +55,7 @@ class AnilistSyncServiceTest extends TestCase
                                     'status' => 'CURRENT',
                                     'score' => 0,
                                     'progress' => 6,
+                                    'progressVolumes' => 2,
                                     'startedAt' => ['year' => null, 'month' => null, 'day' => null],
                                     'completedAt' => ['year' => null, 'month' => null, 'day' => null],
                                     'media' => [
@@ -120,7 +121,11 @@ class AnilistSyncServiceTest extends TestCase
             'format' => 'MANGA',
             'list_status' => 'CURRENT',
             'progress' => 6,
+            'progress_volumes' => 2,
         ]);
+
+        Http::assertSent(fn (Request $request) => ($request['variables']['type'] ?? null) === 'MANGA'
+            && str_contains($request['query'], 'progressVolumes'));
 
         $this->assertDatabaseHas('media', [
             'id' => $stale->id,

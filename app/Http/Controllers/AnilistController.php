@@ -249,6 +249,7 @@ class AnilistController extends Controller
 
         $validator = Validator::make($request->all(), [
             'progress' => ['nullable', 'integer', 'min:0'],
+            'progress_volumes' => $media->type === 'manga' ? ['nullable', 'integer', 'min:0'] : ['exclude'],
             'list_status' => ['required', 'in:CURRENT,PLANNING,COMPLETED,PAUSED,DROPPED,REPEATING'],
             'user_score' => ['nullable', 'integer', 'min:0', 'max:100'],
             'list_start_date' => ['nullable', 'date_format:Y-m-d'],
@@ -294,6 +295,16 @@ class AnilistController extends Controller
                 ->with('entry_update_error', "Progress cannot be higher than {$progressLimit} {$unitLabel}.");
         }
 
+        $updateVolumeProgress = $media->type === 'manga' && array_key_exists('progress_volumes', $data);
+        $volumeProgress = isset($data['progress_volumes']) ? (int) $data['progress_volumes'] : null;
+        $volumeLimit = (int) ($media->volumes_cnt ?? 0);
+        if ($updateVolumeProgress && $volumeProgress !== null && $volumeLimit > 0 && $volumeProgress > $volumeLimit) {
+            return back()
+                ->withInput()
+                ->with('open_edit_entry_modal', true)
+                ->with('entry_update_error', "Volume progress cannot be higher than {$volumeLimit} volumes.");
+        }
+
         $scoreRaw = $data['user_score'] === null || $data['user_score'] === ''
             ? null
             : (int) $data['user_score'];
@@ -302,11 +313,12 @@ class AnilistController extends Controller
         $listEndDate = $this->parseSubmittedDate($data['list_end_date'] ?? null);
 
         $query = <<<'GQL'
-mutation ($mediaId: Int, $status: MediaListStatus, $progress: Int, $scoreRaw: Int, $startedAt: FuzzyDateInput, $completedAt: FuzzyDateInput) {
-  SaveMediaListEntry(mediaId: $mediaId, status: $status, progress: $progress, scoreRaw: $scoreRaw, startedAt: $startedAt, completedAt: $completedAt) {
+mutation ($mediaId: Int, $status: MediaListStatus, $progress: Int, $progressVolumes: Int, $scoreRaw: Int, $startedAt: FuzzyDateInput, $completedAt: FuzzyDateInput) {
+  SaveMediaListEntry(mediaId: $mediaId, status: $status, progress: $progress, progressVolumes: $progressVolumes, scoreRaw: $scoreRaw, startedAt: $startedAt, completedAt: $completedAt) {
     id
     status
     progress
+    progressVolumes
     startedAt { year month day }
     completedAt { year month day }
   }
@@ -326,6 +338,7 @@ GQL;
                 'scoreRaw' => $scoreRaw,
                 'startedAt' => $listStartDate['fuzzy'],
                 'completedAt' => $listEndDate['fuzzy'],
+                ...($updateVolumeProgress ? ['progressVolumes' => $volumeProgress] : []),
             ],
         ]);
 
@@ -338,6 +351,9 @@ GQL;
         }
 
         $media->progress = $progress;
+        if ($updateVolumeProgress) {
+            $media->progress_volumes = $volumeProgress;
+        }
         $media->list_status = $listStatus;
         $media->user_score = $scoreRaw;
         $media->list_start_date = $listStartDate['date'];
@@ -558,12 +574,14 @@ GQL;
             'mediaListEntry' => [
                 'score' => $media->user_score,
                 'progress' => $media->progress,
+                'progressVolumes' => $media->progress_volumes,
                 'status' => $media->list_status,
                 'startedAt' => $media->list_start_date,
                 'completedAt' => $media->list_end_date,
             ],
             'userScore' => $media->user_score,
             'userProgress' => $media->progress,
+            'userProgressVolumes' => $media->progress_volumes,
             'listStatus' => $media->list_status,
             'listStartDate' => $media->list_start_date,
             'listEndDate' => $media->list_end_date,
